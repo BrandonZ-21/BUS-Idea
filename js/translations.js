@@ -19,12 +19,12 @@ const TRANSLATIONS = {
 
     // Upload screen
     uploadTitle: "Add your sales data",
-    uploadDrop: "Drag and drop your CSV file here",
+    uploadDrop: "Drag and drop your sales file here",
     uploadOr: "or",
     uploadChoose: "Choose a file",
     uploadSample: "Try with sample data",
     uploadSample2: "Try a second sample (tests merging)",
-    uploadHelp: "Works with CSV exports from most point-of-sale and register systems.",
+    uploadHelp: "Works with CSV, Excel (.xlsx/.xls), and tab-delimited exports from most point-of-sale and register systems.",
     uploadParsing: "Reading your file…",
 
     // Column matching
@@ -44,7 +44,8 @@ const TRANSLATIONS = {
     matchCombinedHint: "Tip: if one column already contains both the date and time, choose it for Date and leave Time set to (none).",
 
     // Errors
-    errorParse: "We couldn't read that file. Please make sure it's a CSV file exported from your register system.",
+    errorParse: "We couldn't read that file. Please make sure it's a CSV or Excel (.xlsx/.xls) file exported from your register system.",
+    errorFileType: "That file type isn't supported. Please upload a CSV or Excel (.xlsx/.xls) file.",
     errorEmpty: "That file doesn't seem to have any rows in it.",
     errorMissingRequired: "Please choose a column for both Date and Price before continuing.",
     errorNoValidRows: "We couldn't find any rows with a valid date and price. Please check your column choices.",
@@ -225,12 +226,12 @@ const TRANSLATIONS = {
     backToDashboard: "← 返回仪表盘",
 
     uploadTitle: "添加你的销售数据",
-    uploadDrop: "把 CSV 文件拖到这里",
+    uploadDrop: "把销售数据文件拖到这里",
     uploadOr: "或者",
     uploadChoose: "选择文件",
     uploadSample: "使用示例数据",
     uploadSample2: "使用第二份示例（测试合并功能）",
-    uploadHelp: "支持大多数收银系统导出的 CSV 文件。",
+    uploadHelp: "支持大多数收银系统导出的 CSV、Excel（.xlsx/.xls）以及制表符分隔的文件。",
     uploadParsing: "正在读取文件…",
 
     matchTitle: "确认列对应关系",
@@ -248,7 +249,8 @@ const TRANSLATIONS = {
     matchQuantityNote: "如果留空，我们会假设每行为 1 件商品。",
     matchCombinedHint: "小提示：如果某一列已经同时包含日期和时间，请选它作为“日期”，时间保持为（无）。",
 
-    errorParse: "无法读取该文件，请确认这是从收银系统导出的 CSV 文件。",
+    errorParse: "无法读取该文件，请确认这是从收银系统导出的 CSV 或 Excel（.xlsx/.xls）文件。",
+    errorFileType: "不支持该文件类型，请上传 CSV 或 Excel（.xlsx/.xls）文件。",
     errorEmpty: "该文件中似乎没有任何数据行。",
     errorMissingRequired: "请先为“日期”和“价格”选择对应的列，然后再继续。",
     errorNoValidRows: "没有找到包含有效日期和价格的行，请检查你的列选择。",

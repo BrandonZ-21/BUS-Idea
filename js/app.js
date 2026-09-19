@@ -147,7 +147,7 @@ function renderUploadScreen() {
       <p>${esc(t("uploadOr"))}</p>
       <div class="upload-actions">
         <button type="button" class="btn btn-primary" id="chooseFileBtn">${esc(t("uploadChoose"))}</button>
-        <input type="file" accept=".csv,text/csv" id="fileInput" class="visually-hidden" aria-label="${esc(t("uploadChoose"))}" />
+        <input type="file" accept=".csv,.tsv,.txt,.xlsx,.xls" id="fileInput" class="visually-hidden" aria-label="${esc(t("uploadChoose"))}" />
       </div>
       <p class="upload-help">${esc(t("uploadHelp"))}</p>
     </div>
@@ -183,14 +183,50 @@ function wireUploadWidget(scopeEl) {
   if (sample2Btn) sample2Btn.addEventListener("click", () => loadSampleFile("sample-data-2.csv"));
 }
 
+function fileExt(name) {
+  const m = /\.([a-z0-9]+)$/i.exec(name || "");
+  return m ? m[1].toLowerCase() : "";
+}
+
+const EXCEL_EXTENSIONS = ["xlsx", "xls", "xlsm"];
+const TEXT_EXTENSIONS = ["csv", "tsv", "txt"];
+
 function handleFile(file) {
   clearError();
+  const ext = fileExt(file.name);
+  if (EXCEL_EXTENSIONS.includes(ext)) {
+    parseExcelFile(file);
+  } else if (TEXT_EXTENSIONS.includes(ext) || !ext) {
+    parseTextFile(file);
+  } else {
+    showError(t("errorFileType"));
+  }
+}
+
+function parseTextFile(file) {
   Papa.parse(file, {
     header: true,
     skipEmptyLines: true,
     complete: onParsed,
     error: () => showError(t("errorParse")),
   });
+}
+
+function parseExcelFile(file) {
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const workbook = XLSX.read(new Uint8Array(e.target.result), { type: "array" });
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(sheet, { defval: "", raw: false });
+      const fields = rows.length ? Object.keys(rows[0]) : [];
+      onParsed({ data: rows, meta: { fields } });
+    } catch (err) {
+      showError(t("errorParse"));
+    }
+  };
+  reader.onerror = () => showError(t("errorParse"));
+  reader.readAsArrayBuffer(file);
 }
 
 function loadSampleFile(path) {
@@ -964,7 +1000,7 @@ App.renderData = function () {
         <p>${esc(t("uploadOr"))}</p>
         <div class="upload-actions">
           <button type="button" class="btn btn-primary" id="chooseFileBtn">${esc(t("uploadChoose"))}</button>
-          <input type="file" accept=".csv,text/csv" id="fileInput" class="visually-hidden" />
+          <input type="file" accept=".csv,.tsv,.txt,.xlsx,.xls" id="fileInput" class="visually-hidden" />
         </div>
       </div>
       <div class="upload-secondary">

@@ -1,6 +1,6 @@
 # Cafe Insights
 
-A single-page web app for small restaurant/cafe owners. Upload a sales export (CSV) and instantly see charts and plain-English tips about busy hours, best sellers, and slow days.
+A single-page web app for small restaurant/cafe owners. Upload a sales export (CSV, Excel, or tab-delimited) and instantly see charts and plain-English tips about busy hours, best sellers, and slow days.
 
 **Privacy:** Everything runs in your browser. Your file is read on your device, saved only in your browser's local IndexedDB storage, and never uploaded anywhere. There is no backend, no accounts, and no analytics.
 
@@ -20,7 +20,7 @@ index.html            The app shell (header, nav, containers)
 css/style.css          All styling
 js/translations.js     Every piece of English/Chinese text used by the app
 js/db.js               IndexedDB wrapper (local storage only, never network)
-js/parser.js            CSV column auto-detection + row cleanup
+js/parser.js            Column auto-detection + row cleanup (CSV/Excel/tab-delimited)
 js/stats.js             Calculations: totals, by-hour, by-day, trends, gaps
 js/charts.js            Chart.js chart helpers + the heatmap grid
 js/router.js            Simple #/hash router for the detail pages
