@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Holiday date rule tests</title>
+<style>
+  body { font-family: monospace; padding: 24px; background: #fff; color: #111; }
+  .pass { color: #1F5C4A; }
+  .fail { color: #b3401f; font-weight: bold; }
+  h1 { font-family: sans-serif; }
+  #summary { font-family: sans-serif; font-size: 1.2em; margin-top: 16px; }
+</style>
+</head>
+<body>
+<h1>Holiday date rule tests</h1>
+<p>No test framework needed -- just open this file in a browser. Each line is one check.</p>
+<div id="results"></div>
+<div id="summary"></div>
+
+<script src="../js/holidays.js"></script>
+<script>
+  const results = [];
+  let pass = 0, fail = 0;
+
+  function assert(label, condition) {
+    if (condition) { pass++; } else { fail++; }
+    results.push({ label, ok: condition });
+  }
+
+  function dow(dateStr) {
+    const [y, m, d] = dateStr.split("-").map(Number);
+    return new Date(y, m - 1, d).getDay();
+  }
+
+  // --- Fixed-date holidays: check across several years ---
+  [2024, 2025, 2026, 2027].forEach((year) => {
+    const map = computeHolidays([year]);
+    assert(`${year}: New Year's Day is Jan 1`, map.has(`${year}-01-01`));
+    assert(`${year}: New Year's Eve is Dec 31`, map.has(`${year}-12-31`));
+    assert(`${year}: Valentine's Day is Feb 14`, map.has(`${year}-02-14`));
+    assert(`${year}: Juneteenth is Jun 19`, map.has(`${year}-06-19`));
+    assert(`${year}: Independence Day is Jul 4`, map.has(`${year}-07-04`));
+    assert(`${year}: Halloween is Oct 31`, map.has(`${year}-10-31`));
+    assert(`${year}: Veterans Day is Nov 11`, map.has(`${year}-11-11`));
+    assert(`${year}: Christmas Eve is Dec 24`, map.has(`${year}-12-24`));
+    assert(`${year}: Christmas Day is Dec 25`, map.has(`${year}-12-25`));
+  });
+
+  // --- "Nth weekday of month" holidays: check weekday + that it's the Nth occurrence ---
+  function assertNthWeekday(year, label, dateStr, expectedDow, n) {
+    assert(`${year}: ${label} falls on the right weekday`, dow(dateStr) === expectedDow);
+    const day = parseInt(dateStr.split("-")[2], 10);
+    const expectedRange = [ (n - 1) * 7 + 1, n * 7 ];
+    assert(`${year}: ${label} is the ${n}th occurrence in its month (day ${day} in range ${expectedRange})`,
+      day >= expectedRange[0] && day <= expectedRange[1]);
+  }
+
+  [2024, 2025, 2026, 2027, 2028].forEach((year) => {
+    const map = computeHolidays([year]);
+    const byKey = {};
+    map.forEach((v, dateStr) => { byKey[v.key] = dateStr; });
+
+    assertNthWeekday(year, "MLK Day (3rd Mon Jan)", byKey.mlkDay, 1, 3);
+    assertNthWeekday(year, "Presidents Day (3rd Mon Feb)", byKey.presidentsDay, 1, 3);
+    assertNthWeekday(year, "Mother's Day (2nd Sun May)", byKey.mothersDay, 0, 2);
+    assertNthWeekday(year, "Father's Day (3rd Sun Jun)", byKey.fathersDay, 0, 3);
+    assertNthWeekday(year, "Labor Day (1st Mon Sep)", byKey.laborDay, 1, 1);
+    assertNthWeekday(year, "Columbus Day (2nd Mon Oct)", byKey.columbusDay, 1, 2);
+    assertNthWeekday(year, "Thanksgiving (4th Thu Nov)", byKey.thanksgiving, 4, 4);
+
+    // Memorial Day: last Monday in May -- check weekday + that it's in the last 7 days of May.
+    assert(`${year}: Memorial Day falls on a Monday`, dow(byKey.memorialDay) === 1);
+    const memDay = parseInt(byKey.memorialDay.split("-")[2], 10);
+    const mayLastDay = new Date(year, 5, 0).getDate();
+    assert(`${year}: Memorial Day is in the last 7 days of May`, memDay > mayLastDay - 7);
+  });
+
+  // --- Sanity: exactly 17 holidays per year, all unique dates ---
+  [2025, 2026].forEach((year) => {
+    const map = computeHolidays([year]);
+    assert(`${year}: exactly 17 distinct holiday dates`, map.size === 17);
+  });
+
+  // --- holidaysForRows covers data years + 1 year ahead ---
+  (function () {
+    const rows = [{ date: "2025-03-01" }, { date: "2026-07-01" }];
+    const map = holidaysForRows(rows);
+    assert("holidaysForRows includes a 2025 holiday", map.has("2025-01-01"));
+    assert("holidaysForRows includes a 2027 holiday (one year past latest data year)", map.has("2027-01-01"));
+  })();
+
+  // --- Render results ---
+  const el = document.getElementById("results");
+  results.forEach((r) => {
+    const div = document.createElement("div");
+    div.className = r.ok ? "pass" : "fail";
+    div.textContent = (r.ok ? "PASS - " : "FAIL - ") + r.label;
+    el.appendChild(div);
+  });
+  document.getElementById("summary").innerHTML = fail === 0
+    ? `<span class="pass">All ${pass} checks passed.</span>`
+    : `<span class="fail">${fail} of ${pass + fail} checks FAILED.</span>`;
+</script>
+</body>
+</html>

@@ -1,9 +1,16 @@
 // A small promise-based wrapper around IndexedDB.
 // Everything here stays on the owner's device -- nothing is ever sent over the network.
 const DB_NAME = "cafeInsightsDB";
-const DB_VERSION = 1;
+// Version history:
+//   1 -> original release: "sales" + "settings" stores.
+//   2 -> added "dayNotes" store (Phase 1: holidays & day notes). Existing
+//        "sales" and "settings" data is untouched by this upgrade -- adding
+//        a brand-new store never touches rows already saved in the others,
+//        so nothing you've uploaded before is lost.
+const DB_VERSION = 2;
 const STORE_SALES = "sales";
 const STORE_SETTINGS = "settings";
+const STORE_DAY_NOTES = "dayNotes";
 
 let dbPromise = null;
 
@@ -20,6 +27,9 @@ function openDB() {
       }
       if (!db.objectStoreNames.contains(STORE_SETTINGS)) {
         db.createObjectStore(STORE_SETTINGS, { keyPath: "key" });
+      }
+      if (!db.objectStoreNames.contains(STORE_DAY_NOTES)) {
+        db.createObjectStore(STORE_DAY_NOTES, { keyPath: "date" });
       }
     };
     req.onsuccess = (e) => resolve(e.target.result);
@@ -55,9 +65,10 @@ const DB = {
   async clearAll() {
     const db = await openDB();
     return new Promise((resolve, reject) => {
-      const tx = db.transaction([STORE_SALES, STORE_SETTINGS], "readwrite");
+      const tx = db.transaction([STORE_SALES, STORE_SETTINGS, STORE_DAY_NOTES], "readwrite");
       tx.objectStore(STORE_SALES).clear();
       tx.objectStore(STORE_SETTINGS).clear();
+      tx.objectStore(STORE_DAY_NOTES).clear();
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
     });
@@ -96,6 +107,59 @@ const DB = {
       tx.objectStore(STORE_SETTINGS).put({ key, value });
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
+    });
+  },
+
+  async getAllDayNotes() {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_DAY_NOTES, "readonly");
+      const req = tx.objectStore(STORE_DAY_NOTES).getAll();
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  },
+
+  // note: { date: "YYYY-MM-DD", text: "...", tags: ["rainy", ...] }
+  async setDayNote(note) {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_DAY_NOTES, "readwrite");
+      tx.objectStore(STORE_DAY_NOTES).put(note);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  },
+
+  async deleteDayNote(date) {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_DAY_NOTES, "readwrite");
+      tx.objectStore(STORE_DAY_NOTES).delete(date);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  },
+
+  async replaceAllDayNotes(notes) {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_DAY_NOTES, "readwrite");
+      const store = tx.objectStore(STORE_DAY_NOTES);
+      store.clear();
+      (notes || []).forEach((n) => store.add(n));
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  },
+
+  async getAllSettings() {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_SETTINGS, "readonly");
+      const req = tx.objectStore(STORE_SETTINGS).getAll();
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
     });
   },
 };

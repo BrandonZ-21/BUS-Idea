@@ -90,6 +90,11 @@ function renderLineChart(canvasId, labels, data, opts) {
   destroyChart(canvasId);
   const canvas = document.getElementById(canvasId);
   if (!canvas) return null;
+  // opts.markerIndexes: array of data indexes that have a holiday/note to flag (drawn in amber).
+  // opts.markerLabelFn: (index) => array of short strings to append to that point's tooltip.
+  const markerSet = new Set(opts.markerIndexes || []);
+  const pointColors = data.map((_, i) => (markerSet.has(i) ? COLORS.amber : COLORS.green));
+  const pointRadii = data.map((_, i) => (markerSet.has(i) ? 6 : 4));
   const chart = new Chart(canvas, {
     type: "line",
     data: {
@@ -101,8 +106,8 @@ function renderLineChart(canvasId, labels, data, opts) {
         backgroundColor: COLORS.lightGreen,
         fill: true,
         tension: 0.25,
-        pointBackgroundColor: COLORS.green,
-        pointRadius: 4,
+        pointBackgroundColor: pointColors,
+        pointRadius: pointRadii,
       }],
     },
     options: {
@@ -110,7 +115,12 @@ function renderLineChart(canvasId, labels, data, opts) {
       maintainAspectRatio: false,
       plugins: {
         legend: { display: false },
-        tooltip: { callbacks: { label: (ctx) => formatMoney(ctx.parsed.y) } },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => formatMoney(ctx.parsed.y),
+            afterBody: opts.markerLabelFn ? (items) => (items[0] ? opts.markerLabelFn(items[0].dataIndex) : []) : undefined,
+          },
+        },
       },
       onClick: opts.onClick,
       scales: {

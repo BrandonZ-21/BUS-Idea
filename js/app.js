@@ -12,7 +12,36 @@ const App = {
   itemsSort: "quantity",
   itemsSearch: "",
   hoursScope: "all",
+  ignoreHolidays: true,
+  holidaysMap: new Map(), // "YYYY-MM-DD" -> { key, nameKey }
+  dayNotesMap: new Map(), // "YYYY-MM-DD" -> { date, text, tags }
+  notesFilter: "all", // "all" | "noted"
+  editingNoteDate: null,
 };
+
+function closedDates() {
+  const set = new Set();
+  App.dayNotesMap.forEach((note, date) => {
+    if (note.tags && note.tags.includes("closed")) set.add(date);
+  });
+  return set;
+}
+
+function holidayAt(dateStr) {
+  return App.holidaysMap.get(dateStr) || null;
+}
+
+function noteAt(dateStr) {
+  return App.dayNotesMap.get(dateStr) || null;
+}
+
+const KNOWN_NOTE_TAGS = ["rainy", "festival", "shortStaffed", "closed"];
+function tagLabel(tag) {
+  if (KNOWN_NOTE_TAGS.includes(tag)) {
+    return t("notesTag" + tag.charAt(0).toUpperCase() + tag.slice(1));
+  }
+  return tag; // a custom "other" tag the owner typed in
+}
 
 function esc(s) {
   const d = document.createElement("div");
@@ -68,6 +97,7 @@ App.updateActiveNav = function (route) {
 function renderNav() {
   const items = [
     ["#/dashboard", "navDashboard"],
+    ["#/notes", "navNotes"],
     ["#/data", "navData"],
   ];
   document.getElementById("mainNav").innerHTML = items
@@ -379,11 +409,23 @@ async function mergeNewRows(newRows) {
 
 async function refreshAllRows() {
   App.allRows = await DB.getAllRows();
+  App.holidaysMap = holidaysForRows(App.allRows);
+  await refreshDayNotes();
+}
+
+async function refreshDayNotes() {
+  const notes = await DB.getAllDayNotes();
+  App.dayNotesMap = new Map(notes.map((n) => [n.date, n]));
 }
 
 // ---------- Date range filter ----------
+// Applies the date-range selector AND drops rows on dates tagged "closed" in
+// Day Notes, since a closed day shouldn't count toward any average.
 function getFilteredRows() {
-  return filterByRange(App.allRows, App.rangeMode);
+  const ranged = filterByRange(App.allRows, App.rangeMode);
+  const closed = closedDates();
+  if (closed.size === 0) return ranged;
+  return ranged.filter((r) => !closed.has(r.date));
 }
 
 function maturityWeeks(rows) {
@@ -413,6 +455,42 @@ function wireRangeSelector(onChange) {
     App.rangeMode = e.target.value;
     onChange();
   });
+}
+
+// ---------- Holiday / note markers on the weekly trend chart ----------
+function dateStrPlusDays(dateStr, days) {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const dt = new Date(y, m - 1, d);
+  dt.setDate(dt.getDate() + days);
+  return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")}`;
+}
+
+// weekStartStr: "YYYY-MM-DD" (the first of the 7 days in that trend-chart bucket).
+// Returns short labels like "Labor Day (9/7)" or "rainy (8/30)" for any
+// holiday or day-note that falls in that week.
+function eventsInWeek(weekStartStr) {
+  const events = [];
+  for (let i = 0; i < 7; i++) {
+    const ds = dateStrPlusDays(weekStartStr, i);
+    const shortDate = `${parseInt(ds.slice(5, 7), 10)}/${parseInt(ds.slice(8, 10), 10)}`;
+    const h = holidayAt(ds);
+    if (h) events.push(`${t(h.nameKey)} (${shortDate})`);
+    const n = noteAt(ds);
+    if (n && (n.text || (n.tags && n.tags.length))) {
+      const label = n.text || (n.tags || []).map(tagLabel).join(", ");
+      events.push(`${label} (${shortDate})`);
+    }
+  }
+  return events;
+}
+
+function trendMarkerOpts(byWeek) {
+  const markerIndexes = [];
+  byWeek.forEach((w, i) => { if (eventsInWeek(w[0]).length) markerIndexes.push(i); });
+  return {
+    markerIndexes,
+    markerLabelFn: (i) => eventsInWeek(byWeek[i][0]),
+  };
 }
 
 // ---------- Insights ----------
@@ -628,9 +706,9 @@ App.renderDashboard = function () {
     onClick: () => { location.hash = "#/days"; },
   });
   if (showTrend) {
-    renderLineChart("chart-trend", byWeek.map((w) => w[0]), byWeek.map((w) => w[1]), {
+    renderLineChart("chart-trend", byWeek.map((w) => w[0]), byWeek.map((w) => w[1]), Object.assign({
       onClick: () => { location.hash = "#/trend"; },
-    });
+    }, trendMarkerOpts(byWeek)));
   }
   renderBarChart("chart-items", topItemsList.map((x) => x.item), topItemsList.map((x) => x.quantity), {
     horizontal: true,
@@ -902,18 +980,19 @@ App.renderTrendDetail = function () {
     </div>
     <div class="card">
       <table class="data-table">
-        <thead><tr><th>${esc(t("trendColWeek"))}</th><th>${esc(t("trendColSales"))}</th><th>${esc(t("trendColChange"))}</th></tr></thead>
+        <thead><tr><th>${esc(t("trendColWeek"))}</th><th>${esc(t("trendColSales"))}</th><th>${esc(t("trendColChange"))}</th><th>${esc(t("trendColNotes"))}</th></tr></thead>
         <tbody>
           ${byWeek.map((w, i) => {
             const prevVal = i > 0 ? byWeek[i - 1][1] : null;
             const change = prevVal && prevVal > 0 ? Math.round(((w[1] - prevVal) / prevVal) * 100) : null;
-            return `<tr><td>${esc(w[0])}</td><td>${formatMoney(w[1])}</td><td>${change === null ? "—" : (change >= 0 ? "+" : "") + change + "%"}</td></tr>`;
+            const events = eventsInWeek(w[0]);
+            return `<tr><td>${esc(w[0])}</td><td>${formatMoney(w[1])}</td><td>${change === null ? "—" : (change >= 0 ? "+" : "") + change + "%"}</td><td>${esc(events.join("; "))}</td></tr>`;
           }).join("")}
         </tbody>
       </table>
     </div>` : ""}
   `;
-  renderLineChart("chart-trend-detail", byWeek.map((w) => w[0]), byWeek.map((w) => w[1]));
+  renderLineChart("chart-trend-detail", byWeek.map((w) => w[0]), byWeek.map((w) => w[1]), trendMarkerOpts(byWeek));
 };
 
 // ---------- Detail: Order Types ----------
@@ -973,6 +1052,144 @@ App.renderHeatmapDetail = function () {
   });
 };
 
+// ---------- Day Notes page ----------
+function computeDailyTotals(rows) {
+  const map = new Map();
+  rows.forEach((r) => { map.set(r.date, (map.get(r.date) || 0) + rowRevenue(r)); });
+  return map;
+}
+
+App.renderNotes = function () {
+  const root = document.getElementById("view-root");
+  const dailyTotals = computeDailyTotals(App.allRows);
+  const range = dateRangeOf(App.allRows);
+
+  const dateSet = new Set();
+  if (App.notesFilter === "all") dailyTotals.forEach((_, d) => dateSet.add(d));
+  App.dayNotesMap.forEach((_, d) => dateSet.add(d));
+  if (range) App.holidaysMap.forEach((_, d) => { if (d >= range.min && d <= range.max) dateSet.add(d); });
+
+  let dates = Array.from(dateSet).sort();
+  if (App.notesFilter === "noted") {
+    dates = dates.filter((d) => App.dayNotesMap.has(d) || App.holidaysMap.has(d));
+  }
+
+  const editing = App.editingNoteDate;
+  const editingNote = editing ? (noteAt(editing) || { date: editing, text: "", tags: [] }) : null;
+
+  root.innerHTML = `
+    <h1>${esc(t("notesTitle"))}</h1>
+    <p>${esc(t("notesIntro"))}</p>
+
+    <div class="card">
+      <h2>${esc(t("notesAddForDate"))}</h2>
+      <form id="noteForm">
+        <div class="match-field" style="max-width:220px;">
+          <label for="noteDateInput">${esc(t("notesDateLabel"))}</label>
+          <input type="date" id="noteDateInput" value="${esc(editing || "")}" />
+        </div>
+        <div class="match-field">
+          <label for="noteText">${esc(t("notesTextLabel"))}</label>
+          <input type="text" id="noteText" value="${esc(editingNote ? editingNote.text : "")}" style="width:100%;padding:10px;border-radius:8px;border:1px solid var(--border);" />
+        </div>
+        <div class="match-field">
+          <label>${esc(t("notesTagsLabel"))}</label>
+          <div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:4px;">
+            ${KNOWN_NOTE_TAGS.map((tag) => `
+              <label style="display:flex;align-items:center;gap:6px;font-weight:400;">
+                <input type="checkbox" class="noteTagCheckbox" value="${tag}" ${editingNote && editingNote.tags && editingNote.tags.includes(tag) ? "checked" : ""} />
+                ${esc(t("notesTag" + tag.charAt(0).toUpperCase() + tag.slice(1)))}
+              </label>
+            `).join("")}
+          </div>
+          <input type="text" id="noteOtherTag" placeholder="${esc(t("notesTagOtherPlaceholder"))}"
+            value="${esc(editingNote ? (editingNote.tags || []).find((tg) => !KNOWN_NOTE_TAGS.includes(tg)) || "" : "")}"
+            style="margin-top:8px;padding:8px 10px;border-radius:8px;border:1px solid var(--border);" />
+        </div>
+        <div class="data-actions">
+          <button type="submit" class="btn btn-primary">${esc(t("notesSave"))}</button>
+          ${editing ? `<button type="button" class="btn btn-ghost" id="noteCancelBtn">${esc(t("notesCancel"))}</button>` : ""}
+        </div>
+      </form>
+    </div>
+
+    <div class="toggle-group" role="group" style="margin-top:20px;">
+      <button type="button" data-filter="all" class="${App.notesFilter === "all" ? "active" : ""}">${esc(t("notesShowAllDays"))}</button>
+      <button type="button" data-filter="noted" class="${App.notesFilter === "noted" ? "active" : ""}">${esc(t("notesShowNotedOnly"))}</button>
+    </div>
+
+    <div class="card">
+      ${dates.length ? `
+      <table class="data-table">
+        <thead><tr>
+          <th>${esc(t("notesColDate"))}</th><th>${esc(t("notesColDay"))}</th><th>${esc(t("notesColSales"))}</th>
+          <th>${esc(t("notesColHoliday"))}</th><th>${esc(t("notesColNote"))}</th><th></th>
+        </tr></thead>
+        <tbody>
+          ${dates.map((d) => {
+            const sales = dailyTotals.has(d) ? formatMoney(dailyTotals.get(d)) : "—";
+            const h = holidayAt(d);
+            const n = noteAt(d);
+            const dow = dayShort(rowDayOfWeek({ date: d }));
+            const noteText = n ? [n.text, ...(n.tags || []).map(tagLabel)].filter(Boolean).join(" — ") : "";
+            return `<tr>
+              <td>${esc(d)}</td><td>${esc(dow)}</td><td>${esc(sales)}</td>
+              <td>${h ? esc(t(h.nameKey)) : ""}</td>
+              <td>${esc(noteText)}</td>
+              <td style="white-space:nowrap;">
+                <button type="button" class="btn btn-ghost noteEditBtn" data-date="${esc(d)}" style="padding:6px 10px;">${esc(n ? t("notesEdit") : t("notesAddAction"))}</button>
+                ${n ? `<button type="button" class="btn btn-ghost noteDeleteBtn" data-date="${esc(d)}" style="padding:6px 10px;">${esc(t("notesDelete"))}</button>` : ""}
+              </td>
+            </tr>`;
+          }).join("")}
+        </tbody>
+      </table>` : `<p>${esc(t("notesNone"))}</p>`}
+    </div>
+  `;
+
+  root.querySelectorAll(".toggle-group button").forEach((btn) => {
+    btn.addEventListener("click", () => { App.notesFilter = btn.dataset.filter; App.renderNotes(); });
+  });
+
+  root.querySelectorAll(".noteEditBtn").forEach((btn) => {
+    btn.addEventListener("click", () => { App.editingNoteDate = btn.dataset.date; App.renderNotes(); });
+  });
+  root.querySelectorAll(".noteDeleteBtn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const date = btn.dataset.date;
+      showModal({
+        title: t("notesDeleteConfirmTitle"),
+        body: t("notesDeleteConfirmBody"),
+        confirmLabel: t("notesDelete"),
+        cancelLabel: t("notesCancel"),
+        danger: true,
+        onConfirm: async () => {
+          await DB.deleteDayNote(date);
+          await refreshDayNotes();
+          if (App.editingNoteDate === date) App.editingNoteDate = null;
+          App.renderNotes();
+        },
+      });
+    });
+  });
+  const cancelBtn = document.getElementById("noteCancelBtn");
+  if (cancelBtn) cancelBtn.addEventListener("click", () => { App.editingNoteDate = null; App.renderNotes(); });
+
+  document.getElementById("noteForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const date = document.getElementById("noteDateInput").value;
+    if (!date) return;
+    const text = document.getElementById("noteText").value.trim();
+    const tags = Array.from(document.querySelectorAll(".noteTagCheckbox:checked")).map((cb) => cb.value);
+    const otherTag = document.getElementById("noteOtherTag").value.trim();
+    if (otherTag) tags.push(otherTag);
+    await DB.setDayNote({ date, text, tags });
+    await refreshDayNotes();
+    App.editingNoteDate = null;
+    App.renderNotes();
+  });
+};
+
 // ---------- Data page ----------
 App.renderData = function () {
   const root = document.getElementById("view-root");
@@ -991,6 +1208,15 @@ App.renderData = function () {
     <div class="card">
       <h2>${esc(t("dataGapsTitle"))}</h2>
       ${gaps.length ? `<ul class="gap-list">${gaps.map((g) => `<li>${esc(t("dataGapItem", { start: g.start, end: g.end }))}</li>`).join("")}</ul>` : `<p>${esc(t("dataNoGaps"))}</p>`}
+    </div>
+
+    <div class="card" style="margin-top:20px;">
+      <h2>${esc(t("settingsTitle"))}</h2>
+      <label style="display:flex;align-items:flex-start;gap:10px;font-weight:600;">
+        <input type="checkbox" id="ignoreHolidaysToggle" ${App.ignoreHolidays ? "checked" : ""} style="margin-top:3px;" />
+        <span>${esc(t("settingIgnoreHolidays"))}</span>
+      </label>
+      <p class="match-note">${esc(t("settingIgnoreHolidaysExplain"))}</p>
     </div>
 
     <div class="card" style="margin-top:20px;">
@@ -1025,6 +1251,11 @@ App.renderData = function () {
     document.getElementById("dataLastUpload").textContent = ts ? new Date(ts).toLocaleDateString() : "—";
   });
 
+  document.getElementById("ignoreHolidaysToggle").addEventListener("change", async (e) => {
+    App.ignoreHolidays = e.target.checked;
+    await DB.setSetting("ignoreHolidays", App.ignoreHolidays);
+  });
+
   App.matchReturnHash = "#/data";
   wireUploadWidget(document.getElementById("view-root"));
 
@@ -1047,20 +1278,27 @@ App.renderData = function () {
 
 async function deleteAllData() {
   await DB.clearAll();
+  App.ignoreHolidays = true;
   await refreshAllRows();
   location.hash = "#/dashboard";
   dispatchRoute();
 }
 
+// Backup format history:
+//   version 1 -> just { rows }.
+//   version 2 -> adds { dayNotes, settings } (Phase 1). Importing a version-1
+//   backup still works: dayNotes/settings simply default to empty.
 function exportBackup() {
   const payload = {
-    version: 1,
+    version: 2,
     exportedAt: new Date().toISOString(),
     rows: App.allRows.map((r) => {
       const copy = Object.assign({}, r);
       delete copy.id;
       return copy;
     }),
+    dayNotes: Array.from(App.dayNotesMap.values()),
+    settings: { ignoreHolidays: App.ignoreHolidays },
   };
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
@@ -1080,6 +1318,13 @@ function importBackupFile(file) {
       const payload = JSON.parse(reader.result);
       if (!payload || !Array.isArray(payload.rows)) throw new Error("bad shape");
       await DB.replaceAllRows(payload.rows);
+      // Older (version 1) backups won't have these fields -- default them
+      // instead of failing, so old backup files still import cleanly.
+      await DB.replaceAllDayNotes(Array.isArray(payload.dayNotes) ? payload.dayNotes : []);
+      if (payload.settings && typeof payload.settings.ignoreHolidays === "boolean") {
+        await DB.setSetting("ignoreHolidays", payload.settings.ignoreHolidays);
+        App.ignoreHolidays = payload.settings.ignoreHolidays;
+      }
       await refreshAllRows();
       showMergeBanner(t("dataImportSuccess", { count: payload.rows.length }));
       location.hash = "#/data";
@@ -1096,6 +1341,8 @@ function importBackupFile(file) {
 async function initApp() {
   const savedLang = await DB.getSetting("lang");
   App.lang = savedLang || "en";
+  const savedIgnoreHolidays = await DB.getSetting("ignoreHolidays");
+  App.ignoreHolidays = savedIgnoreHolidays === undefined ? true : !!savedIgnoreHolidays;
   applyStaticText();
   document.getElementById("langToggleBtn").addEventListener("click", () => {
     setLang(App.lang === "en" ? "zh" : "en");

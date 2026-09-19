@@ -24,7 +24,9 @@ js/parser.js            Column auto-detection + row cleanup (CSV/Excel/tab-delim
 js/stats.js             Calculations: totals, by-hour, by-day, trends, gaps
 js/charts.js            Chart.js chart helpers + the heatmap grid
 js/router.js            Simple #/hash router for the detail pages
+js/holidays.js          US holiday date calculator (no external service)
 js/app.js               Main app logic gluing everything together
+tests/holidays-test.html  Open this in a browser to run the holiday date-rule checks
 sample-data.csv         ~4 weeks of realistic sample sales (Aug 3 - Aug 30, 2026)
 sample-data-2.csv       A second sample export with different column names, overlapping
                         the last 5 days of sample-data.csv plus 9 new days — use this to
@@ -78,6 +80,14 @@ Whenever you make changes later: GitHub Desktop will show them under "Changes" �
 - A date range selector (last 4 weeks / last 8 weeks / all time) that filters the whole dashboard.
 - The dashboard gets more detailed as data grows: a note on thin data (<2 weeks), week-over-week comparisons at 2+ weeks, and month-over-month/stronger trend insights at 8+ weeks.
 - Every chart is clickable (and keyboard-reachable via a real "See details" link) and opens a full detail page at its own bookmarkable URL (`#/hours`, `#/days`, `#/items`, `#/trend`, `#/order-types`, `#/heatmap`), each with a plain-English explanation, specific findings from the owner's own data, practical suggestions, extra detail (weekday/weekend toggle, search/sort, hover values), and a working browser Back button.
+- Accepts Excel (`.xlsx`/`.xls`) and tab-delimited files in addition to CSV, parsed entirely in the browser via SheetJS.
+
+**Phase 1 additions (holidays & day notes):**
+- 17 US holidays computed with plain date math (no external service), covering every year in your data plus one year ahead. See `tests/holidays-test.html` for the date-rule checks.
+- A "Day Notes" page (`#/notes`) where you can tag any date (rainy, street festival, short-staffed, closed, or a custom tag) with a note. Days tagged "closed" are excluded from every average in the app.
+- The weekly trend chart marks weeks that contain a holiday or a day note (amber dot, with details in the tooltip and in the trend detail page's table).
+- A "Settings" section on the My Data page: "Ignore holidays when calculating a normal day" (on by default) — this will be used by the upcoming Heads-up alerts, forecast, and before/after comparisons so holidays don't get mistaken for unusual days.
+- The saved-data format moved from version 1 to version 2 to add a `dayNotes` store. Existing sales/settings data is untouched by this upgrade, and both old and new backup files import correctly.
 
 ## What doesn't (yet)
 
