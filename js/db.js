@@ -14,9 +14,19 @@ const STORE_DAY_NOTES = "dayNotes";
 
 let dbPromise = null;
 
+// If this page still has an old-version connection open when a newer tab
+// (e.g. after an update) tries to upgrade the database, IndexedDB blocks
+// that upgrade until every old connection closes. Without this handler, a
+// stale background tab could block a new tab's DB open forever, with no
+// error -- just a page that never finishes loading. This makes any old
+// connection close itself as soon as a newer version wants to open.
+function letOldConnectionStepAside(db) {
+  db.onversionchange = () => db.close();
+}
+
 function openDB() {
   if (dbPromise) return dbPromise;
-  dbPromise = new Promise((resolve, reject) => {
+  const openPromise = new Promise((resolve, reject) => {
     const req = indexedDB.open(DB_NAME, DB_VERSION);
     req.onupgradeneeded = (e) => {
       const db = e.target.result;
@@ -32,8 +42,23 @@ function openDB() {
         db.createObjectStore(STORE_DAY_NOTES, { keyPath: "date" });
       }
     };
-    req.onsuccess = (e) => resolve(e.target.result);
+    req.onsuccess = (e) => {
+      const db = e.target.result;
+      letOldConnectionStepAside(db);
+      resolve(db);
+    };
     req.onerror = (e) => reject(e.target.error);
+    req.onblocked = () => reject(new Error("DB_BLOCKED"));
+  });
+  // Guard against a hang (e.g. a stale tab that never releases its
+  // connection) so the app can show a helpful message instead of a blank
+  // page that never finishes loading.
+  const timeout = new Promise((_, reject) => {
+    setTimeout(() => reject(new Error("DB_TIMEOUT")), 8000);
+  });
+  dbPromise = Promise.race([openPromise, timeout]).catch((err) => {
+    dbPromise = null; // allow a retry (e.g. after the owner closes other tabs)
+    throw err;
   });
   return dbPromise;
 }

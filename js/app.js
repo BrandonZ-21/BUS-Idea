@@ -1339,17 +1339,31 @@ function importBackupFile(file) {
 
 // ---------- Init ----------
 async function initApp() {
-  const savedLang = await DB.getSetting("lang");
-  App.lang = savedLang || "en";
-  const savedIgnoreHolidays = await DB.getSetting("ignoreHolidays");
-  App.ignoreHolidays = savedIgnoreHolidays === undefined ? true : !!savedIgnoreHolidays;
-  applyStaticText();
-  document.getElementById("langToggleBtn").addEventListener("click", () => {
-    setLang(App.lang === "en" ? "zh" : "en");
-  });
-  await refreshAllRows();
-  if (!location.hash) location.hash = "#/dashboard";
-  dispatchRoute();
+  try {
+    const savedLang = await DB.getSetting("lang");
+    App.lang = savedLang || "en";
+    const savedIgnoreHolidays = await DB.getSetting("ignoreHolidays");
+    App.ignoreHolidays = savedIgnoreHolidays === undefined ? true : !!savedIgnoreHolidays;
+    applyStaticText();
+    document.getElementById("langToggleBtn").addEventListener("click", () => {
+      setLang(App.lang === "en" ? "zh" : "en");
+    });
+    await refreshAllRows();
+    document.getElementById("bootStatus").hidden = true;
+    if (!location.hash) location.hash = "#/dashboard";
+    dispatchRoute();
+  } catch (err) {
+    // If this device's saved data can't be opened (e.g. another tab of this
+    // app is still open on an older version and is holding the database
+    // locked), show a clear way out instead of leaving a blank page.
+    const boot = document.getElementById("bootStatus");
+    boot.hidden = false;
+    boot.innerHTML = `
+      <p><strong>This page is having trouble loading your saved data.</strong></p>
+      <p>This can happen if another tab or window with this app is still open. Try closing other tabs of this site, then reload this page.</p>
+      <button type="button" class="btn btn-primary" onclick="location.reload()">Reload</button>
+    `;
+  }
 }
 
 document.addEventListener("DOMContentLoaded", initApp);
