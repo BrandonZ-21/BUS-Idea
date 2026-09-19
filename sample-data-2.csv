@@ -1,0 +1,1158 @@
+Order Date,Order Time,Product,Qty,Total,Channel
+2026-08-26,09:02,Turkey Club,1,9.95,Delivery
+2026-08-26,17:58,Iced Tea,1,3.25,Delivery
+2026-08-26,17:58,Drip Coffee,1,2.95,Delivery
+2026-08-26,09:05,Turkey Club,1,9.95,Delivery
+2026-08-26,13:45,Chocolate Chip Cookie,1,2.50,Delivery
+2026-08-26,10:36,Bagel with Cream Cheese,1,4.25,Delivery
+2026-08-26,11:14,Latte,1,4.75,Takeout
+2026-08-26,11:14,Margherita Panini,1,8.95,Takeout
+2026-08-26,11:14,Latte,1,4.75,Takeout
+2026-08-26,08:17,Cold Brew,2,4.95,Takeout
+2026-08-26,10:28,Cold Brew,1,4.95,Dine-In
+2026-08-26,10:28,Chocolate Chip Cookie,1,2.50,Dine-In
+2026-08-26,13:45,Iced Tea,1,3.25,Takeout
+2026-08-26,08:25,Latte,1,4.75,Takeout
+2026-08-26,08:25,Croissant,1,3.75,Takeout
+2026-08-26,11:03,Avocado Toast,1,8.50,Takeout
+2026-08-26,08:52,Latte,1,4.75,Takeout
+2026-08-26,07:32,Chocolate Chip Cookie,1,2.50,Dine-In
+2026-08-26,09:26,Matcha Latte,1,5.25,Takeout
+2026-08-26,07:24,Iced Tea,2,3.25,Takeout
+2026-08-26,07:24,Matcha Latte,1,5.25,Takeout
+2026-08-26,10:15,Blueberry Muffin,1,3.50,Takeout
+2026-08-26,15:25,Margherita Panini,1,8.95,Takeout
+2026-08-26,13:34,Croissant,1,3.75,Dine-In
+2026-08-26,07:14,Iced Tea,2,3.25,Dine-In
+2026-08-26,07:14,Cold Brew,2,4.95,Dine-In
+2026-08-26,07:14,Drip Coffee,1,2.95,Dine-In
+2026-08-26,17:33,Bagel with Cream Cheese,1,4.25,Dine-In
+2026-08-26,17:33,Iced Tea,1,3.25,Dine-In
+2026-08-26,10:16,Breakfast Sandwich,1,7.25,Dine-In
+2026-08-26,10:16,Turkey Club,2,9.95,Dine-In
+2026-08-26,10:15,Avocado Toast,1,8.50,Dine-In
+2026-08-26,12:30,Avocado Toast,2,8.50,Dine-In
+2026-08-26,11:01,Caesar Salad,1,9.50,Dine-In
+2026-08-26,11:15,Chocolate Chip Cookie,1,2.50,Takeout
+2026-08-26,13:40,Matcha Latte,1,5.25,Dine-In
+2026-08-26,13:40,Breakfast Sandwich,1,7.25,Dine-In
+2026-08-26,19:45,Breakfast Sandwich,2,7.25,Dine-In
+2026-08-26,07:44,Breakfast Sandwich,1,7.25,Dine-In
+2026-08-26,07:44,Drip Coffee,1,2.95,Dine-In
+2026-08-26,19:00,Chocolate Chip Cookie,1,2.50,Takeout
+2026-08-26,19:00,Iced Tea,1,3.25,Takeout
+2026-08-26,19:00,Caesar Salad,1,9.50,Takeout
+2026-08-26,10:48,Cappuccino,1,4.50,Takeout
+2026-08-26,12:00,Cappuccino,2,4.50,Dine-In
+2026-08-26,12:00,Blueberry Muffin,1,3.50,Dine-In
+2026-08-26,15:23,Breakfast Sandwich,1,7.25,Dine-In
+2026-08-26,14:20,Avocado Toast,1,8.50,Dine-In
+2026-08-26,07:27,Margherita Panini,1,8.95,Takeout
+2026-08-26,18:41,Matcha Latte,2,5.25,Takeout
+2026-08-26,18:41,Gluten-Free Muffin,2,4.25,Takeout
+2026-08-26,18:41,Blueberry Muffin,1,3.50,Takeout
+2026-08-26,14:35,Drip Coffee,2,2.95,Dine-In
+2026-08-26,07:54,Avocado Toast,1,8.50,Dine-In
+2026-08-26,07:07,Margherita Panini,1,8.95,Dine-In
+2026-08-26,07:07,Margherita Panini,1,8.95,Dine-In
+2026-08-26,10:37,Iced Tea,1,3.25,Takeout
+2026-08-26,12:54,Drip Coffee,1,2.95,Dine-In
+2026-08-26,12:54,Bagel with Cream Cheese,1,4.25,Dine-In
+2026-08-26,17:57,Avocado Toast,1,8.50,Delivery
+2026-08-26,17:57,Turkey Club,2,9.95,Delivery
+2026-08-26,12:33,Turkey Club,2,9.95,Dine-In
+2026-08-26,12:33,Cappuccino,1,4.50,Dine-In
+2026-08-26,09:20,Matcha Latte,1,5.25,Delivery
+2026-08-26,08:36,Drip Coffee,2,2.95,Dine-In
+2026-08-26,08:36,Turkey Club,1,9.95,Dine-In
+2026-08-26,11:47,Chocolate Chip Cookie,2,2.50,Takeout
+2026-08-26,13:54,Breakfast Sandwich,1,7.25,Takeout
+2026-08-26,12:38,Turkey Club,1,9.95,Takeout
+2026-08-26,12:38,Matcha Latte,1,5.25,Takeout
+2026-08-26,12:38,Matcha Latte,2,5.25,Takeout
+2026-08-27,18:20,Chocolate Chip Cookie,1,2.50,Takeout
+2026-08-27,18:20,Hot Chocolate,1,4.00,Takeout
+2026-08-27,12:33,Cappuccino,1,4.50,Dine-In
+2026-08-27,12:03,Matcha Latte,1,5.25,Takeout
+2026-08-27,07:01,Matcha Latte,1,5.25,Dine-In
+2026-08-27,12:46,Blueberry Muffin,1,3.50,Takeout
+2026-08-27,14:47,Avocado Toast,1,8.50,Takeout
+2026-08-27,14:47,Caesar Salad,1,9.50,Takeout
+2026-08-27,14:47,Drip Coffee,1,2.95,Takeout
+2026-08-27,19:12,Cappuccino,1,4.50,Dine-In
+2026-08-27,17:54,Caesar Salad,1,9.50,Dine-In
+2026-08-27,18:46,Margherita Panini,1,8.95,Takeout
+2026-08-27,18:16,Chocolate Chip Cookie,1,2.50,Dine-In
+2026-08-27,18:16,Croissant,1,3.75,Dine-In
+2026-08-27,10:18,Matcha Latte,1,5.25,Dine-In
+2026-08-27,10:18,Avocado Toast,2,8.50,Dine-In
+2026-08-27,18:46,Latte,1,4.75,Takeout
+2026-08-27,09:07,Breakfast Sandwich,1,7.25,Takeout
+2026-08-27,09:07,Bagel with Cream Cheese,2,4.25,Takeout
+2026-08-27,18:39,Breakfast Sandwich,2,7.25,Dine-In
+2026-08-27,07:13,Avocado Toast,1,8.50,Dine-In
+2026-08-27,16:34,Margherita Panini,2,8.95,Takeout
+2026-08-27,16:34,Drip Coffee,1,2.95,Takeout
+2026-08-27,18:01,Chocolate Chip Cookie,1,2.50,Takeout
+2026-08-27,18:01,Croissant,1,3.75,Takeout
+2026-08-27,09:08,Drip Coffee,1,2.95,Takeout
+2026-08-27,12:43,Caesar Salad,1,9.50,Takeout
+2026-08-27,19:01,Decaf Espresso,2,3.50,Takeout
+2026-08-27,19:01,Blueberry Muffin,1,3.50,Takeout
+2026-08-27,11:37,Blueberry Muffin,1,3.50,Takeout
+2026-08-27,11:37,Drip Coffee,1,2.95,Takeout
+2026-08-27,18:37,Iced Tea,1,3.25,Dine-In
+2026-08-27,12:33,Croissant,1,3.75,Delivery
+2026-08-27,13:41,Cold Brew,1,4.95,Delivery
+2026-08-27,13:41,Margherita Panini,1,8.95,Delivery
+2026-08-27,13:41,Breakfast Sandwich,1,7.25,Delivery
+2026-08-27,08:13,Blueberry Muffin,1,3.50,Dine-In
+2026-08-27,13:19,Decaf Espresso,1,3.50,Takeout
+2026-08-27,13:19,Latte,1,4.75,Takeout
+2026-08-27,17:06,Caesar Salad,1,9.50,Dine-In
+2026-08-27,14:35,Turkey Club,2,9.95,Takeout
+2026-08-27,18:54,Matcha Latte,1,5.25,Dine-In
+2026-08-27,13:49,Latte,1,4.75,Takeout
+2026-08-27,13:49,Margherita Panini,1,8.95,Takeout
+2026-08-27,19:37,Croissant,1,3.75,Takeout
+2026-08-27,19:37,Caesar Salad,1,9.50,Takeout
+2026-08-27,17:41,Blueberry Muffin,1,3.50,Delivery
+2026-08-27,17:08,Chocolate Chip Cookie,1,2.50,Delivery
+2026-08-27,17:08,Matcha Latte,1,5.25,Delivery
+2026-08-27,16:35,Turkey Club,2,9.95,Dine-In
+2026-08-27,16:35,Breakfast Sandwich,1,7.25,Dine-In
+2026-08-27,09:45,Caesar Salad,1,9.50,Dine-In
+2026-08-27,09:45,Hot Chocolate,1,4.00,Dine-In
+2026-08-27,18:15,Chocolate Chip Cookie,2,2.50,Dine-In
+2026-08-27,18:15,Chocolate Chip Cookie,2,2.50,Dine-In
+2026-08-27,09:26,Caesar Salad,1,9.50,Delivery
+2026-08-27,09:26,Bagel with Cream Cheese,1,4.25,Delivery
+2026-08-27,12:15,Latte,1,4.75,Dine-In
+2026-08-27,12:15,Cappuccino,1,4.50,Dine-In
+2026-08-27,10:19,Avocado Toast,1,8.50,Delivery
+2026-08-27,09:37,Turkey Club,1,9.95,Dine-In
+2026-08-27,08:48,Drip Coffee,1,2.95,Takeout
+2026-08-27,08:48,Latte,1,4.75,Takeout
+2026-08-27,08:48,Caesar Salad,1,9.50,Takeout
+2026-08-27,15:51,Cappuccino,1,4.50,Dine-In
+2026-08-27,13:51,Iced Tea,2,3.25,Delivery
+2026-08-27,18:03,Croissant,1,3.75,Takeout
+2026-08-27,18:03,Margherita Panini,1,8.95,Takeout
+2026-08-27,18:03,Caesar Salad,1,9.50,Takeout
+2026-08-27,08:31,Chocolate Chip Cookie,1,2.50,Dine-In
+2026-08-27,07:21,Breakfast Sandwich,1,7.25,Delivery
+2026-08-27,08:17,Cappuccino,1,4.50,Delivery
+2026-08-27,08:17,Margherita Panini,1,8.95,Delivery
+2026-08-27,11:02,Cold Brew,1,4.95,Dine-In
+2026-08-27,09:44,Breakfast Sandwich,2,7.25,Delivery
+2026-08-27,19:41,Bagel with Cream Cheese,1,4.25,Takeout
+2026-08-27,19:41,Drip Coffee,1,2.95,Takeout
+2026-08-28,14:58,Avocado Toast,1,8.50,Delivery
+2026-08-28,17:10,Margherita Panini,1,8.95,Delivery
+2026-08-28,17:10,Margherita Panini,1,8.95,Delivery
+2026-08-28,19:20,Chocolate Chip Cookie,2,2.50,Dine-In
+2026-08-28,19:20,Drip Coffee,1,2.95,Dine-In
+2026-08-28,08:45,Chocolate Chip Cookie,1,2.50,Dine-In
+2026-08-28,08:11,Chocolate Chip Cookie,1,2.50,Dine-In
+2026-08-28,09:24,Cappuccino,1,4.50,Dine-In
+2026-08-28,10:12,Caesar Salad,2,9.50,Dine-In
+2026-08-28,19:12,Turkey Club,1,9.95,Dine-In
+2026-08-28,08:08,Croissant,1,3.75,Dine-In
+2026-08-28,19:29,Croissant,1,3.75,Takeout
+2026-08-28,09:42,Latte,2,4.75,Dine-In
+2026-08-28,09:42,Caesar Salad,1,9.50,Dine-In
+2026-08-28,09:42,Cold Brew,1,4.95,Dine-In
+2026-08-28,08:59,Turkey Club,1,9.95,Delivery
+2026-08-28,08:16,Margherita Panini,1,8.95,Delivery
+2026-08-28,10:42,Matcha Latte,1,5.25,Dine-In
+2026-08-28,14:29,Turkey Club,1,9.95,Dine-In
+2026-08-28,12:30,Bagel with Cream Cheese,1,4.25,Dine-In
+2026-08-28,07:26,Cappuccino,1,4.50,Takeout
+2026-08-28,07:10,Caesar Salad,1,9.50,Takeout
+2026-08-28,17:34,Croissant,1,3.75,Takeout
+2026-08-28,17:34,Iced Tea,1,3.25,Takeout
+2026-08-28,17:59,Cappuccino,1,4.50,Takeout
+2026-08-28,17:59,Margherita Panini,1,8.95,Takeout
+2026-08-28,10:16,Cold Brew,1,4.95,Takeout
+2026-08-28,10:16,Matcha Latte,1,5.25,Takeout
+2026-08-28,12:37,Turkey Club,1,9.95,Takeout
+2026-08-28,13:42,Breakfast Sandwich,1,7.25,Takeout
+2026-08-28,13:42,Hot Chocolate,1,4.00,Takeout
+2026-08-28,07:13,Chocolate Chip Cookie,1,2.50,Dine-In
+2026-08-28,09:33,Caesar Salad,2,9.50,Dine-In
+2026-08-28,09:33,Cold Brew,1,4.95,Dine-In
+2026-08-28,09:33,Cold Brew,1,4.95,Dine-In
+2026-08-28,07:54,Decaf Espresso,1,3.50,Takeout
+2026-08-28,07:54,Iced Tea,1,3.25,Takeout
+2026-08-28,19:31,Blueberry Muffin,1,3.50,Delivery
+2026-08-28,14:42,Cold Brew,1,4.95,Delivery
+2026-08-28,14:42,Chocolate Chip Cookie,1,2.50,Delivery
+2026-08-28,15:53,Iced Tea,2,3.25,Takeout
+2026-08-28,08:08,Breakfast Sandwich,1,7.25,Takeout
+2026-08-28,14:26,Turkey Club,1,9.95,Delivery
+2026-08-28,14:26,Matcha Latte,2,5.25,Delivery
+2026-08-28,07:30,Chocolate Chip Cookie,1,2.50,Delivery
+2026-08-28,07:15,Blueberry Muffin,1,3.50,Dine-In
+2026-08-28,12:39,Cappuccino,1,4.50,Takeout
+2026-08-28,09:09,Matcha Latte,1,5.25,Dine-In
+2026-08-28,17:52,Blueberry Muffin,1,3.50,Dine-In
+2026-08-28,19:32,Breakfast Sandwich,1,7.25,Takeout
+2026-08-28,08:23,Latte,1,4.75,Delivery
+2026-08-28,07:47,Cold Brew,1,4.95,Dine-In
+2026-08-28,07:47,Cappuccino,1,4.50,Dine-In
+2026-08-28,11:28,Chocolate Chip Cookie,1,2.50,Dine-In
+2026-08-28,11:28,Latte,1,4.75,Dine-In
+2026-08-28,12:07,Avocado Toast,1,8.50,Dine-In
+2026-08-28,08:45,Drip Coffee,1,2.95,Dine-In
+2026-08-28,08:45,Cappuccino,1,4.50,Dine-In
+2026-08-28,16:22,Blueberry Muffin,1,3.50,Delivery
+2026-08-28,10:55,Breakfast Sandwich,1,7.25,Dine-In
+2026-08-28,10:55,Bagel with Cream Cheese,2,4.25,Dine-In
+2026-08-28,07:53,Margherita Panini,1,8.95,Takeout
+2026-08-28,07:53,Breakfast Sandwich,1,7.25,Takeout
+2026-08-28,11:13,Matcha Latte,1,5.25,Dine-In
+2026-08-28,12:47,Margherita Panini,1,8.95,Dine-In
+2026-08-28,12:47,Turkey Club,1,9.95,Dine-In
+2026-08-28,18:18,Cold Brew,1,4.95,Delivery
+2026-08-28,12:52,Margherita Panini,1,8.95,Takeout
+2026-08-28,09:02,Margherita Panini,1,8.95,Delivery
+2026-08-28,17:28,Drip Coffee,2,2.95,Takeout
+2026-08-28,08:11,Bagel with Cream Cheese,1,4.25,Delivery
+2026-08-28,11:24,Bagel with Cream Cheese,1,4.25,Delivery
+2026-08-29,19:16,Iced Tea,1,3.25,Takeout
+2026-08-29,14:12,Turkey Club,1,9.95,Dine-In
+2026-08-29,12:21,Margherita Panini,1,8.95,Takeout
+2026-08-29,17:49,Latte,1,4.75,Takeout
+2026-08-29,17:49,Drip Coffee,1,2.95,Takeout
+2026-08-29,14:51,Margherita Panini,1,8.95,Dine-In
+2026-08-29,14:51,Blueberry Muffin,1,3.50,Dine-In
+2026-08-29,08:30,Caesar Salad,1,9.50,Dine-In
+2026-08-29,19:55,Latte,1,4.75,Dine-In
+2026-08-29,19:55,Caesar Salad,1,9.50,Dine-In
+2026-08-29,12:51,Hot Chocolate,1,4.00,Dine-In
+2026-08-29,10:58,Bagel with Cream Cheese,1,4.25,Takeout
+2026-08-29,10:58,Cappuccino,1,4.50,Takeout
+2026-08-29,15:05,Margherita Panini,1,8.95,Dine-In
+2026-08-29,12:01,Breakfast Sandwich,2,7.25,Dine-In
+2026-08-29,12:12,Turkey Club,1,9.95,Dine-In
+2026-08-29,10:58,Croissant,1,3.75,Takeout
+2026-08-29,07:53,Breakfast Sandwich,1,7.25,Dine-In
+2026-08-29,07:53,Avocado Toast,1,8.50,Dine-In
+2026-08-29,19:48,Drip Coffee,1,2.95,Dine-In
+2026-08-29,19:48,Latte,2,4.75,Dine-In
+2026-08-29,19:48,Latte,1,4.75,Dine-In
+2026-08-29,18:18,Cappuccino,1,4.50,Dine-In
+2026-08-29,18:18,Cold Brew,1,4.95,Dine-In
+2026-08-29,18:31,Caesar Salad,1,9.50,Takeout
+2026-08-29,18:31,Latte,1,4.75,Takeout
+2026-08-29,13:58,Avocado Toast,1,8.50,Dine-In
+2026-08-29,13:58,Cold Brew,1,4.95,Dine-In
+2026-08-29,14:40,Avocado Toast,1,8.50,Delivery
+2026-08-29,19:40,Margherita Panini,1,8.95,Dine-In
+2026-08-29,19:40,Avocado Toast,1,8.50,Dine-In
+2026-08-29,08:03,Chocolate Chip Cookie,1,2.50,Takeout
+2026-08-29,08:03,Matcha Latte,1,5.25,Takeout
+2026-08-29,13:58,Turkey Club,1,9.95,Dine-In
+2026-08-29,13:02,Hot Chocolate,1,4.00,Dine-In
+2026-08-29,18:42,Iced Tea,2,3.25,Dine-In
+2026-08-29,18:42,Caesar Salad,2,9.50,Dine-In
+2026-08-29,08:11,Croissant,1,3.75,Delivery
+2026-08-29,08:11,Iced Tea,1,3.25,Delivery
+2026-08-29,19:08,Cold Brew,1,4.95,Delivery
+2026-08-29,19:08,Margherita Panini,1,8.95,Delivery
+2026-08-29,07:12,Matcha Latte,1,5.25,Takeout
+2026-08-29,07:12,Chocolate Chip Cookie,1,2.50,Takeout
+2026-08-29,07:20,Breakfast Sandwich,1,7.25,Takeout
+2026-08-29,14:25,Caesar Salad,1,9.50,Takeout
+2026-08-29,14:25,Turkey Club,1,9.95,Takeout
+2026-08-29,07:12,Blueberry Muffin,1,3.50,Delivery
+2026-08-29,11:08,Avocado Toast,1,8.50,Takeout
+2026-08-29,10:28,Cappuccino,1,4.50,Dine-In
+2026-08-29,13:00,Caesar Salad,2,9.50,Delivery
+2026-08-29,13:00,Cold Brew,1,4.95,Delivery
+2026-08-29,17:34,Cappuccino,1,4.50,Dine-In
+2026-08-29,13:41,Decaf Espresso,1,3.50,Takeout
+2026-08-29,13:41,Hot Chocolate,1,4.00,Takeout
+2026-08-29,17:35,Matcha Latte,1,5.25,Takeout
+2026-08-29,08:35,Avocado Toast,1,8.50,Dine-In
+2026-08-29,18:08,Croissant,1,3.75,Dine-In
+2026-08-29,14:00,Breakfast Sandwich,1,7.25,Takeout
+2026-08-29,08:19,Turkey Club,2,9.95,Dine-In
+2026-08-29,17:56,Avocado Toast,2,8.50,Delivery
+2026-08-29,17:56,Croissant,1,3.75,Delivery
+2026-08-29,13:29,Latte,1,4.75,Delivery
+2026-08-29,16:55,Bagel with Cream Cheese,1,4.25,Dine-In
+2026-08-29,12:11,Cold Brew,1,4.95,Dine-In
+2026-08-29,15:29,Cappuccino,1,4.50,Dine-In
+2026-08-29,10:57,Blueberry Muffin,1,3.50,Takeout
+2026-08-29,10:57,Matcha Latte,1,5.25,Takeout
+2026-08-29,13:20,Decaf Espresso,2,3.50,Delivery
+2026-08-29,13:51,Turkey Club,1,9.95,Takeout
+2026-08-29,18:31,Margherita Panini,1,8.95,Dine-In
+2026-08-29,07:14,Bagel with Cream Cheese,1,4.25,Dine-In
+2026-08-29,19:33,Avocado Toast,1,8.50,Dine-In
+2026-08-29,19:33,Blueberry Muffin,1,3.50,Dine-In
+2026-08-29,10:19,Breakfast Sandwich,1,7.25,Dine-In
+2026-08-29,13:14,Avocado Toast,1,8.50,Dine-In
+2026-08-29,13:14,Chocolate Chip Cookie,2,2.50,Dine-In
+2026-08-29,17:58,Cold Brew,1,4.95,Dine-In
+2026-08-29,11:04,Chocolate Chip Cookie,1,2.50,Delivery
+2026-08-29,11:04,Margherita Panini,1,8.95,Delivery
+2026-08-29,11:04,Caesar Salad,1,9.50,Delivery
+2026-08-29,10:45,Avocado Toast,1,8.50,Delivery
+2026-08-29,10:45,Gluten-Free Muffin,1,4.25,Delivery
+2026-08-29,09:52,Cappuccino,2,4.50,Delivery
+2026-08-29,13:14,Bagel with Cream Cheese,1,4.25,Takeout
+2026-08-29,13:14,Cold Brew,1,4.95,Takeout
+2026-08-29,11:15,Margherita Panini,1,8.95,Dine-In
+2026-08-29,09:44,Drip Coffee,1,2.95,Dine-In
+2026-08-29,09:01,Croissant,1,3.75,Takeout
+2026-08-29,11:46,Caesar Salad,1,9.50,Dine-In
+2026-08-29,15:05,Avocado Toast,1,8.50,Delivery
+2026-08-29,09:56,Turkey Club,2,9.95,Takeout
+2026-08-29,09:56,Caesar Salad,1,9.50,Takeout
+2026-08-29,09:56,Iced Tea,1,3.25,Takeout
+2026-08-29,09:10,Iced Tea,1,3.25,Delivery
+2026-08-29,09:16,Breakfast Sandwich,1,7.25,Delivery
+2026-08-29,14:20,Caesar Salad,1,9.50,Dine-In
+2026-08-29,11:11,Drip Coffee,2,2.95,Takeout
+2026-08-29,11:11,Turkey Club,2,9.95,Takeout
+2026-08-29,11:52,Caesar Salad,1,9.50,Dine-In
+2026-08-30,13:51,Bagel with Cream Cheese,1,4.25,Dine-In
+2026-08-30,13:51,Avocado Toast,1,8.50,Dine-In
+2026-08-30,13:43,Bagel with Cream Cheese,1,4.25,Dine-In
+2026-08-30,13:43,Latte,1,4.75,Dine-In
+2026-08-30,09:13,Avocado Toast,1,8.50,Delivery
+2026-08-30,12:06,Chocolate Chip Cookie,1,2.50,Takeout
+2026-08-30,12:06,Croissant,1,3.75,Takeout
+2026-08-30,12:06,Caesar Salad,1,9.50,Takeout
+2026-08-30,11:11,Cappuccino,2,4.50,Dine-In
+2026-08-30,18:39,Avocado Toast,1,8.50,Takeout
+2026-08-30,13:18,Blueberry Muffin,1,3.50,Dine-In
+2026-08-30,19:34,Margherita Panini,1,8.95,Takeout
+2026-08-30,19:34,Iced Tea,1,3.25,Takeout
+2026-08-30,18:38,Caesar Salad,1,9.50,Dine-In
+2026-08-30,18:38,Matcha Latte,1,5.25,Dine-In
+2026-08-30,09:58,Cold Brew,1,4.95,Delivery
+2026-08-30,11:00,Gluten-Free Muffin,1,4.25,Dine-In
+2026-08-30,10:36,Croissant,1,3.75,Takeout
+2026-08-30,08:29,Cold Brew,1,4.95,Dine-In
+2026-08-30,08:29,Avocado Toast,2,8.50,Dine-In
+2026-08-30,08:29,Margherita Panini,1,8.95,Dine-In
+2026-08-30,14:21,Iced Tea,1,3.25,Takeout
+2026-08-30,09:50,Drip Coffee,1,2.95,Dine-In
+2026-08-30,17:28,Latte,1,4.75,Dine-In
+2026-08-30,08:18,Cold Brew,1,4.95,Dine-In
+2026-08-30,18:44,Cappuccino,1,4.50,Takeout
+2026-08-30,19:31,Cappuccino,1,4.50,Dine-In
+2026-08-30,19:31,Caesar Salad,1,9.50,Dine-In
+2026-08-30,10:22,Cold Brew,1,4.95,Dine-In
+2026-08-30,10:22,Iced Tea,1,3.25,Dine-In
+2026-08-30,10:22,Croissant,1,3.75,Dine-In
+2026-08-30,07:09,Breakfast Sandwich,1,7.25,Takeout
+2026-08-30,07:09,Blueberry Muffin,1,3.50,Takeout
+2026-08-30,14:07,Latte,1,4.75,Delivery
+2026-08-30,09:31,Croissant,1,3.75,Dine-In
+2026-08-30,07:26,Drip Coffee,1,2.95,Dine-In
+2026-08-30,08:53,Margherita Panini,1,8.95,Dine-In
+2026-08-30,08:53,Chocolate Chip Cookie,1,2.50,Dine-In
+2026-08-30,19:54,Drip Coffee,1,2.95,Dine-In
+2026-08-30,19:54,Avocado Toast,1,8.50,Dine-In
+2026-08-30,19:23,Chocolate Chip Cookie,1,2.50,Takeout
+2026-08-30,19:23,Blueberry Muffin,2,3.50,Takeout
+2026-08-30,08:55,Cold Brew,1,4.95,Dine-In
+2026-08-30,08:55,Avocado Toast,1,8.50,Dine-In
+2026-08-30,12:36,Cappuccino,2,4.50,Delivery
+2026-08-30,08:32,Drip Coffee,1,2.95,Delivery
+2026-08-30,08:32,Margherita Panini,1,8.95,Delivery
+2026-08-30,18:24,Chocolate Chip Cookie,1,2.50,Delivery
+2026-08-30,18:24,Turkey Club,2,9.95,Delivery
+2026-08-30,13:45,Cold Brew,1,4.95,Delivery
+2026-08-30,13:45,Blueberry Muffin,2,3.50,Delivery
+2026-08-30,19:22,Matcha Latte,1,5.25,Dine-In
+2026-08-30,19:26,Cappuccino,1,4.50,Takeout
+2026-08-30,14:08,Drip Coffee,1,2.95,Dine-In
+2026-08-30,14:08,Cappuccino,1,4.50,Dine-In
+2026-08-30,14:08,Matcha Latte,1,5.25,Dine-In
+2026-08-30,09:48,Avocado Toast,1,8.50,Delivery
+2026-08-30,09:02,Latte,1,4.75,Delivery
+2026-08-30,09:02,Bagel with Cream Cheese,1,4.25,Delivery
+2026-08-30,10:53,Iced Tea,1,3.25,Takeout
+2026-08-30,10:53,Latte,1,4.75,Takeout
+2026-08-30,10:53,Chocolate Chip Cookie,2,2.50,Takeout
+2026-08-30,15:48,Bagel with Cream Cheese,1,4.25,Takeout
+2026-08-30,10:19,Bagel with Cream Cheese,1,4.25,Dine-In
+2026-08-30,10:19,Turkey Club,1,9.95,Dine-In
+2026-08-30,10:19,Bagel with Cream Cheese,1,4.25,Dine-In
+2026-08-30,11:18,Drip Coffee,1,2.95,Dine-In
+2026-08-30,19:16,Drip Coffee,1,2.95,Dine-In
+2026-08-30,19:16,Croissant,1,3.75,Dine-In
+2026-08-30,10:40,Margherita Panini,1,8.95,Takeout
+2026-08-30,10:40,Matcha Latte,1,5.25,Takeout
+2026-08-30,09:52,Cappuccino,1,4.50,Delivery
+2026-08-30,13:48,Gluten-Free Muffin,1,4.25,Dine-In
+2026-08-30,13:48,Bagel with Cream Cheese,2,4.25,Dine-In
+2026-08-30,09:05,Margherita Panini,1,8.95,Takeout
+2026-08-30,09:05,Turkey Club,1,9.95,Takeout
+2026-08-30,09:05,Cappuccino,1,4.50,Takeout
+2026-08-30,12:15,Cappuccino,1,4.50,Dine-In
+2026-08-30,12:15,Chocolate Chip Cookie,2,2.50,Dine-In
+2026-08-30,12:15,Avocado Toast,1,8.50,Dine-In
+2026-08-30,13:46,Latte,1,4.75,Dine-In
+2026-08-30,13:46,Cappuccino,1,4.50,Dine-In
+2026-08-30,14:07,Bagel with Cream Cheese,1,4.25,Dine-In
+2026-08-30,15:49,Bagel with Cream Cheese,1,4.25,Takeout
+2026-08-30,19:19,Matcha Latte,1,5.25,Dine-In
+2026-08-30,17:38,Matcha Latte,1,5.25,Takeout
+2026-08-30,17:38,Iced Tea,1,3.25,Takeout
+2026-08-30,14:57,Margherita Panini,1,8.95,Takeout
+2026-08-30,14:57,Chocolate Chip Cookie,1,2.50,Takeout
+2026-08-30,10:08,Caesar Salad,1,9.50,Dine-In
+2026-08-30,10:08,Chocolate Chip Cookie,2,2.50,Dine-In
+2026-08-30,14:14,Caesar Salad,1,9.50,Dine-In
+2026-08-30,14:43,Bagel with Cream Cheese,1,4.25,Dine-In
+2026-08-30,16:35,Cold Brew,2,4.95,Delivery
+2026-08-30,13:12,Cold Brew,1,4.95,Dine-In
+2026-08-30,13:12,Caesar Salad,1,9.50,Dine-In
+2026-08-30,13:12,Caesar Salad,1,9.50,Dine-In
+2026-08-30,17:05,Blueberry Muffin,1,3.50,Dine-In
+2026-08-30,17:05,Chocolate Chip Cookie,1,2.50,Dine-In
+2026-08-30,19:56,Latte,1,4.75,Takeout
+2026-08-30,09:25,Cappuccino,1,4.50,Takeout
+2026-08-30,09:25,Blueberry Muffin,1,3.50,Takeout
+2026-08-30,13:31,Latte,1,4.75,Dine-In
+2026-08-30,13:31,Chocolate Chip Cookie,1,2.50,Dine-In
+2026-08-30,18:28,Drip Coffee,1,2.95,Dine-In
+2026-08-30,18:28,Avocado Toast,1,8.50,Dine-In
+2026-08-30,18:09,Croissant,1,3.75,Dine-In
+2026-08-30,11:19,Blueberry Muffin,1,3.50,Dine-In
+2026-08-30,13:32,Chocolate Chip Cookie,1,2.50,Takeout
+2026-08-30,13:50,Iced Tea,1,3.25,Takeout
+2026-08-30,08:44,Iced Tea,1,3.25,Takeout
+2026-08-30,14:25,Matcha Latte,1,5.25,Takeout
+2026-08-30,14:25,Matcha Latte,1,5.25,Takeout
+2026-08-30,12:26,Cappuccino,2,4.50,Dine-In
+2026-08-30,12:26,Breakfast Sandwich,1,7.25,Dine-In
+2026-08-31,12:56,Margherita Panini,1,8.95,Delivery
+2026-08-31,17:45,Cold Brew,1,4.95,Delivery
+2026-08-31,07:33,Caesar Salad,1,9.50,Delivery
+2026-08-31,07:33,Croissant,1,3.75,Delivery
+2026-08-31,15:41,Latte,1,4.75,Takeout
+2026-08-31,08:39,Blueberry Muffin,1,3.50,Delivery
+2026-08-31,08:39,Caesar Salad,1,9.50,Delivery
+2026-08-31,13:48,Gluten-Free Muffin,2,4.25,Takeout
+2026-08-31,13:48,Avocado Toast,1,8.50,Takeout
+2026-08-31,13:48,Cappuccino,1,4.50,Takeout
+2026-08-31,12:13,Cappuccino,1,4.50,Dine-In
+2026-08-31,16:21,Chocolate Chip Cookie,1,2.50,Dine-In
+2026-08-31,16:21,Drip Coffee,1,2.95,Dine-In
+2026-08-31,19:29,Avocado Toast,1,8.50,Dine-In
+2026-08-31,19:29,Margherita Panini,1,8.95,Dine-In
+2026-08-31,13:00,Bagel with Cream Cheese,1,4.25,Delivery
+2026-08-31,13:00,Margherita Panini,1,8.95,Delivery
+2026-08-31,07:30,Drip Coffee,1,2.95,Takeout
+2026-08-31,12:56,Matcha Latte,1,5.25,Dine-In
+2026-08-31,08:14,Chocolate Chip Cookie,1,2.50,Dine-In
+2026-08-31,12:36,Avocado Toast,2,8.50,Takeout
+2026-08-31,12:36,Hot Chocolate,1,4.00,Takeout
+2026-08-31,12:36,Caesar Salad,1,9.50,Takeout
+2026-08-31,07:26,Croissant,1,3.75,Dine-In
+2026-08-31,19:57,Margherita Panini,1,8.95,Dine-In
+2026-08-31,14:08,Bagel with Cream Cheese,1,4.25,Dine-In
+2026-08-31,14:08,Turkey Club,1,9.95,Dine-In
+2026-08-31,17:55,Cappuccino,1,4.50,Dine-In
+2026-08-31,17:55,Hot Chocolate,1,4.00,Dine-In
+2026-08-31,11:44,Breakfast Sandwich,1,7.25,Delivery
+2026-08-31,08:33,Latte,1,4.75,Delivery
+2026-08-31,08:53,Margherita Panini,1,8.95,Dine-In
+2026-08-31,12:32,Caesar Salad,1,9.50,Takeout
+2026-08-31,12:32,Iced Tea,1,3.25,Takeout
+2026-08-31,07:59,Latte,1,4.75,Dine-In
+2026-08-31,11:46,Margherita Panini,1,8.95,Dine-In
+2026-08-31,11:46,Turkey Club,1,9.95,Dine-In
+2026-08-31,07:34,Drip Coffee,1,2.95,Dine-In
+2026-08-31,07:34,Cold Brew,1,4.95,Dine-In
+2026-08-31,07:34,Latte,2,4.75,Dine-In
+2026-08-31,07:35,Margherita Panini,1,8.95,Takeout
+2026-08-31,07:35,Drip Coffee,2,2.95,Takeout
+2026-08-31,11:00,Avocado Toast,1,8.50,Dine-In
+2026-08-31,08:22,Turkey Club,1,9.95,Delivery
+2026-08-31,08:22,Chocolate Chip Cookie,1,2.50,Delivery
+2026-08-31,19:07,Blueberry Muffin,1,3.50,Takeout
+2026-08-31,19:07,Avocado Toast,1,8.50,Takeout
+2026-08-31,08:41,Chocolate Chip Cookie,1,2.50,Dine-In
+2026-08-31,13:20,Blueberry Muffin,1,3.50,Dine-In
+2026-08-31,09:04,Caesar Salad,2,9.50,Dine-In
+2026-08-31,10:03,Blueberry Muffin,1,3.50,Takeout
+2026-08-31,10:03,Caesar Salad,1,9.50,Takeout
+2026-08-31,10:03,Drip Coffee,1,2.95,Takeout
+2026-08-31,16:28,Blueberry Muffin,1,3.50,Dine-In
+2026-08-31,16:28,Turkey Club,1,9.95,Dine-In
+2026-08-31,16:28,Matcha Latte,1,5.25,Dine-In
+2026-08-31,11:25,Chocolate Chip Cookie,1,2.50,Dine-In
+2026-08-31,11:47,Iced Tea,1,3.25,Dine-In
+2026-08-31,11:47,Blueberry Muffin,1,3.50,Dine-In
+2026-08-31,08:45,Chocolate Chip Cookie,1,2.50,Dine-In
+2026-08-31,18:47,Blueberry Muffin,1,3.50,Takeout
+2026-08-31,12:20,Bagel with Cream Cheese,1,4.25,Dine-In
+2026-08-31,10:40,Iced Tea,1,3.25,Takeout
+2026-08-31,15:20,Cold Brew,1,4.95,Takeout
+2026-08-31,16:49,Latte,1,4.75,Takeout
+2026-08-31,07:25,Cappuccino,2,4.50,Takeout
+2026-08-31,11:43,Drip Coffee,1,2.95,Takeout
+2026-08-31,08:01,Caesar Salad,1,9.50,Takeout
+2026-08-31,12:12,Cappuccino,1,4.50,Takeout
+2026-08-31,12:12,Caesar Salad,1,9.50,Takeout
+2026-08-31,08:53,Latte,1,4.75,Dine-In
+2026-08-31,13:43,Turkey Club,2,9.95,Dine-In
+2026-09-01,19:42,Cold Brew,1,4.95,Takeout
+2026-09-01,19:42,Latte,1,4.75,Takeout
+2026-09-01,09:37,Decaf Espresso,1,3.50,Dine-In
+2026-09-01,09:37,Latte,1,4.75,Dine-In
+2026-09-01,09:37,Bagel with Cream Cheese,1,4.25,Dine-In
+2026-09-01,17:59,Cappuccino,1,4.50,Dine-In
+2026-09-01,17:19,Croissant,1,3.75,Takeout
+2026-09-01,17:19,Blueberry Muffin,1,3.50,Takeout
+2026-09-01,10:28,Gluten-Free Muffin,1,4.25,Takeout
+2026-09-01,11:41,Iced Tea,1,3.25,Takeout
+2026-09-01,15:01,Turkey Club,1,9.95,Delivery
+2026-09-01,13:18,Iced Tea,1,3.25,Takeout
+2026-09-01,19:40,Bagel with Cream Cheese,1,4.25,Dine-In
+2026-09-01,08:44,Cappuccino,1,4.50,Takeout
+2026-09-01,08:44,Iced Tea,1,3.25,Takeout
+2026-09-01,10:30,Cappuccino,1,4.50,Takeout
+2026-09-01,19:29,Bagel with Cream Cheese,2,4.25,Takeout
+2026-09-01,08:33,Decaf Espresso,1,3.50,Dine-In
+2026-09-01,08:33,Iced Tea,1,3.25,Dine-In
+2026-09-01,13:16,Chocolate Chip Cookie,1,2.50,Dine-In
+2026-09-01,07:26,Croissant,1,3.75,Takeout
+2026-09-01,07:26,Breakfast Sandwich,1,7.25,Takeout
+2026-09-01,07:26,Cold Brew,2,4.95,Takeout
+2026-09-01,12:56,Latte,1,4.75,Takeout
+2026-09-01,12:56,Avocado Toast,1,8.50,Takeout
+2026-09-01,18:27,Turkey Club,1,9.95,Dine-In
+2026-09-01,18:27,Chocolate Chip Cookie,1,2.50,Dine-In
+2026-09-01,14:42,Chocolate Chip Cookie,1,2.50,Delivery
+2026-09-01,14:42,Margherita Panini,1,8.95,Delivery
+2026-09-01,19:15,Caesar Salad,1,9.50,Delivery
+2026-09-01,19:15,Blueberry Muffin,1,3.50,Delivery
+2026-09-01,11:05,Latte,1,4.75,Takeout
+2026-09-01,11:05,Gluten-Free Muffin,1,4.25,Takeout
+2026-09-01,19:00,Chocolate Chip Cookie,1,2.50,Takeout
+2026-09-01,17:20,Breakfast Sandwich,1,7.25,Delivery
+2026-09-01,17:20,Breakfast Sandwich,1,7.25,Delivery
+2026-09-01,15:49,Caesar Salad,1,9.50,Dine-In
+2026-09-01,10:35,Blueberry Muffin,1,3.50,Dine-In
+2026-09-01,08:35,Iced Tea,1,3.25,Takeout
+2026-09-01,08:35,Chocolate Chip Cookie,1,2.50,Takeout
+2026-09-01,14:23,Avocado Toast,1,8.50,Dine-In
+2026-09-01,14:23,Avocado Toast,1,8.50,Dine-In
+2026-09-01,07:10,Blueberry Muffin,2,3.50,Dine-In
+2026-09-01,07:10,Margherita Panini,1,8.95,Dine-In
+2026-09-01,07:10,Turkey Club,2,9.95,Dine-In
+2026-09-01,18:42,Bagel with Cream Cheese,1,4.25,Takeout
+2026-09-01,18:42,Cappuccino,1,4.50,Takeout
+2026-09-01,08:45,Croissant,1,3.75,Dine-In
+2026-09-01,13:27,Bagel with Cream Cheese,1,4.25,Dine-In
+2026-09-01,12:20,Bagel with Cream Cheese,1,4.25,Delivery
+2026-09-01,11:45,Drip Coffee,1,2.95,Takeout
+2026-09-01,18:42,Cappuccino,1,4.50,Takeout
+2026-09-01,18:42,Caesar Salad,1,9.50,Takeout
+2026-09-01,13:49,Breakfast Sandwich,1,7.25,Dine-In
+2026-09-01,13:49,Margherita Panini,1,8.95,Dine-In
+2026-09-01,09:14,Cappuccino,2,4.50,Takeout
+2026-09-01,15:00,Cold Brew,1,4.95,Dine-In
+2026-09-01,15:00,Chocolate Chip Cookie,1,2.50,Dine-In
+2026-09-01,15:00,Latte,2,4.75,Dine-In
+2026-09-01,18:51,Cold Brew,1,4.95,Dine-In
+2026-09-01,18:51,Chocolate Chip Cookie,1,2.50,Dine-In
+2026-09-01,18:50,Margherita Panini,1,8.95,Dine-In
+2026-09-01,18:50,Iced Tea,1,3.25,Dine-In
+2026-09-01,08:06,Bagel with Cream Cheese,1,4.25,Takeout
+2026-09-01,08:06,Croissant,1,3.75,Takeout
+2026-09-01,18:54,Croissant,1,3.75,Delivery
+2026-09-01,18:54,Croissant,1,3.75,Delivery
+2026-09-01,17:51,Blueberry Muffin,1,3.50,Takeout
+2026-09-01,17:51,Hot Chocolate,1,4.00,Takeout
+2026-09-01,17:51,Caesar Salad,2,9.50,Takeout
+2026-09-01,09:40,Latte,1,4.75,Dine-In
+2026-09-01,09:40,Latte,1,4.75,Dine-In
+2026-09-01,19:18,Hot Chocolate,1,4.00,Delivery
+2026-09-01,19:18,Bagel with Cream Cheese,1,4.25,Delivery
+2026-09-01,19:18,Latte,1,4.75,Delivery
+2026-09-01,08:49,Caesar Salad,1,9.50,Takeout
+2026-09-02,11:15,Avocado Toast,1,8.50,Takeout
+2026-09-02,11:17,Cold Brew,2,4.95,Dine-In
+2026-09-02,11:17,Cold Brew,1,4.95,Dine-In
+2026-09-02,11:17,Cold Brew,1,4.95,Dine-In
+2026-09-02,17:30,Croissant,1,3.75,Takeout
+2026-09-02,11:34,Avocado Toast,1,8.50,Dine-In
+2026-09-02,13:03,Croissant,1,3.75,Dine-In
+2026-09-02,13:03,Margherita Panini,1,8.95,Dine-In
+2026-09-02,13:03,Matcha Latte,1,5.25,Dine-In
+2026-09-02,09:20,Blueberry Muffin,2,3.50,Dine-In
+2026-09-02,12:51,Iced Tea,2,3.25,Takeout
+2026-09-02,15:51,Matcha Latte,1,5.25,Takeout
+2026-09-02,15:51,Blueberry Muffin,1,3.50,Takeout
+2026-09-02,15:51,Turkey Club,1,9.95,Takeout
+2026-09-02,12:05,Iced Tea,1,3.25,Dine-In
+2026-09-02,12:05,Cappuccino,1,4.50,Dine-In
+2026-09-02,08:51,Chocolate Chip Cookie,1,2.50,Takeout
+2026-09-02,11:46,Turkey Club,1,9.95,Dine-In
+2026-09-02,11:46,Latte,1,4.75,Dine-In
+2026-09-02,11:46,Iced Tea,2,3.25,Dine-In
+2026-09-02,08:06,Blueberry Muffin,1,3.50,Takeout
+2026-09-02,19:14,Caesar Salad,1,9.50,Takeout
+2026-09-02,19:14,Chocolate Chip Cookie,2,2.50,Takeout
+2026-09-02,17:53,Croissant,2,3.75,Takeout
+2026-09-02,17:53,Drip Coffee,1,2.95,Takeout
+2026-09-02,08:12,Avocado Toast,1,8.50,Takeout
+2026-09-02,07:57,Gluten-Free Muffin,1,4.25,Takeout
+2026-09-02,18:09,Margherita Panini,1,8.95,Dine-In
+2026-09-02,17:18,Drip Coffee,1,2.95,Dine-In
+2026-09-02,10:45,Drip Coffee,2,2.95,Dine-In
+2026-09-02,10:45,Latte,2,4.75,Dine-In
+2026-09-02,18:04,Blueberry Muffin,1,3.50,Takeout
+2026-09-02,17:26,Matcha Latte,1,5.25,Takeout
+2026-09-02,17:26,Breakfast Sandwich,2,7.25,Takeout
+2026-09-02,17:26,Turkey Club,1,9.95,Takeout
+2026-09-02,13:11,Drip Coffee,1,2.95,Delivery
+2026-09-02,12:47,Cold Brew,1,4.95,Delivery
+2026-09-02,11:45,Turkey Club,2,9.95,Takeout
+2026-09-02,12:06,Avocado Toast,2,8.50,Takeout
+2026-09-02,13:40,Bagel with Cream Cheese,1,4.25,Takeout
+2026-09-02,15:46,Caesar Salad,1,9.50,Delivery
+2026-09-02,15:46,Drip Coffee,1,2.95,Delivery
+2026-09-02,13:31,Croissant,1,3.75,Dine-In
+2026-09-02,12:00,Bagel with Cream Cheese,1,4.25,Dine-In
+2026-09-02,08:43,Latte,1,4.75,Delivery
+2026-09-02,08:43,Drip Coffee,2,2.95,Delivery
+2026-09-02,15:59,Matcha Latte,1,5.25,Takeout
+2026-09-02,12:53,Blueberry Muffin,1,3.50,Delivery
+2026-09-02,17:17,Iced Tea,1,3.25,Dine-In
+2026-09-02,17:17,Chocolate Chip Cookie,1,2.50,Dine-In
+2026-09-02,17:01,Drip Coffee,1,2.95,Takeout
+2026-09-02,17:01,Matcha Latte,1,5.25,Takeout
+2026-09-02,12:49,Chocolate Chip Cookie,1,2.50,Takeout
+2026-09-02,12:49,Cold Brew,1,4.95,Takeout
+2026-09-02,11:56,Iced Tea,1,3.25,Dine-In
+2026-09-02,10:30,Cold Brew,1,4.95,Takeout
+2026-09-02,19:04,Margherita Panini,1,8.95,Takeout
+2026-09-02,14:49,Blueberry Muffin,1,3.50,Dine-In
+2026-09-02,13:04,Latte,2,4.75,Takeout
+2026-09-02,17:42,Decaf Espresso,1,3.50,Takeout
+2026-09-02,17:42,Bagel with Cream Cheese,1,4.25,Takeout
+2026-09-02,11:38,Drip Coffee,1,2.95,Takeout
+2026-09-02,11:38,Avocado Toast,1,8.50,Takeout
+2026-09-02,14:07,Croissant,2,3.75,Takeout
+2026-09-02,15:26,Cappuccino,1,4.50,Delivery
+2026-09-03,11:46,Cold Brew,2,4.95,Takeout
+2026-09-03,18:33,Caesar Salad,1,9.50,Dine-In
+2026-09-03,18:33,Bagel with Cream Cheese,1,4.25,Dine-In
+2026-09-03,18:33,Turkey Club,1,9.95,Dine-In
+2026-09-03,15:35,Drip Coffee,1,2.95,Takeout
+2026-09-03,15:35,Margherita Panini,1,8.95,Takeout
+2026-09-03,15:35,Avocado Toast,1,8.50,Takeout
+2026-09-03,12:58,Turkey Club,1,9.95,Dine-In
+2026-09-03,16:15,Avocado Toast,1,8.50,Takeout
+2026-09-03,16:15,Caesar Salad,1,9.50,Takeout
+2026-09-03,09:44,Chocolate Chip Cookie,1,2.50,Delivery
+2026-09-03,12:01,Cold Brew,2,4.95,Dine-In
+2026-09-03,09:50,Croissant,2,3.75,Dine-In
+2026-09-03,12:03,Latte,1,4.75,Takeout
+2026-09-03,12:03,Cappuccino,2,4.50,Takeout
+2026-09-03,09:43,Drip Coffee,1,2.95,Takeout
+2026-09-03,07:11,Blueberry Muffin,1,3.50,Takeout
+2026-09-03,07:11,Cappuccino,1,4.50,Takeout
+2026-09-03,13:54,Matcha Latte,1,5.25,Dine-In
+2026-09-03,17:40,Chocolate Chip Cookie,1,2.50,Dine-In
+2026-09-03,14:54,Chocolate Chip Cookie,1,2.50,Dine-In
+2026-09-03,09:34,Margherita Panini,1,8.95,Dine-In
+2026-09-03,08:36,Croissant,1,3.75,Dine-In
+2026-09-03,18:03,Latte,1,4.75,Dine-In
+2026-09-03,18:03,Iced Tea,1,3.25,Dine-In
+2026-09-03,08:26,Latte,1,4.75,Delivery
+2026-09-03,08:26,Matcha Latte,1,5.25,Delivery
+2026-09-03,08:26,Matcha Latte,1,5.25,Delivery
+2026-09-03,07:02,Cappuccino,1,4.50,Dine-In
+2026-09-03,07:02,Gluten-Free Muffin,1,4.25,Dine-In
+2026-09-03,09:49,Blueberry Muffin,1,3.50,Takeout
+2026-09-03,09:49,Turkey Club,1,9.95,Takeout
+2026-09-03,19:59,Iced Tea,1,3.25,Takeout
+2026-09-03,19:59,Latte,1,4.75,Takeout
+2026-09-03,08:03,Cappuccino,1,4.50,Dine-In
+2026-09-03,19:05,Blueberry Muffin,1,3.50,Takeout
+2026-09-03,17:06,Turkey Club,1,9.95,Dine-In
+2026-09-03,12:30,Gluten-Free Muffin,2,4.25,Dine-In
+2026-09-03,12:30,Chocolate Chip Cookie,1,2.50,Dine-In
+2026-09-03,11:56,Matcha Latte,1,5.25,Dine-In
+2026-09-03,11:56,Bagel with Cream Cheese,1,4.25,Dine-In
+2026-09-03,16:40,Breakfast Sandwich,1,7.25,Dine-In
+2026-09-03,16:40,Drip Coffee,1,2.95,Dine-In
+2026-09-03,08:28,Breakfast Sandwich,2,7.25,Takeout
+2026-09-03,19:49,Matcha Latte,1,5.25,Delivery
+2026-09-03,19:49,Cappuccino,2,4.50,Delivery
+2026-09-03,14:37,Croissant,1,3.75,Takeout
+2026-09-03,14:37,Iced Tea,1,3.25,Takeout
+2026-09-03,12:12,Gluten-Free Muffin,1,4.25,Takeout
+2026-09-03,10:52,Caesar Salad,1,9.50,Dine-In
+2026-09-03,10:52,Turkey Club,1,9.95,Dine-In
+2026-09-03,13:34,Chocolate Chip Cookie,1,2.50,Delivery
+2026-09-03,19:16,Cappuccino,1,4.50,Takeout
+2026-09-03,13:46,Croissant,2,3.75,Dine-In
+2026-09-03,13:46,Margherita Panini,1,8.95,Dine-In
+2026-09-03,12:26,Latte,1,4.75,Takeout
+2026-09-03,18:49,Blueberry Muffin,2,3.50,Takeout
+2026-09-03,17:26,Cappuccino,2,4.50,Takeout
+2026-09-03,17:26,Chocolate Chip Cookie,2,2.50,Takeout
+2026-09-03,12:57,Breakfast Sandwich,1,7.25,Delivery
+2026-09-03,12:57,Turkey Club,1,9.95,Delivery
+2026-09-03,12:17,Decaf Espresso,2,3.50,Delivery
+2026-09-03,15:37,Matcha Latte,1,5.25,Dine-In
+2026-09-04,10:33,Bagel with Cream Cheese,1,4.25,Dine-In
+2026-09-04,14:23,Breakfast Sandwich,1,7.25,Delivery
+2026-09-04,09:46,Blueberry Muffin,1,3.50,Dine-In
+2026-09-04,09:46,Hot Chocolate,1,4.00,Dine-In
+2026-09-04,09:46,Cold Brew,1,4.95,Dine-In
+2026-09-04,09:42,Latte,1,4.75,Dine-In
+2026-09-04,09:42,Bagel with Cream Cheese,1,4.25,Dine-In
+2026-09-04,12:20,Latte,1,4.75,Delivery
+2026-09-04,12:20,Decaf Espresso,1,3.50,Delivery
+2026-09-04,19:20,Gluten-Free Muffin,1,4.25,Dine-In
+2026-09-04,08:17,Croissant,1,3.75,Takeout
+2026-09-04,08:17,Bagel with Cream Cheese,1,4.25,Takeout
+2026-09-04,09:19,Matcha Latte,1,5.25,Dine-In
+2026-09-04,12:00,Bagel with Cream Cheese,1,4.25,Takeout
+2026-09-04,15:19,Blueberry Muffin,1,3.50,Dine-In
+2026-09-04,15:19,Decaf Espresso,1,3.50,Dine-In
+2026-09-04,09:29,Bagel with Cream Cheese,1,4.25,Takeout
+2026-09-04,12:37,Latte,1,4.75,Dine-In
+2026-09-04,19:01,Decaf Espresso,2,3.50,Takeout
+2026-09-04,19:01,Matcha Latte,1,5.25,Takeout
+2026-09-04,16:25,Breakfast Sandwich,2,7.25,Takeout
+2026-09-04,16:25,Latte,1,4.75,Takeout
+2026-09-04,07:28,Cappuccino,1,4.50,Dine-In
+2026-09-04,19:16,Decaf Espresso,1,3.50,Takeout
+2026-09-04,19:16,Turkey Club,1,9.95,Takeout
+2026-09-04,19:00,Drip Coffee,1,2.95,Takeout
+2026-09-04,18:19,Latte,1,4.75,Dine-In
+2026-09-04,09:38,Bagel with Cream Cheese,1,4.25,Dine-In
+2026-09-04,09:38,Bagel with Cream Cheese,1,4.25,Dine-In
+2026-09-04,19:56,Cold Brew,2,4.95,Takeout
+2026-09-04,19:56,Breakfast Sandwich,1,7.25,Takeout
+2026-09-04,07:09,Matcha Latte,1,5.25,Takeout
+2026-09-04,07:09,Blueberry Muffin,1,3.50,Takeout
+2026-09-04,11:55,Croissant,1,3.75,Dine-In
+2026-09-04,13:44,Latte,2,4.75,Dine-In
+2026-09-04,13:44,Latte,1,4.75,Dine-In
+2026-09-04,08:07,Avocado Toast,1,8.50,Takeout
+2026-09-04,10:06,Drip Coffee,1,2.95,Takeout
+2026-09-04,10:06,Avocado Toast,1,8.50,Takeout
+2026-09-04,07:00,Croissant,1,3.75,Takeout
+2026-09-04,07:00,Breakfast Sandwich,1,7.25,Takeout
+2026-09-04,12:04,Latte,1,4.75,Delivery
+2026-09-04,08:01,Blueberry Muffin,2,3.50,Dine-In
+2026-09-04,17:26,Avocado Toast,1,8.50,Takeout
+2026-09-04,18:27,Matcha Latte,2,5.25,Takeout
+2026-09-04,18:27,Hot Chocolate,1,4.00,Takeout
+2026-09-04,09:17,Bagel with Cream Cheese,2,4.25,Delivery
+2026-09-04,09:17,Turkey Club,1,9.95,Delivery
+2026-09-04,14:22,Breakfast Sandwich,2,7.25,Delivery
+2026-09-04,14:40,Latte,1,4.75,Takeout
+2026-09-04,14:40,Caesar Salad,1,9.50,Takeout
+2026-09-04,08:14,Matcha Latte,1,5.25,Takeout
+2026-09-04,08:14,Decaf Espresso,1,3.50,Takeout
+2026-09-04,19:33,Hot Chocolate,1,4.00,Takeout
+2026-09-04,12:29,Cold Brew,1,4.95,Takeout
+2026-09-04,10:20,Drip Coffee,1,2.95,Dine-In
+2026-09-04,10:20,Margherita Panini,1,8.95,Dine-In
+2026-09-04,17:36,Cappuccino,1,4.50,Takeout
+2026-09-04,19:16,Drip Coffee,1,2.95,Delivery
+2026-09-04,19:16,Iced Tea,2,3.25,Delivery
+2026-09-04,19:16,Cappuccino,1,4.50,Delivery
+2026-09-04,12:47,Chocolate Chip Cookie,1,2.50,Dine-In
+2026-09-04,12:25,Turkey Club,1,9.95,Dine-In
+2026-09-04,12:25,Croissant,1,3.75,Dine-In
+2026-09-04,12:25,Turkey Club,1,9.95,Dine-In
+2026-09-04,11:52,Cold Brew,1,4.95,Dine-In
+2026-09-04,12:27,Cold Brew,1,4.95,Dine-In
+2026-09-04,12:27,Latte,1,4.75,Dine-In
+2026-09-04,18:11,Avocado Toast,1,8.50,Takeout
+2026-09-04,18:11,Cold Brew,1,4.95,Takeout
+2026-09-04,12:29,Cold Brew,1,4.95,Dine-In
+2026-09-04,07:34,Matcha Latte,1,5.25,Takeout
+2026-09-04,07:34,Bagel with Cream Cheese,1,4.25,Takeout
+2026-09-04,15:14,Chocolate Chip Cookie,1,2.50,Takeout
+2026-09-04,16:12,Croissant,1,3.75,Takeout
+2026-09-05,11:36,Margherita Panini,2,8.95,Dine-In
+2026-09-05,13:40,Turkey Club,1,9.95,Takeout
+2026-09-05,15:53,Breakfast Sandwich,1,7.25,Dine-In
+2026-09-05,15:53,Croissant,1,3.75,Dine-In
+2026-09-05,11:54,Decaf Espresso,1,3.50,Dine-In
+2026-09-05,12:51,Decaf Espresso,1,3.50,Dine-In
+2026-09-05,12:51,Iced Tea,1,3.25,Dine-In
+2026-09-05,08:20,Avocado Toast,1,8.50,Dine-In
+2026-09-05,08:20,Margherita Panini,1,8.95,Dine-In
+2026-09-05,13:50,Breakfast Sandwich,1,7.25,Dine-In
+2026-09-05,13:45,Iced Tea,1,3.25,Takeout
+2026-09-05,13:45,Breakfast Sandwich,2,7.25,Takeout
+2026-09-05,14:12,Latte,1,4.75,Dine-In
+2026-09-05,18:44,Cappuccino,1,4.50,Takeout
+2026-09-05,18:44,Bagel with Cream Cheese,2,4.25,Takeout
+2026-09-05,14:25,Matcha Latte,2,5.25,Dine-In
+2026-09-05,18:13,Avocado Toast,1,8.50,Takeout
+2026-09-05,09:12,Breakfast Sandwich,1,7.25,Dine-In
+2026-09-05,18:23,Margherita Panini,1,8.95,Dine-In
+2026-09-05,13:52,Iced Tea,1,3.25,Dine-In
+2026-09-05,13:52,Hot Chocolate,1,4.00,Dine-In
+2026-09-05,13:07,Breakfast Sandwich,2,7.25,Dine-In
+2026-09-05,08:24,Caesar Salad,1,9.50,Dine-In
+2026-09-05,08:24,Bagel with Cream Cheese,1,4.25,Dine-In
+2026-09-05,16:57,Chocolate Chip Cookie,2,2.50,Takeout
+2026-09-05,16:57,Avocado Toast,1,8.50,Takeout
+2026-09-05,16:57,Avocado Toast,1,8.50,Takeout
+2026-09-05,09:09,Matcha Latte,1,5.25,Takeout
+2026-09-05,09:09,Caesar Salad,1,9.50,Takeout
+2026-09-05,10:32,Cold Brew,2,4.95,Takeout
+2026-09-05,10:32,Cold Brew,1,4.95,Takeout
+2026-09-05,13:33,Margherita Panini,1,8.95,Dine-In
+2026-09-05,13:53,Avocado Toast,1,8.50,Dine-In
+2026-09-05,07:44,Turkey Club,1,9.95,Delivery
+2026-09-05,13:08,Avocado Toast,1,8.50,Dine-In
+2026-09-05,09:18,Iced Tea,1,3.25,Dine-In
+2026-09-05,19:03,Gluten-Free Muffin,2,4.25,Dine-In
+2026-09-05,07:08,Margherita Panini,1,8.95,Dine-In
+2026-09-05,18:50,Cappuccino,1,4.50,Delivery
+2026-09-05,11:56,Gluten-Free Muffin,1,4.25,Takeout
+2026-09-05,11:56,Avocado Toast,1,8.50,Takeout
+2026-09-05,19:49,Drip Coffee,1,2.95,Dine-In
+2026-09-05,18:22,Latte,1,4.75,Dine-In
+2026-09-05,19:37,Hot Chocolate,1,4.00,Takeout
+2026-09-05,19:50,Croissant,1,3.75,Dine-In
+2026-09-05,16:51,Croissant,1,3.75,Delivery
+2026-09-05,15:17,Hot Chocolate,1,4.00,Dine-In
+2026-09-05,12:38,Margherita Panini,1,8.95,Dine-In
+2026-09-05,13:04,Drip Coffee,1,2.95,Delivery
+2026-09-05,18:35,Hot Chocolate,1,4.00,Delivery
+2026-09-05,08:40,Caesar Salad,2,9.50,Takeout
+2026-09-05,13:49,Turkey Club,1,9.95,Dine-In
+2026-09-05,13:49,Decaf Espresso,1,3.50,Dine-In
+2026-09-05,18:03,Matcha Latte,1,5.25,Takeout
+2026-09-05,18:08,Iced Tea,1,3.25,Takeout
+2026-09-05,18:08,Blueberry Muffin,1,3.50,Takeout
+2026-09-05,08:29,Latte,1,4.75,Delivery
+2026-09-05,17:15,Blueberry Muffin,2,3.50,Takeout
+2026-09-05,17:15,Bagel with Cream Cheese,1,4.25,Takeout
+2026-09-05,17:15,Blueberry Muffin,1,3.50,Takeout
+2026-09-05,13:32,Bagel with Cream Cheese,1,4.25,Dine-In
+2026-09-05,17:08,Croissant,2,3.75,Delivery
+2026-09-05,17:08,Breakfast Sandwich,1,7.25,Delivery
+2026-09-05,11:28,Iced Tea,1,3.25,Dine-In
+2026-09-05,11:28,Cappuccino,1,4.50,Dine-In
+2026-09-05,09:55,Breakfast Sandwich,1,7.25,Dine-In
+2026-09-05,09:55,Chocolate Chip Cookie,1,2.50,Dine-In
+2026-09-05,12:23,Gluten-Free Muffin,1,4.25,Takeout
+2026-09-05,12:23,Iced Tea,1,3.25,Takeout
+2026-09-05,09:58,Caesar Salad,1,9.50,Dine-In
+2026-09-05,10:16,Chocolate Chip Cookie,1,2.50,Takeout
+2026-09-05,15:22,Iced Tea,2,3.25,Dine-In
+2026-09-05,13:35,Matcha Latte,1,5.25,Takeout
+2026-09-05,13:35,Latte,1,4.75,Takeout
+2026-09-05,18:03,Cappuccino,1,4.50,Takeout
+2026-09-05,13:29,Hot Chocolate,2,4.00,Dine-In
+2026-09-05,13:29,Blueberry Muffin,1,3.50,Dine-In
+2026-09-05,10:12,Avocado Toast,1,8.50,Takeout
+2026-09-05,10:12,Chocolate Chip Cookie,1,2.50,Takeout
+2026-09-05,10:12,Decaf Espresso,1,3.50,Takeout
+2026-09-05,08:27,Breakfast Sandwich,2,7.25,Dine-In
+2026-09-05,08:27,Croissant,1,3.75,Dine-In
+2026-09-05,07:18,Blueberry Muffin,1,3.50,Delivery
+2026-09-05,07:18,Chocolate Chip Cookie,1,2.50,Delivery
+2026-09-05,15:29,Avocado Toast,1,8.50,Delivery
+2026-09-05,15:29,Cold Brew,1,4.95,Delivery
+2026-09-05,09:08,Breakfast Sandwich,1,7.25,Dine-In
+2026-09-05,10:52,Drip Coffee,2,2.95,Takeout
+2026-09-05,15:20,Iced Tea,1,3.25,Delivery
+2026-09-05,16:32,Margherita Panini,1,8.95,Dine-In
+2026-09-05,16:32,Breakfast Sandwich,1,7.25,Dine-In
+2026-09-05,16:32,Margherita Panini,1,8.95,Dine-In
+2026-09-05,09:17,Iced Tea,1,3.25,Takeout
+2026-09-05,19:44,Matcha Latte,2,5.25,Takeout
+2026-09-05,12:21,Drip Coffee,1,2.95,Takeout
+2026-09-05,12:21,Iced Tea,2,3.25,Takeout
+2026-09-05,12:21,Caesar Salad,1,9.50,Takeout
+2026-09-05,11:10,Turkey Club,1,9.95,Delivery
+2026-09-05,11:19,Drip Coffee,1,2.95,Dine-In
+2026-09-05,14:20,Chocolate Chip Cookie,1,2.50,Dine-In
+2026-09-05,14:20,Cold Brew,1,4.95,Dine-In
+2026-09-05,14:38,Turkey Club,1,9.95,Takeout
+2026-09-05,14:38,Cappuccino,1,4.50,Takeout
+2026-09-05,12:05,Caesar Salad,1,9.50,Dine-In
+2026-09-05,12:05,Margherita Panini,1,8.95,Dine-In
+2026-09-05,12:42,Blueberry Muffin,1,3.50,Dine-In
+2026-09-05,12:42,Cold Brew,1,4.95,Dine-In
+2026-09-06,09:39,Matcha Latte,1,5.25,Takeout
+2026-09-06,13:54,Drip Coffee,1,2.95,Takeout
+2026-09-06,13:54,Cappuccino,1,4.50,Takeout
+2026-09-06,09:18,Hot Chocolate,2,4.00,Dine-In
+2026-09-06,19:20,Blueberry Muffin,2,3.50,Takeout
+2026-09-06,19:20,Blueberry Muffin,1,3.50,Takeout
+2026-09-06,19:35,Matcha Latte,1,5.25,Takeout
+2026-09-06,19:35,Breakfast Sandwich,1,7.25,Takeout
+2026-09-06,19:35,Margherita Panini,1,8.95,Takeout
+2026-09-06,14:27,Blueberry Muffin,2,3.50,Dine-In
+2026-09-06,14:27,Croissant,1,3.75,Dine-In
+2026-09-06,10:19,Cold Brew,1,4.95,Dine-In
+2026-09-06,10:19,Cappuccino,1,4.50,Dine-In
+2026-09-06,10:19,Iced Tea,1,3.25,Dine-In
+2026-09-06,08:58,Margherita Panini,1,8.95,Dine-In
+2026-09-06,08:58,Turkey Club,1,9.95,Dine-In
+2026-09-06,19:43,Margherita Panini,1,8.95,Dine-In
+2026-09-06,12:09,Turkey Club,1,9.95,Dine-In
+2026-09-06,12:09,Turkey Club,1,9.95,Dine-In
+2026-09-06,12:09,Iced Tea,1,3.25,Dine-In
+2026-09-06,12:05,Cappuccino,1,4.50,Dine-In
+2026-09-06,13:26,Blueberry Muffin,1,3.50,Dine-In
+2026-09-06,13:26,Latte,1,4.75,Dine-In
+2026-09-06,12:50,Margherita Panini,1,8.95,Dine-In
+2026-09-06,12:50,Blueberry Muffin,1,3.50,Dine-In
+2026-09-06,08:19,Cappuccino,1,4.50,Takeout
+2026-09-06,17:07,Breakfast Sandwich,1,7.25,Dine-In
+2026-09-06,17:07,Matcha Latte,1,5.25,Dine-In
+2026-09-06,07:11,Breakfast Sandwich,1,7.25,Dine-In
+2026-09-06,07:11,Breakfast Sandwich,1,7.25,Dine-In
+2026-09-06,16:18,Blueberry Muffin,2,3.50,Takeout
+2026-09-06,16:18,Decaf Espresso,1,3.50,Takeout
+2026-09-06,17:06,Caesar Salad,1,9.50,Takeout
+2026-09-06,14:04,Bagel with Cream Cheese,1,4.25,Dine-In
+2026-09-06,19:58,Drip Coffee,1,2.95,Dine-In
+2026-09-06,19:58,Croissant,1,3.75,Dine-In
+2026-09-06,19:58,Caesar Salad,2,9.50,Dine-In
+2026-09-06,16:09,Caesar Salad,1,9.50,Takeout
+2026-09-06,16:09,Chocolate Chip Cookie,1,2.50,Takeout
+2026-09-06,16:09,Latte,1,4.75,Takeout
+2026-09-06,15:52,Avocado Toast,1,8.50,Delivery
+2026-09-06,08:57,Caesar Salad,1,9.50,Dine-In
+2026-09-06,14:59,Matcha Latte,1,5.25,Dine-In
+2026-09-06,14:59,Bagel with Cream Cheese,1,4.25,Dine-In
+2026-09-06,16:11,Margherita Panini,1,8.95,Takeout
+2026-09-06,13:47,Turkey Club,1,9.95,Takeout
+2026-09-06,13:47,Bagel with Cream Cheese,1,4.25,Takeout
+2026-09-06,19:28,Matcha Latte,1,5.25,Dine-In
+2026-09-06,08:41,Turkey Club,1,9.95,Takeout
+2026-09-06,09:48,Matcha Latte,1,5.25,Dine-In
+2026-09-06,18:36,Caesar Salad,1,9.50,Dine-In
+2026-09-06,13:03,Latte,1,4.75,Dine-In
+2026-09-06,13:03,Turkey Club,1,9.95,Dine-In
+2026-09-06,13:03,Bagel with Cream Cheese,1,4.25,Dine-In
+2026-09-06,09:38,Croissant,1,3.75,Takeout
+2026-09-06,09:38,Caesar Salad,2,9.50,Takeout
+2026-09-06,13:21,Margherita Panini,1,8.95,Delivery
+2026-09-06,12:39,Iced Tea,2,3.25,Delivery
+2026-09-06,12:39,Caesar Salad,1,9.50,Delivery
+2026-09-06,15:04,Iced Tea,1,3.25,Takeout
+2026-09-06,15:04,Matcha Latte,1,5.25,Takeout
+2026-09-06,18:25,Caesar Salad,1,9.50,Takeout
+2026-09-06,18:25,Chocolate Chip Cookie,2,2.50,Takeout
+2026-09-06,18:25,Blueberry Muffin,1,3.50,Takeout
+2026-09-06,13:42,Cappuccino,1,4.50,Delivery
+2026-09-06,11:53,Cappuccino,1,4.50,Takeout
+2026-09-06,13:59,Croissant,2,3.75,Delivery
+2026-09-06,13:59,Caesar Salad,1,9.50,Delivery
+2026-09-06,14:38,Matcha Latte,2,5.25,Dine-In
+2026-09-06,14:38,Decaf Espresso,1,3.50,Dine-In
+2026-09-06,18:43,Cappuccino,1,4.50,Takeout
+2026-09-06,18:43,Iced Tea,1,3.25,Takeout
+2026-09-06,14:01,Latte,1,4.75,Takeout
+2026-09-06,14:01,Breakfast Sandwich,1,7.25,Takeout
+2026-09-06,14:01,Blueberry Muffin,1,3.50,Takeout
+2026-09-06,17:43,Cappuccino,2,4.50,Dine-In
+2026-09-06,17:43,Bagel with Cream Cheese,1,4.25,Dine-In
+2026-09-06,19:56,Bagel with Cream Cheese,1,4.25,Delivery
+2026-09-06,19:56,Croissant,1,3.75,Delivery
+2026-09-06,17:58,Croissant,1,3.75,Delivery
+2026-09-06,17:58,Breakfast Sandwich,1,7.25,Delivery
+2026-09-06,10:19,Turkey Club,1,9.95,Takeout
+2026-09-06,15:02,Cappuccino,1,4.50,Takeout
+2026-09-06,15:02,Blueberry Muffin,1,3.50,Takeout
+2026-09-06,19:53,Margherita Panini,1,8.95,Dine-In
+2026-09-06,07:31,Caesar Salad,1,9.50,Dine-In
+2026-09-06,07:31,Turkey Club,1,9.95,Takeout
+2026-09-06,12:31,Turkey Club,1,9.95,Takeout
+2026-09-06,11:39,Bagel with Cream Cheese,2,4.25,Dine-In
+2026-09-06,08:51,Chocolate Chip Cookie,1,2.50,Dine-In
+2026-09-06,08:51,Latte,1,4.75,Dine-In
+2026-09-06,07:00,Drip Coffee,1,2.95,Dine-In
+2026-09-06,07:00,Bagel with Cream Cheese,1,4.25,Dine-In
+2026-09-06,14:43,Bagel with Cream Cheese,1,4.25,Delivery
+2026-09-06,14:43,Croissant,1,3.75,Delivery
+2026-09-06,14:43,Croissant,1,3.75,Delivery
+2026-09-06,14:27,Cold Brew,1,4.95,Delivery
+2026-09-06,14:27,Iced Tea,1,3.25,Delivery
+2026-09-06,14:27,Caesar Salad,1,9.50,Delivery
+2026-09-06,19:51,Breakfast Sandwich,1,7.25,Delivery
+2026-09-06,19:35,Blueberry Muffin,1,3.50,Dine-In
+2026-09-06,19:35,Margherita Panini,1,8.95,Dine-In
+2026-09-06,12:03,Breakfast Sandwich,1,7.25,Delivery
+2026-09-06,12:03,Blueberry Muffin,2,3.50,Delivery
+2026-09-06,16:17,Avocado Toast,1,8.50,Takeout
+2026-09-06,16:17,Chocolate Chip Cookie,1,2.50,Takeout
+2026-09-06,19:16,Caesar Salad,1,9.50,Dine-In
+2026-09-06,08:32,Iced Tea,1,3.25,Dine-In
+2026-09-06,08:32,Gluten-Free Muffin,1,4.25,Dine-In
+2026-09-06,09:10,Breakfast Sandwich,1,7.25,Dine-In
+2026-09-07,07:07,Margherita Panini,1,8.95,Delivery
+2026-09-07,18:31,Caesar Salad,1,9.50,Takeout
+2026-09-07,10:26,Drip Coffee,2,2.95,Delivery
+2026-09-07,07:31,Latte,1,4.75,Dine-In
+2026-09-07,07:31,Iced Tea,1,3.25,Dine-In
+2026-09-07,13:51,Croissant,1,3.75,Dine-In
+2026-09-07,13:51,Avocado Toast,1,8.50,Dine-In
+2026-09-07,19:52,Caesar Salad,1,9.50,Dine-In
+2026-09-07,17:39,Cold Brew,1,4.95,Dine-In
+2026-09-07,19:35,Caesar Salad,2,9.50,Takeout
+2026-09-07,16:40,Iced Tea,1,3.25,Delivery
+2026-09-07,11:04,Avocado Toast,2,8.50,Dine-In
+2026-09-07,11:04,Cappuccino,1,4.50,Dine-In
+2026-09-07,08:51,Caesar Salad,1,9.50,Delivery
+2026-09-07,08:51,Caesar Salad,1,9.50,Delivery
+2026-09-07,08:51,Blueberry Muffin,1,3.50,Delivery
+2026-09-07,18:29,Cold Brew,1,4.95,Takeout
+2026-09-07,18:29,Hot Chocolate,1,4.00,Takeout
+2026-09-07,15:28,Hot Chocolate,1,4.00,Takeout
+2026-09-07,15:28,Chocolate Chip Cookie,1,2.50,Takeout
+2026-09-07,12:33,Matcha Latte,1,5.25,Takeout
+2026-09-07,18:49,Bagel with Cream Cheese,2,4.25,Dine-In
+2026-09-07,18:49,Breakfast Sandwich,1,7.25,Dine-In
+2026-09-07,17:40,Croissant,1,3.75,Takeout
+2026-09-07,17:40,Avocado Toast,2,8.50,Takeout
+2026-09-07,17:40,Drip Coffee,1,2.95,Takeout
+2026-09-07,19:40,Matcha Latte,2,5.25,Delivery
+2026-09-07,09:44,Cold Brew,1,4.95,Dine-In
+2026-09-07,09:44,Caesar Salad,1,9.50,Dine-In
+2026-09-07,09:44,Chocolate Chip Cookie,1,2.50,Dine-In
+2026-09-07,18:53,Chocolate Chip Cookie,1,2.50,Takeout
+2026-09-07,12:23,Margherita Panini,1,8.95,Dine-In
+2026-09-07,16:22,Avocado Toast,1,8.50,Dine-In
+2026-09-07,16:22,Latte,1,4.75,Dine-In
+2026-09-07,17:27,Caesar Salad,2,9.50,Dine-In
+2026-09-07,17:27,Matcha Latte,1,5.25,Dine-In
+2026-09-07,12:05,Iced Tea,1,3.25,Takeout
+2026-09-07,13:48,Caesar Salad,1,9.50,Takeout
+2026-09-07,09:22,Matcha Latte,2,5.25,Takeout
+2026-09-07,10:51,Cold Brew,1,4.95,Dine-In
+2026-09-07,10:51,Chocolate Chip Cookie,1,2.50,Dine-In
+2026-09-07,09:37,Cappuccino,2,4.50,Delivery
+2026-09-07,09:37,Avocado Toast,1,8.50,Delivery
+2026-09-07,09:37,Hot Chocolate,1,4.00,Delivery
+2026-09-07,09:34,Bagel with Cream Cheese,1,4.25,Takeout
+2026-09-07,09:34,Latte,1,4.75,Takeout
+2026-09-07,17:11,Turkey Club,1,9.95,Takeout
+2026-09-07,10:25,Caesar Salad,1,9.50,Takeout
+2026-09-07,18:33,Margherita Panini,2,8.95,Dine-In
+2026-09-07,18:29,Avocado Toast,1,8.50,Dine-In
+2026-09-07,14:10,Breakfast Sandwich,1,7.25,Delivery
+2026-09-07,16:26,Hot Chocolate,1,4.00,Dine-In
+2026-09-07,16:26,Chocolate Chip Cookie,2,2.50,Dine-In
+2026-09-07,19:57,Margherita Panini,1,8.95,Delivery
+2026-09-07,19:19,Cold Brew,1,4.95,Delivery
+2026-09-07,09:24,Bagel with Cream Cheese,1,4.25,Takeout
+2026-09-07,08:01,Margherita Panini,1,8.95,Dine-In
+2026-09-07,08:01,Iced Tea,2,3.25,Dine-In
+2026-09-07,10:43,Blueberry Muffin,1,3.50,Takeout
+2026-09-07,08:28,Blueberry Muffin,1,3.50,Delivery
+2026-09-07,07:18,Breakfast Sandwich,1,7.25,Dine-In
+2026-09-07,10:49,Avocado Toast,1,8.50,Delivery
+2026-09-07,12:02,Drip Coffee,1,2.95,Takeout
+2026-09-07,12:02,Latte,1,4.75,Takeout
+2026-09-07,17:00,Croissant,1,3.75,Takeout
+2026-09-07,17:00,Breakfast Sandwich,1,7.25,Takeout
+2026-09-07,07:48,Matcha Latte,1,5.25,Takeout
+2026-09-07,19:54,Turkey Club,1,9.95,Takeout
+2026-09-07,19:54,Blueberry Muffin,1,3.50,Takeout
+2026-09-07,19:54,Croissant,1,3.75,Takeout
+2026-09-07,13:04,Caesar Salad,1,9.50,Takeout
+2026-09-07,18:33,Croissant,1,3.75,Dine-In
+2026-09-07,17:38,Cold Brew,1,4.95,Dine-In
+2026-09-07,17:38,Latte,1,4.75,Dine-In
+2026-09-07,08:14,Matcha Latte,1,5.25,Dine-In
+2026-09-07,10:55,Avocado Toast,1,8.50,Takeout
+2026-09-07,12:17,Avocado Toast,1,8.50,Takeout
+2026-09-07,12:17,Decaf Espresso,2,3.50,Takeout
+2026-09-08,07:37,Blueberry Muffin,1,3.50,Delivery
+2026-09-08,07:37,Decaf Espresso,1,3.50,Delivery
+2026-09-08,07:31,Chocolate Chip Cookie,1,2.50,Dine-In
+2026-09-08,14:59,Croissant,1,3.75,Takeout
+2026-09-08,10:34,Breakfast Sandwich,1,7.25,Dine-In
+2026-09-08,07:13,Bagel with Cream Cheese,1,4.25,Takeout
+2026-09-08,17:56,Margherita Panini,1,8.95,Delivery
+2026-09-08,17:56,Drip Coffee,1,2.95,Delivery
+2026-09-08,09:40,Breakfast Sandwich,2,7.25,Dine-In
+2026-09-08,18:13,Cold Brew,1,4.95,Takeout
+2026-09-08,11:35,Turkey Club,1,9.95,Delivery
+2026-09-08,11:35,Iced Tea,1,3.25,Delivery
+2026-09-08,18:02,Margherita Panini,1,8.95,Takeout
+2026-09-08,18:02,Croissant,1,3.75,Takeout
+2026-09-08,19:55,Margherita Panini,1,8.95,Takeout
+2026-09-08,19:29,Chocolate Chip Cookie,2,2.50,Takeout
+2026-09-08,19:29,Chocolate Chip Cookie,1,2.50,Takeout
+2026-09-08,12:27,Iced Tea,1,3.25,Dine-In
+2026-09-08,12:08,Breakfast Sandwich,1,7.25,Dine-In
+2026-09-08,12:08,Drip Coffee,1,2.95,Dine-In
+2026-09-08,12:08,Avocado Toast,1,8.50,Dine-In
+2026-09-08,18:04,Latte,1,4.75,Dine-In
+2026-09-08,18:04,Margherita Panini,1,8.95,Dine-In
+2026-09-08,13:16,Cappuccino,2,4.50,Takeout
+2026-09-08,13:16,Matcha Latte,1,5.25,Takeout
+2026-09-08,13:16,Matcha Latte,1,5.25,Takeout
+2026-09-08,14:21,Margherita Panini,2,8.95,Delivery
+2026-09-08,14:21,Cappuccino,1,4.50,Delivery
+2026-09-08,09:10,Cappuccino,1,4.50,Takeout
+2026-09-08,16:55,Turkey Club,1,9.95,Delivery
+2026-09-08,16:55,Blueberry Muffin,1,3.50,Delivery
+2026-09-08,09:09,Caesar Salad,1,9.50,Dine-In
+2026-09-08,18:01,Drip Coffee,1,2.95,Dine-In
+2026-09-08,07:32,Cold Brew,1,4.95,Takeout
+2026-09-08,07:16,Breakfast Sandwich,2,7.25,Dine-In
+2026-09-08,07:16,Avocado Toast,1,8.50,Dine-In
+2026-09-08,07:16,Breakfast Sandwich,1,7.25,Takeout
+2026-09-08,07:16,Breakfast Sandwich,1,7.25,Takeout
+2026-09-08,18:55,Margherita Panini,2,8.95,Takeout
+2026-09-08,18:55,Iced Tea,1,3.25,Takeout
+2026-09-08,11:30,Turkey Club,1,9.95,Takeout
+2026-09-08,07:55,Breakfast Sandwich,1,7.25,Takeout
+2026-09-08,07:03,Bagel with Cream Cheese,1,4.25,Dine-In
+2026-09-08,16:52,Caesar Salad,1,9.50,Dine-In
+2026-09-08,18:37,Iced Tea,1,3.25,Dine-In
+2026-09-08,18:37,Bagel with Cream Cheese,2,4.25,Dine-In
+2026-09-08,12:11,Avocado Toast,1,8.50,Takeout
+2026-09-08,12:11,Croissant,1,3.75,Takeout
+2026-09-08,12:21,Iced Tea,1,3.25,Delivery
+2026-09-08,14:38,Drip Coffee,1,2.95,Takeout
+2026-09-08,08:18,Chocolate Chip Cookie,1,2.50,Dine-In
+2026-09-08,12:05,Drip Coffee,2,2.95,Takeout
+2026-09-08,12:05,Croissant,1,3.75,Takeout
+2026-09-08,19:43,Blueberry Muffin,1,3.50,Takeout
+2026-09-08,19:43,Caesar Salad,1,9.50,Takeout
+2026-09-08,13:52,Bagel with Cream Cheese,2,4.25,Dine-In
+2026-09-08,13:52,Chocolate Chip Cookie,1,2.50,Dine-In
+2026-09-08,09:13,Matcha Latte,1,5.25,Dine-In
+2026-09-08,09:13,Latte,1,4.75,Dine-In
+2026-09-08,08:57,Croissant,1,3.75,Takeout
+2026-09-08,08:33,Avocado Toast,1,8.50,Takeout
+2026-09-08,08:33,Gluten-Free Muffin,1,4.25,Takeout
+2026-09-08,08:14,Bagel with Cream Cheese,1,4.25,Dine-In
+2026-09-08,08:14,Chocolate Chip Cookie,1,2.50,Dine-In
+2026-09-08,13:37,Cold Brew,2,4.95,Delivery
+2026-09-08,12:35,Bagel with Cream Cheese,1,4.25,Dine-In
+2026-09-08,12:35,Bagel with Cream Cheese,2,4.25,Dine-In
+2026-09-08,09:02,Matcha Latte,2,5.25,Takeout
+2026-09-08,09:02,Latte,1,4.75,Takeout
+2026-09-08,11:43,Chocolate Chip Cookie,1,2.50,Delivery
+2026-09-08,16:31,Bagel with Cream Cheese,1,4.25,Delivery
+2026-09-08,12:25,Drip Coffee,1,2.95,Dine-In
+2026-09-08,11:29,Latte,1,4.75,Dine-In
+2026-09-08,12:18,Bagel with Cream Cheese,1,4.25,Takeout
+2026-09-08,17:35,Margherita Panini,1,8.95,Takeout
+2026-09-08,17:35,Margherita Panini,2,8.95,Takeout
+2026-09-08,19:02,Matcha Latte,1,5.25,Dine-In
