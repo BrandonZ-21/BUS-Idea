@@ -4,6 +4,8 @@ A single-page web app for small restaurant/cafe owners. Upload a sales export (C
 
 **Privacy:** Everything runs in your browser. Your file is read on your device, saved only in your browser's local IndexedDB storage, and never uploaded anywhere. There is no backend, no accounts, and no analytics.
 
+**Weather (optional, off by default):** if you turn on "Use weather data" in Settings, the app sends an approximate location (latitude/longitude rounded to two decimal places) and date ranges to [Open-Meteo](https://open-meteo.com) — a free weather service that needs no API key or account. Your sales figures, item names, and business name are never sent anywhere. Open-Meteo is free for **non-commercial use**; if this app is ever used commercially (e.g. charging restaurant owners for it), check [Open-Meteo's commercial terms](https://open-meteo.com/en/pricing) first.
+
 ## Running it locally
 
 No build step, no server, no installs required.
@@ -25,6 +27,7 @@ js/stats.js             Calculations: totals, by-hour, by-day, trends, gaps
 js/charts.js            Chart.js chart helpers + the heatmap grid
 js/router.js            Simple #/hash router for the detail pages
 js/holidays.js          US holiday date calculator (no external service)
+js/weather.js           Open-Meteo lookup/fetch, unit conversion, weather categories (opt-in, off by default)
 js/app.js               Main app logic gluing everything together
 tests/holidays-test.html  Open this in a browser to run the holiday date-rule checks
 sample-data.csv         ~4 weeks of realistic sample sales (Aug 3 - Aug 30, 2026)
@@ -88,6 +91,14 @@ Whenever you make changes later: GitHub Desktop will show them under "Changes" �
 - The weekly trend chart marks weeks that contain a holiday or a day note (amber dot, with details in the tooltip and in the trend detail page's table).
 - A "Settings" section on the My Data page: "Ignore holidays when calculating a normal day" (on by default) — this will be used by the upcoming Heads-up alerts, forecast, and before/after comparisons so holidays don't get mistaken for unusual days.
 - The saved-data format moved from version 1 to version 2 to add a `dayNotes` store. Existing sales/settings data is untouched by this upgrade, and both old and new backup files import correctly.
+
+**Weather initiative, Phase 1 (Settings and weather):**
+- An "Outside data" section on the My Data page: an off-by-default toggle, a city/ZIP location search (via Open-Meteo's free geocoding, with a confirm step showing the exact place found so you can pick the right one if there's more than one match), and a °F/inches vs °C/millimeters unit choice.
+- Historical daily weather (high/low temperature, rain, snowfall) for your sales data's date range, plus the last ~10 days and a 7-day forecast, fetched in batched date-range calls (never one call per day) and cached in a new `weather` IndexedDB store so only missing dates are ever re-fetched.
+- The forecast/recent portion refreshes at most once per hour; older historical days are fetched once and never re-fetched.
+- Every weather call has an 8-second timeout and a single retry; if the service is unreachable or you're offline, the rest of the app works exactly as before with a friendly note instead of an error.
+- A small "Today: 58°F, Light rain" line on the dashboard (only shown when weather is turned on), with weather condition categories (Dry/Light rain/Rain/Snow and Cold/Cool/Mild/Warm/Hot) defined by one named constant in `js/weather.js` (`WEATHER_THRESHOLDS`) so the thresholds are easy to find and change.
+- The saved-data format moved to version 3 to add the `weather` store; export/import backup and "Delete all my data" all cover it, and old backup files (without weather) still import cleanly.
 
 ## What doesn't (yet)
 

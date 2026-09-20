@@ -7,10 +7,13 @@ const DB_NAME = "cafeInsightsDB";
 //        "sales" and "settings" data is untouched by this upgrade -- adding
 //        a brand-new store never touches rows already saved in the others,
 //        so nothing you've uploaded before is lost.
-const DB_VERSION = 2;
+//   3 -> added "weather" store (weather cache, opt-in feature). Same rule:
+//        only a new store is added, nothing existing is touched or lost.
+const DB_VERSION = 3;
 const STORE_SALES = "sales";
 const STORE_SETTINGS = "settings";
 const STORE_DAY_NOTES = "dayNotes";
+const STORE_WEATHER = "weather";
 
 let dbPromise = null;
 
@@ -40,6 +43,9 @@ function openDB() {
       }
       if (!db.objectStoreNames.contains(STORE_DAY_NOTES)) {
         db.createObjectStore(STORE_DAY_NOTES, { keyPath: "date" });
+      }
+      if (!db.objectStoreNames.contains(STORE_WEATHER)) {
+        db.createObjectStore(STORE_WEATHER, { keyPath: "date" });
       }
     };
     req.onsuccess = (e) => {
@@ -90,10 +96,11 @@ const DB = {
   async clearAll() {
     const db = await openDB();
     return new Promise((resolve, reject) => {
-      const tx = db.transaction([STORE_SALES, STORE_SETTINGS, STORE_DAY_NOTES], "readwrite");
+      const tx = db.transaction([STORE_SALES, STORE_SETTINGS, STORE_DAY_NOTES, STORE_WEATHER], "readwrite");
       tx.objectStore(STORE_SALES).clear();
       tx.objectStore(STORE_SETTINGS).clear();
       tx.objectStore(STORE_DAY_NOTES).clear();
+      tx.objectStore(STORE_WEATHER).clear();
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
     });
@@ -185,6 +192,51 @@ const DB = {
       const req = tx.objectStore(STORE_SETTINGS).getAll();
       req.onsuccess = () => resolve(req.result);
       req.onerror = () => reject(req.error);
+    });
+  },
+
+  async getAllWeather() {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_WEATHER, "readonly");
+      const req = tx.objectStore(STORE_WEATHER).getAll();
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  },
+
+  // records: array of { date: "YYYY-MM-DD", tempMax, tempMin, precipSum, snowSum, weatherCode, isForecast, fetchedAt }
+  async putWeatherDays(records) {
+    if (!records || !records.length) return;
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_WEATHER, "readwrite");
+      const store = tx.objectStore(STORE_WEATHER);
+      records.forEach((r) => store.put(r));
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  },
+
+  async replaceAllWeather(records) {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_WEATHER, "readwrite");
+      const store = tx.objectStore(STORE_WEATHER);
+      store.clear();
+      (records || []).forEach((r) => store.add(r));
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  },
+
+  async clearWeather() {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_WEATHER, "readwrite");
+      tx.objectStore(STORE_WEATHER).clear();
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
     });
   },
 };

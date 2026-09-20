@@ -17,6 +17,16 @@ const App = {
   dayNotesMap: new Map(), // "YYYY-MM-DD" -> { date, text, tags }
   notesFilter: "all", // "all" | "noted"
   editingNoteDate: null,
+
+  // Weather (opt-in; off by default). Nothing here is fetched or sent
+  // anywhere until weatherEnabled is turned on in Settings.
+  weatherEnabled: false,
+  weatherLocation: null, // { name, admin1, country, latitude, longitude, timezone }
+  weatherUnits: { temp: "F", precip: "in" },
+  weatherMap: new Map(), // "YYYY-MM-DD" -> weather record
+  weatherGeocodeCandidates: null, // pending list shown for the owner to confirm
+  weatherLastError: null,
+  weatherLoading: false,
 };
 
 function closedDates() {
@@ -418,6 +428,15 @@ async function refreshDayNotes() {
   App.dayNotesMap = new Map(notes.map((n) => [n.date, n]));
 }
 
+async function refreshWeatherMap() {
+  const records = await DB.getAllWeather();
+  App.weatherMap = new Map(records.map((r) => [r.date, r]));
+}
+
+function weatherAt(dateStr) {
+  return App.weatherMap.get(dateStr) || null;
+}
+
 // ---------- Date range filter ----------
 // Applies the date-range selector AND drops rows on dates tagged "closed" in
 // Day Notes, since a closed day shouldn't count toward any average.
@@ -491,6 +510,197 @@ function trendMarkerOpts(byWeek) {
     markerIndexes,
     markerLabelFn: (i) => eventsInWeek(byWeek[i][0]),
   };
+}
+
+// ---------- Weather (opt-in) ----------
+function weatherCategoryLabel(cat) {
+  if (!cat) return "";
+  const key = "weatherCategory" + cat.charAt(0).toUpperCase() + cat.slice(1);
+  return t(key);
+}
+
+// Small "Today: 58°F, light rain" line on the dashboard. Shown only when the
+// owner has turned weather on; silently omitted (not a blocking error) if
+// today's weather simply hasn't been fetched yet or isn't cached.
+function renderWeatherLine() {
+  if (!App.weatherEnabled) return "";
+  const today = toDateStrLocal(new Date());
+  const rec = weatherAt(today);
+  if (!rec) {
+    return App.weatherLastError
+      ? `<p class="chart-meta" style="margin-bottom:14px;">${esc(App.weatherLastError)}</p>`
+      : "";
+  }
+  const temp = formatTemp(rec.tempMax, App.weatherUnits.temp);
+  const condition = weatherCategoryLabel(precipCategory(rec.precipSum, rec.snowSum));
+  return `<p class="chart-meta" style="margin-bottom:14px;">${esc(t("weatherTodayLine", { temp, condition }))}
+    &middot; <a href="https://open-meteo.com" target="_blank" rel="noopener noreferrer" style="font-size:0.85em;">${esc(t("weatherAttribution"))} Open-Meteo</a></p>`;
+}
+
+function renderWeatherLocationSection() {
+  if (App.weatherGeocodeCandidates) {
+    return `
+      <p><strong>${esc(t("settingLocationConfirmTitle"))}</strong></p>
+      <div id="geocodeCandidates">
+        ${App.weatherGeocodeCandidates.map((c, i) => `
+          <label style="display:flex;align-items:center;gap:8px;margin-bottom:6px;font-weight:400;">
+            <input type="radio" name="geocodeCandidate" value="${i}" ${i === 0 ? "checked" : ""} />
+            ${esc([c.name, c.admin1, c.country].filter(Boolean).join(", "))} (${c.latitude}, ${c.longitude})
+          </label>
+        `).join("")}
+      </div>
+      <div class="data-actions">
+        <button type="button" class="btn btn-primary" id="confirmGeocodeBtn">${esc(t("settingLocationConfirmBtn"))}</button>
+        <button type="button" class="btn btn-ghost" id="cancelGeocodeBtn">${esc(t("notesCancel"))}</button>
+      </div>
+    `;
+  }
+
+  const loc = App.weatherLocation;
+  const locationLine = loc
+    ? `<p>${esc(t("settingCurrentLocation", { name: [loc.name, loc.admin1, loc.country].filter(Boolean).join(", "), lat: loc.latitude, lon: loc.longitude }))}</p>
+       <button type="button" class="btn btn-ghost" id="changeLocationBtn" style="margin-bottom:14px;">${esc(t("settingLocationChange"))}</button>`
+    : `<p class="match-note">${esc(t("settingNoLocationYet"))}</p>
+       <div class="match-field" style="max-width:320px;">
+         <label for="weatherLocationInput">${esc(t("settingLocationLabel"))}</label>
+         <div style="display:flex;gap:8px;">
+           <input type="text" id="weatherLocationInput" style="flex:1;padding:10px;border-radius:8px;border:1px solid var(--border);" />
+           <button type="button" class="btn btn-secondary" id="findLocationBtn">${esc(t("settingLocationFind"))}</button>
+         </div>
+       </div>`;
+
+  const unitsRow = `
+    <div class="match-field" style="max-width:320px;margin-top:10px;">
+      <label for="weatherUnitsSelect">${esc(t("settingUnitsLabel"))}</label>
+      <select id="weatherUnitsSelect">
+        <option value="imperial" ${App.weatherUnits.temp === "F" ? "selected" : ""}>${esc(t("settingUnitsImperial"))}</option>
+        <option value="metric" ${App.weatherUnits.temp === "C" ? "selected" : ""}>${esc(t("settingUnitsMetric"))}</option>
+      </select>
+    </div>`;
+
+  return locationLine + unitsRow;
+}
+
+function wireWeatherLocationSection() {
+  const findBtn = document.getElementById("findLocationBtn");
+  if (findBtn) {
+    findBtn.addEventListener("click", async () => {
+      const input = document.getElementById("weatherLocationInput");
+      const query = input.value.trim();
+      if (!query) return;
+      findBtn.disabled = true;
+      findBtn.textContent = t("settingLocationSearching");
+      try {
+        const candidates = await geocodeLocation(query);
+        if (!candidates.length) {
+          App.weatherLastError = t("settingLocationNoResults");
+        } else {
+          App.weatherGeocodeCandidates = candidates;
+          App.weatherLastError = null;
+        }
+      } catch (err) {
+        App.weatherLastError = t("settingLocationError");
+      }
+      App.renderData();
+    });
+  }
+
+  const changeBtn = document.getElementById("changeLocationBtn");
+  if (changeBtn) {
+    changeBtn.addEventListener("click", () => {
+      App.weatherLocation = null;
+      App.renderData();
+    });
+  }
+
+  const confirmBtn = document.getElementById("confirmGeocodeBtn");
+  if (confirmBtn) {
+    confirmBtn.addEventListener("click", async () => {
+      const idx = parseInt(document.querySelector('input[name="geocodeCandidate"]:checked').value, 10);
+      const chosen = App.weatherGeocodeCandidates[idx];
+      App.weatherLocation = chosen;
+      App.weatherGeocodeCandidates = null;
+      await DB.setSetting("weatherLocation", chosen);
+      await DB.clearWeather(); // old cache belongs to the previous location, if any
+      await refreshWeatherMap();
+      App.renderData();
+      refreshWeatherIfNeeded();
+    });
+  }
+
+  const cancelBtn = document.getElementById("cancelGeocodeBtn");
+  if (cancelBtn) {
+    cancelBtn.addEventListener("click", () => {
+      App.weatherGeocodeCandidates = null;
+      App.renderData();
+    });
+  }
+
+  const unitsSelect = document.getElementById("weatherUnitsSelect");
+  if (unitsSelect) {
+    unitsSelect.addEventListener("change", async (e) => {
+      App.weatherUnits = e.target.value === "imperial" ? { temp: "F", precip: "in" } : { temp: "C", precip: "mm" };
+      await DB.setSetting("weatherUnits", App.weatherUnits);
+    });
+  }
+}
+
+// Fetches only what's missing: historical actuals for the sales-data date
+// range (older than the archive's ~5-day lag), and one batched call for the
+// recent lag days + next-week forecast. The forecast/recent portion is
+// throttled to at most once per hour since it's the only part that changes
+// over time -- once-fetched historical days never need re-fetching.
+async function refreshWeatherIfNeeded() {
+  if (!App.weatherEnabled || !App.weatherLocation) return;
+  if (typeof navigator !== "undefined" && navigator.onLine === false) {
+    App.weatherLastError = t("weatherOffline");
+    return;
+  }
+
+  const loc = App.weatherLocation;
+  const today = toDateStrLocal(new Date());
+  const LAG_DAYS = 10; // covers the archive's ~5-day lag with margin
+  const FORECAST_DAYS = 7;
+
+  App.weatherLoading = true;
+  try {
+    // Historical backfill: only the portion of the sales-data range that's
+    // older than the recent/forecast window below, and only if any date in
+    // it is still missing from the cache.
+    const range = dateRangeOf(App.allRows);
+    if (range) {
+      const lagCutoff = dateStrPlusDays(today, -LAG_DAYS);
+      if (range.min < lagCutoff) {
+        const histEnd = range.max < lagCutoff ? range.max : lagCutoff;
+        const neededDates = [];
+        for (let d = range.min; d <= histEnd; d = dateStrPlusDays(d, 1)) neededDates.push(d);
+        const missing = neededDates.some((d) => !App.weatherMap.has(d));
+        if (missing) {
+          const records = await fetchHistoricalWeather(loc.latitude, loc.longitude, range.min, histEnd, loc.timezone);
+          await DB.putWeatherDays(records);
+        }
+      }
+    }
+
+    // Recent lag days + next-week forecast, throttled to once/hour.
+    const lastFetch = await DB.getSetting("weatherLastForecastFetch");
+    const dueForRefresh = !lastFetch || (Date.now() - lastFetch) > 60 * 60 * 1000;
+    if (dueForRefresh) {
+      const records = await fetchRecentAndForecast(loc.latitude, loc.longitude, loc.timezone, LAG_DAYS, FORECAST_DAYS);
+      await DB.putWeatherDays(records);
+      await DB.setSetting("weatherLastForecastFetch", Date.now());
+    }
+
+    App.weatherLastError = null;
+    await refreshWeatherMap();
+  } catch (err) {
+    App.weatherLastError = t("weatherUnavailable");
+  }
+  App.weatherLoading = false;
+  // Re-render whichever view is currently showing, now that weather may
+  // have arrived (or a friendly error should now be visible).
+  if (location.hash === "#/data" || (!location.hash && false)) App.renderData();
+  else dispatchRoute();
 }
 
 // ---------- Insights ----------
@@ -629,6 +839,7 @@ App.renderDashboard = function () {
 
   root.innerHTML = `
     ${renderRangeSelector()}
+    ${renderWeatherLine()}
     ${thin ? `<div class="thin-data-banner">${esc(t("thinDataBanner"))}</div>` : ""}
     <div class="stat-grid">
       <div class="card stat-card"><div class="stat-label">${esc(t("cardTotalSales"))}</div><div class="stat-value">${formatMoney(summary.totalSales)}</div></div>
@@ -1220,6 +1431,18 @@ App.renderData = function () {
     </div>
 
     <div class="card" style="margin-top:20px;">
+      <h2>${esc(t("settingOutsideDataTitle"))}</h2>
+      <label style="display:flex;align-items:flex-start;gap:10px;font-weight:600;">
+        <input type="checkbox" id="weatherEnabledToggle" ${App.weatherEnabled ? "checked" : ""} style="margin-top:3px;" />
+        <span>${esc(t("settingOutsideDataToggle"))}</span>
+      </label>
+      <p class="match-note">${esc(t("settingOutsideDataExplain"))}</p>
+      <div id="weatherLocationSection" ${App.weatherEnabled ? "" : "hidden"}>${renderWeatherLocationSection()}</div>
+      ${App.weatherLastError ? `<p class="match-note" style="color:#b3401f;">${esc(App.weatherLastError)}</p>` : ""}
+      <p class="match-note">${esc(t("weatherAttribution"))} <a href="https://open-meteo.com" target="_blank" rel="noopener noreferrer">Open-Meteo</a></p>
+    </div>
+
+    <div class="card" style="margin-top:20px;">
       <h2>${esc(t("addMoreData"))}</h2>
       <div class="dropzone" id="dropzoneData">
         <p><strong>${esc(t("uploadDrop"))}</strong></p>
@@ -1256,6 +1479,16 @@ App.renderData = function () {
     await DB.setSetting("ignoreHolidays", App.ignoreHolidays);
   });
 
+  document.getElementById("weatherEnabledToggle").addEventListener("change", async (e) => {
+    App.weatherEnabled = e.target.checked;
+    await DB.setSetting("weatherEnabled", App.weatherEnabled);
+    document.getElementById("weatherLocationSection").hidden = !App.weatherEnabled;
+    if (App.weatherEnabled) {
+      refreshWeatherIfNeeded(); // fire-and-forget; renders itself in when data lands
+    }
+  });
+  wireWeatherLocationSection();
+
   App.matchReturnHash = "#/data";
   wireUploadWidget(document.getElementById("view-root"));
 
@@ -1279,6 +1512,11 @@ App.renderData = function () {
 async function deleteAllData() {
   await DB.clearAll();
   App.ignoreHolidays = true;
+  App.weatherEnabled = false;
+  App.weatherLocation = null;
+  App.weatherUnits = { temp: "F", precip: "in" };
+  App.weatherMap = new Map();
+  App.weatherLastError = null;
   await refreshAllRows();
   location.hash = "#/dashboard";
   dispatchRoute();
@@ -1286,11 +1524,13 @@ async function deleteAllData() {
 
 // Backup format history:
 //   version 1 -> just { rows }.
-//   version 2 -> adds { dayNotes, settings } (Phase 1). Importing a version-1
-//   backup still works: dayNotes/settings simply default to empty.
+//   version 2 -> adds { dayNotes, settings } (Phase 1: holidays & day notes).
+//   version 3 -> adds { weather } and weather settings (weather initiative
+//   Phase 1). Importing an older backup still works: any field it doesn't
+//   have simply defaults to empty/off.
 function exportBackup() {
   const payload = {
-    version: 2,
+    version: 3,
     exportedAt: new Date().toISOString(),
     rows: App.allRows.map((r) => {
       const copy = Object.assign({}, r);
@@ -1298,7 +1538,13 @@ function exportBackup() {
       return copy;
     }),
     dayNotes: Array.from(App.dayNotesMap.values()),
-    settings: { ignoreHolidays: App.ignoreHolidays },
+    weather: Array.from(App.weatherMap.values()),
+    settings: {
+      ignoreHolidays: App.ignoreHolidays,
+      weatherEnabled: App.weatherEnabled,
+      weatherLocation: App.weatherLocation,
+      weatherUnits: App.weatherUnits,
+    },
   };
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
@@ -1318,14 +1564,23 @@ function importBackupFile(file) {
       const payload = JSON.parse(reader.result);
       if (!payload || !Array.isArray(payload.rows)) throw new Error("bad shape");
       await DB.replaceAllRows(payload.rows);
-      // Older (version 1) backups won't have these fields -- default them
-      // instead of failing, so old backup files still import cleanly.
+      // Older backups won't have these fields -- default them instead of
+      // failing, so old backup files still import cleanly.
       await DB.replaceAllDayNotes(Array.isArray(payload.dayNotes) ? payload.dayNotes : []);
-      if (payload.settings && typeof payload.settings.ignoreHolidays === "boolean") {
-        await DB.setSetting("ignoreHolidays", payload.settings.ignoreHolidays);
-        App.ignoreHolidays = payload.settings.ignoreHolidays;
+      await DB.replaceAllWeather(Array.isArray(payload.weather) ? payload.weather : []);
+      const s = payload.settings || {};
+      if (typeof s.ignoreHolidays === "boolean") {
+        await DB.setSetting("ignoreHolidays", s.ignoreHolidays);
+        App.ignoreHolidays = s.ignoreHolidays;
       }
+      await DB.setSetting("weatherEnabled", !!s.weatherEnabled);
+      App.weatherEnabled = !!s.weatherEnabled;
+      await DB.setSetting("weatherLocation", s.weatherLocation || null);
+      App.weatherLocation = s.weatherLocation || null;
+      await DB.setSetting("weatherUnits", s.weatherUnits || { temp: "F", precip: "in" });
+      App.weatherUnits = s.weatherUnits || { temp: "F", precip: "in" };
       await refreshAllRows();
+      await refreshWeatherMap();
       showMergeBanner(t("dataImportSuccess", { count: payload.rows.length }));
       location.hash = "#/data";
       dispatchRoute();
@@ -1344,14 +1599,22 @@ async function initApp() {
     App.lang = savedLang || "en";
     const savedIgnoreHolidays = await DB.getSetting("ignoreHolidays");
     App.ignoreHolidays = savedIgnoreHolidays === undefined ? true : !!savedIgnoreHolidays;
+    const savedWeatherEnabled = await DB.getSetting("weatherEnabled");
+    App.weatherEnabled = !!savedWeatherEnabled;
+    const savedWeatherLocation = await DB.getSetting("weatherLocation");
+    App.weatherLocation = savedWeatherLocation || null;
+    const savedWeatherUnits = await DB.getSetting("weatherUnits");
+    App.weatherUnits = savedWeatherUnits || { temp: App.lang === "zh" ? "C" : "F", precip: App.lang === "zh" ? "mm" : "in" };
     applyStaticText();
     document.getElementById("langToggleBtn").addEventListener("click", () => {
       setLang(App.lang === "en" ? "zh" : "en");
     });
     await refreshAllRows();
+    await refreshWeatherMap();
     document.getElementById("bootStatus").hidden = true;
     if (!location.hash) location.hash = "#/dashboard";
     dispatchRoute();
+    if (App.weatherEnabled) refreshWeatherIfNeeded(); // fire-and-forget; never blocks page load
   } catch (err) {
     // If this device's saved data can't be opened (e.g. another tab of this
     // app is still open on an older version and is holding the database
