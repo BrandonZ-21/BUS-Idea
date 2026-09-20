@@ -142,6 +142,11 @@ const TRANSLATIONS = {
     insightWeekOverWeekActionDown: "Consider a promotion or checking in on recent changes to hours, staff, or menu.",
     insightRareItemsHeadline: "{count} items were rarely ordered",
     insightRareItemsAction: "Consider whether these are worth keeping on the menu, or feature them differently.",
+    insightHolidayImpactHeadline: "{name} sales were {pct}% {direction} a typical {day}",
+    insightHolidayImpactAction: "Consider whether this pattern is worth planning around next time {name} comes up.",
+    insightWeatherHeadline: "On {category} days, sales run {direction} {pct}% vs. dry days",
+    insightWeatherAction: "Based on {catDays} {category} and {dryDays} dry days in your data. A weather-based promotion on {category} days could help.",
+    dashboardHolidaysInRange: "Holidays in this period: {list}",
     up: "up", down: "down",
 
     loading: "Loading…",
@@ -295,6 +300,10 @@ const TRANSLATIONS = {
     weatherCategoryMild: "Mild",
     weatherCategoryWarm: "Warm",
     weatherCategoryHot: "Hot",
+    weatherCategoryAdjDry: "dry",
+    weatherCategoryAdjLightRain: "light-rain",
+    weatherCategoryAdjRain: "rainy",
+    weatherCategoryAdjSnow: "snowy",
   },
 
   zh: {
@@ -427,6 +436,11 @@ const TRANSLATIONS = {
     insightWeekOverWeekActionDown: "可以考虑做个促销，或检查最近营业时间、人员或菜单的变化。",
     insightRareItemsHeadline: "{count} 件商品很少被点",
     insightRareItemsAction: "可以考虑这些商品是否值得保留在菜单上，或换种方式展示。",
+    insightHolidayImpactHeadline: "{name}的销售额比平常的{day}{direction}了{pct}%",
+    insightHolidayImpactAction: "可以考虑下次{name}到来时是否要提前为这种规律做准备。",
+    insightWeatherHeadline: "{category}的日子销售额比干燥的日子{direction}了{pct}%",
+    insightWeatherAction: "基于你数据中 {catDays} 个{category}和 {dryDays} 个干燥的日子。可以考虑在{category}的日子推出天气相关的促销。",
+    dashboardHolidaysInRange: "本时段内的节假日：{list}",
     up: "上升", down: "下降",
 
     loading: "加载中…",
@@ -574,5 +588,9 @@ const TRANSLATIONS = {
     weatherCategoryMild: "温和",
     weatherCategoryWarm: "温暖",
     weatherCategoryHot: "炎热",
+    weatherCategoryAdjDry: "干燥",
+    weatherCategoryAdjLightRain: "小雨",
+    weatherCategoryAdjRain: "下雨",
+    weatherCategoryAdjSnow: "下雪",
   },
 };

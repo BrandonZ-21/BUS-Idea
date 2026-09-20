@@ -519,6 +519,13 @@ function weatherCategoryLabel(cat) {
   return t(key);
 }
 
+// "Rain" reads fine as a noun/chart label but awkward as "Rain days sell...".
+// This gives the adjective form used in sentences like that.
+function weatherCategoryAdjective(cat) {
+  const key = "weatherCategoryAdj" + cat.charAt(0).toUpperCase() + cat.slice(1);
+  return t(key);
+}
+
 // Small "Today: 58°F, light rain" line on the dashboard. Shown only when the
 // owner has turned weather on; silently omitted (not a blocking error) if
 // today's weather simply hasn't been fetched yet or isn't cached.
@@ -535,6 +542,23 @@ function renderWeatherLine() {
   const condition = weatherCategoryLabel(precipCategory(rec.precipSum, rec.snowSum));
   return `<p class="chart-meta" style="margin-bottom:14px;">${esc(t("weatherTodayLine", { temp, condition }))}
     &middot; <a href="https://open-meteo.com" target="_blank" rel="noopener noreferrer" style="font-size:0.85em;">${esc(t("weatherAttribution"))} Open-Meteo</a></p>`;
+}
+
+// Lists any US holidays that fall within the currently selected date range,
+// so holidays are visible right on the dashboard, not just in Day Notes or
+// the trend chart's markers.
+function renderHolidayLine(rows) {
+  const range = dateRangeOf(rows);
+  if (!range) return "";
+  const holidaysInRange = [];
+  App.holidaysMap.forEach((h, date) => {
+    if (date >= range.min && date <= range.max) holidaysInRange.push({ date, name: t(h.nameKey) });
+  });
+  if (!holidaysInRange.length) return "";
+  holidaysInRange.sort((a, b) => (a.date < b.date ? -1 : 1));
+  const shown = holidaysInRange.slice(0, 4).map((h) => `${h.name} (${h.date.slice(5)})`).join(", ");
+  const extra = holidaysInRange.length > 4 ? ` +${holidaysInRange.length - 4}` : "";
+  return `<p class="chart-meta" style="margin-bottom:14px;">${esc(t("dashboardHolidaysInRange", { list: shown + extra }))}</p>`;
 }
 
 function renderWeatherLocationSection() {
@@ -708,7 +732,13 @@ function generateInsights(rows) {
   const insights = [];
   if (!rows.length) return insights;
   const summary = computeSummary(rows);
-  const { totals: dowTotals, averages: dowAverages } = salesByDow(rows);
+  // "Normal day" baselines (best/slowest day, week-over-week) exclude
+  // holidays when the "ignore holidays" setting is on, per Settings, so one
+  // freak holiday doesn't get mistaken for a real weekly pattern. Charts
+  // elsewhere still show every day's real numbers -- this only affects
+  // which days count as "typical" for these comparisons.
+  const baselineRows = App.ignoreHolidays ? rows.filter((r) => !holidayAt(r.date)) : rows;
+  const { totals: dowTotals, averages: dowAverages } = salesByDow(baselineRows);
   const hasTime = rows.some((r) => r.time);
   const hasOrderType = rows.some((r) => r.orderType);
   const weeks = maturityWeeks(rows);
@@ -729,6 +759,74 @@ function generateInsights(rows) {
     }
   }
 
+  // 1b. Holiday impact -- compares each holiday actually present in the data
+  // to a "typical" same-weekday baseline (holidays always excluded from
+  // that baseline, regardless of the ignore-holidays setting, since the
+  // whole point is comparing a holiday to a normal day).
+  {
+    const nonHolidayRows = rows.filter((r) => !holidayAt(r.date));
+    const nonHolidayByDow = salesByDow(nonHolidayRows);
+    const dailyTotals = computeDailyTotals(rows);
+    let bestHoliday = null;
+    dailyTotals.forEach((revenue, date) => {
+      const h = holidayAt(date);
+      if (!h) return;
+      const dow = rowDayOfWeek({ date });
+      const typical = nonHolidayByDow.averages[dow];
+      const daysUsed = nonHolidayByDow.dayCounts[dow];
+      if (typical > 0 && daysUsed >= 2) {
+        const pct = Math.round(((revenue - typical) / typical) * 100);
+        if (Math.abs(pct) >= 15 && (!bestHoliday || Math.abs(pct) > Math.abs(bestHoliday.pct))) {
+          bestHoliday = { date, name: t(h.nameKey), pct, dow };
+        }
+      }
+    });
+    if (bestHoliday) {
+      const dir = bestHoliday.pct >= 0 ? "up" : "down";
+      insights.push({
+        headline: t("insightHolidayImpactHeadline", { name: bestHoliday.name, pct: Math.abs(bestHoliday.pct), direction: t(dir), day: dayLong(bestHoliday.dow) }),
+        action: t("insightHolidayImpactAction", { name: bestHoliday.name }),
+      });
+    }
+  }
+
+  // 1c. Weather comparison -- only when the owner has weather turned on and
+  // cached weather actually covers some of these days. A simple same-vs-dry
+  // comparison (not yet weekday-adjusted -- that refinement can come later).
+  if (App.weatherEnabled && App.weatherMap.size > 0) {
+    const dailyTotals = computeDailyTotals(rows);
+    const groups = {};
+    dailyTotals.forEach((revenue, date) => {
+      if (App.ignoreHolidays && holidayAt(date)) return;
+      const w = weatherAt(date);
+      if (!w) return;
+      const cat = precipCategory(w.precipSum, w.snowSum);
+      if (!groups[cat]) groups[cat] = { sum: 0, count: 0 };
+      groups[cat].sum += revenue;
+      groups[cat].count++;
+    });
+    const dry = groups.dry;
+    let bestWeather = null;
+    ["rain", "lightRain", "snow"].forEach((cat) => {
+      const g = groups[cat];
+      if (!g || !dry || g.count < 5 || dry.count < 5) return;
+      const avgCat = g.sum / g.count, avgDry = dry.sum / dry.count;
+      if (avgDry <= 0) return;
+      const pct = Math.round(((avgCat - avgDry) / avgDry) * 100);
+      if (Math.abs(pct) >= 8 && (!bestWeather || Math.abs(pct) > Math.abs(bestWeather.pct))) {
+        bestWeather = { cat, pct, catCount: g.count, dryCount: dry.count };
+      }
+    });
+    if (bestWeather) {
+      const dir = bestWeather.pct >= 0 ? "up" : "down";
+      const adj = weatherCategoryAdjective(bestWeather.cat);
+      insights.push({
+        headline: t("insightWeatherHeadline", { category: adj, pct: Math.abs(bestWeather.pct), direction: t(dir) }),
+        action: t("insightWeatherAction", { category: adj, catDays: bestWeather.catCount, dryDays: bestWeather.dryCount }),
+      });
+    }
+  }
+
   // 2. Peak two hours
   if (hasTime) {
     const hourTotals = salesByHour(rows);
@@ -744,9 +842,10 @@ function generateInsights(rows) {
     }
   }
 
-  // 3. Week over week (2+ weeks)
+  // 3. Week over week (2+ weeks) -- also uses the holiday-excluded baseline,
+  // so a holiday landing in "last week" doesn't look like a real trend change.
   if (weeks >= 2) {
-    const byWeek = salesByWeek(rows);
+    const byWeek = salesByWeek(baselineRows);
     if (byWeek.length >= 2) {
       const last = byWeek[byWeek.length - 1][1];
       const prior = byWeek[byWeek.length - 2][1];
@@ -840,6 +939,7 @@ App.renderDashboard = function () {
   root.innerHTML = `
     ${renderRangeSelector()}
     ${renderWeatherLine()}
+    ${renderHolidayLine(rows)}
     ${thin ? `<div class="thin-data-banner">${esc(t("thinDataBanner"))}</div>` : ""}
     <div class="stat-grid">
       <div class="card stat-card"><div class="stat-label">${esc(t("cardTotalSales"))}</div><div class="stat-value">${formatMoney(summary.totalSales)}</div></div>
