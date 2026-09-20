@@ -499,6 +499,17 @@ function eventsInWeek(weekStartStr) {
       const label = n.text || (n.tags || []).map(tagLabel).join(", ");
       events.push(`${label} (${shortDate})`);
     }
+    // Only notable weather (rain/snow, not routine dry/light-rain days) gets
+    // a marker here, so the trend chart doesn't get cluttered every week.
+    if (App.weatherEnabled) {
+      const w = weatherAt(ds);
+      if (w) {
+        const cat = precipCategory(w.precipSum, w.snowSum);
+        if (cat === "rain" || cat === "snow") {
+          events.push(`${weatherCategoryLabel(cat)} (${shortDate})`);
+        }
+      }
+    }
   }
   return events;
 }
@@ -530,7 +541,11 @@ function weatherCategoryAdjective(cat) {
 // owner has turned weather on; silently omitted (not a blocking error) if
 // today's weather simply hasn't been fetched yet or isn't cached.
 function renderWeatherLine() {
-  if (!App.weatherEnabled) return "";
+  if (!App.weatherEnabled) {
+    // A quiet, dismissable-feeling nudge (not a nagging banner) so owners
+    // who haven't found Settings yet know weather charts/insights exist.
+    return `<p class="chart-meta" style="margin-bottom:14px;"><a href="#/data">${esc(t("weatherNudge"))}</a></p>`;
+  }
   const today = toDateStrLocal(new Date());
   const rec = weatherAt(today);
   if (!rec) {
@@ -542,6 +557,40 @@ function renderWeatherLine() {
   const condition = weatherCategoryLabel(precipCategory(rec.precipSum, rec.snowSum));
   return `<p class="chart-meta" style="margin-bottom:14px;">${esc(t("weatherTodayLine", { temp, condition }))}
     &middot; <a href="https://open-meteo.com" target="_blank" rel="noopener noreferrer" style="font-size:0.85em;">${esc(t("weatherAttribution"))} Open-Meteo</a></p>`;
+}
+
+// Average daily sales grouped by weather condition / temperature band, for
+// the dashboard's weather charts. Only categories that actually have at
+// least one day in the current range are included, so a restaurant that
+// never saw snow just won't get a "Snow" bar.
+function salesByWeatherGroup(rows, categoryOrder, categorizeFn) {
+  const dailyTotals = computeDailyTotals(rows);
+  const sums = {}, counts = {};
+  dailyTotals.forEach((revenue, date) => {
+    const w = weatherAt(date);
+    if (!w) return;
+    const cat = categorizeFn(w);
+    if (cat == null) return;
+    sums[cat] = (sums[cat] || 0) + revenue;
+    counts[cat] = (counts[cat] || 0) + 1;
+  });
+  const labels = [], avgs = [], dayCounts = [];
+  categoryOrder.forEach((cat) => {
+    if (counts[cat] > 0) {
+      labels.push(weatherCategoryLabel(cat));
+      avgs.push(sums[cat] / counts[cat]);
+      dayCounts.push(counts[cat]);
+    }
+  });
+  return { labels, avgs, dayCounts };
+}
+
+function salesByPrecipCategory(rows) {
+  return salesByWeatherGroup(rows, ["dry", "lightRain", "rain", "snow"], (w) => precipCategory(w.precipSum, w.snowSum));
+}
+
+function salesByTempBand(rows) {
+  return salesByWeatherGroup(rows, ["cold", "cool", "mild", "warm", "hot"], (w) => tempCategory(w.tempMax));
 }
 
 // Lists any US holidays that fall within the currently selected date range,
@@ -591,7 +640,8 @@ function renderWeatherLocationSection() {
            <input type="text" id="weatherLocationInput" style="flex:1;padding:10px;border-radius:8px;border:1px solid var(--border);" />
            <button type="button" class="btn btn-secondary" id="findLocationBtn">${esc(t("settingLocationFind"))}</button>
          </div>
-       </div>`;
+       </div>
+       <button type="button" class="btn btn-ghost" id="useMyLocationBtn" style="margin-top:10px;">${esc(t("settingUseMyLocation"))}</button>`;
 
   const unitsRow = `
     <div class="match-field" style="max-width:320px;margin-top:10px;">
@@ -605,7 +655,53 @@ function renderWeatherLocationSection() {
   return locationLine + unitsRow;
 }
 
+// Shared by both the geocoded-city path and the "use my location" path:
+// saves the location, invalidates any cache from a previous location, and
+// kicks off an automatic fetch -- from here on nothing needs to be entered
+// manually again; every future visit refreshes itself.
+async function applyWeatherLocation(loc) {
+  App.weatherLocation = loc;
+  App.weatherGeocodeCandidates = null;
+  await DB.setSetting("weatherLocation", loc);
+  await DB.clearWeather();
+  await refreshWeatherMap();
+  App.renderData();
+  refreshWeatherIfNeeded();
+}
+
 function wireWeatherLocationSection() {
+  const useMyLocationBtn = document.getElementById("useMyLocationBtn");
+  if (useMyLocationBtn) {
+    useMyLocationBtn.addEventListener("click", () => {
+      if (!navigator.geolocation) {
+        App.weatherLastError = t("settingLocationError");
+        App.renderData();
+        return;
+      }
+      useMyLocationBtn.disabled = true;
+      useMyLocationBtn.textContent = t("settingLocationSearching");
+      navigator.geolocation.getCurrentPosition(
+        async (pos) => {
+          const loc = {
+            name: t("settingUseMyLocation"),
+            admin1: "",
+            country: "",
+            latitude: Math.round(pos.coords.latitude * 100) / 100,
+            longitude: Math.round(pos.coords.longitude * 100) / 100,
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "auto",
+          };
+          App.weatherLastError = null;
+          await applyWeatherLocation(loc);
+        },
+        () => {
+          App.weatherLastError = t("settingLocationError");
+          App.renderData();
+        },
+        { timeout: 8000 }
+      );
+    });
+  }
+
   const findBtn = document.getElementById("findLocationBtn");
   if (findBtn) {
     findBtn.addEventListener("click", async () => {
@@ -641,14 +737,7 @@ function wireWeatherLocationSection() {
   if (confirmBtn) {
     confirmBtn.addEventListener("click", async () => {
       const idx = parseInt(document.querySelector('input[name="geocodeCandidate"]:checked').value, 10);
-      const chosen = App.weatherGeocodeCandidates[idx];
-      App.weatherLocation = chosen;
-      App.weatherGeocodeCandidates = null;
-      await DB.setSetting("weatherLocation", chosen);
-      await DB.clearWeather(); // old cache belongs to the previous location, if any
-      await refreshWeatherMap();
-      App.renderData();
-      refreshWeatherIfNeeded();
+      await applyWeatherLocation(App.weatherGeocodeCandidates[idx]);
     });
   }
 
@@ -935,6 +1024,9 @@ App.renderDashboard = function () {
 
   const { top: topItemsList, rare } = topItems(rows, 5);
   const orderTypes = orderTypeSplit(rows);
+  const showWeatherCharts = App.weatherEnabled && App.weatherMap.size > 0;
+  const weatherByPrecip = showWeatherCharts ? salesByPrecipCategory(rows) : null;
+  const weatherByTemp = showWeatherCharts ? salesByTempBand(rows) : null;
 
   root.innerHTML = `
     ${renderRangeSelector()}
@@ -988,6 +1080,20 @@ App.renderDashboard = function () {
         <a class="see-details-link" href="#/order-types">${esc(t("seeDetails"))}</a>
       </div>` : ""}
 
+      ${weatherByPrecip && weatherByPrecip.labels.length >= 2 ? `
+      <div class="card chart-card">
+        <h3>${esc(t("chartWeatherConditionTitle"))}</h3>
+        <div class="chart-meta">${esc(t("chartWeatherAvgNote"))}</div>
+        <div class="chart-canvas-wrap"><canvas id="chart-weather-precip" aria-label="${esc(t("chartWeatherConditionTitle"))}" role="img"></canvas></div>
+      </div>` : ""}
+
+      ${weatherByTemp && weatherByTemp.labels.length >= 2 ? `
+      <div class="card chart-card">
+        <h3>${esc(t("chartWeatherTempTitle"))}</h3>
+        <div class="chart-meta">${esc(t("chartWeatherAvgNote"))}</div>
+        <div class="chart-canvas-wrap"><canvas id="chart-weather-temp" aria-label="${esc(t("chartWeatherTempTitle"))}" role="img"></canvas></div>
+      </div>` : ""}
+
       ${hasTime ? `
       <div class="card chart-card full-width">
         <h3>${esc(t("chartHeatmapTitle"))}</h3>
@@ -1029,6 +1135,16 @@ App.renderDashboard = function () {
   if (hasOrderType) {
     renderDoughnutChart("chart-ordertype", orderTypes.map((x) => orderTypeLabel(x.type)), orderTypes.map((x) => x.revenue), {
       onClick: () => { location.hash = "#/order-types"; },
+    });
+  }
+  if (weatherByPrecip && weatherByPrecip.labels.length >= 2) {
+    renderBarChart("chart-weather-precip", weatherByPrecip.labels, weatherByPrecip.avgs, {
+      tooltipFormatter: (ctx) => `${formatMoney(ctx.parsed.y)} (${weatherByPrecip.dayCounts[ctx.dataIndex]} days)`,
+    });
+  }
+  if (weatherByTemp && weatherByTemp.labels.length >= 2) {
+    renderBarChart("chart-weather-temp", weatherByTemp.labels, weatherByTemp.avgs, {
+      tooltipFormatter: (ctx) => `${formatMoney(ctx.parsed.y)} (${weatherByTemp.dayCounts[ctx.dataIndex]} days)`,
     });
   }
   if (hasTime) {
@@ -1571,7 +1687,9 @@ App.renderData = function () {
   document.getElementById("dataTotalRows").textContent = rows.length.toLocaleString();
   document.getElementById("dataDateRange").textContent = range ? `${range.min} – ${range.max}` : "—";
   DB.getSetting("lastUpload").then((ts) => {
-    document.getElementById("dataLastUpload").textContent = ts ? new Date(ts).toLocaleDateString() : "—";
+    // The owner may have navigated to a different page before this resolved.
+    const el = document.getElementById("dataLastUpload");
+    if (el) el.textContent = ts ? new Date(ts).toLocaleDateString() : "—";
   });
 
   document.getElementById("ignoreHolidaysToggle").addEventListener("change", async (e) => {
