@@ -12,6 +12,7 @@ const ROUTES = {
   "#/order-types": "renderOrderTypesDetail",
   "#/heatmap": "renderHeatmapDetail",
   "#/notes": "renderNotes",
+  "#/ask": "renderAsk",
 };
 
 function currentRouteName() {

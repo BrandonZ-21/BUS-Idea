@@ -28,6 +28,7 @@ js/charts.js            Chart.js chart helpers + the heatmap grid
 js/router.js            Simple #/hash router for the detail pages
 js/holidays.js          US holiday date calculator (no external service)
 js/weather.js           Open-Meteo lookup/fetch, unit conversion, weather categories (opt-in, off by default)
+js/ask.js               Rule-based "Ask a question" answer engine (no AI, no network)
 js/app.js               Main app logic gluing everything together
 tests/holidays-test.html  Open this in a browser to run the holiday date-rule checks
 sample-data.csv         ~4 weeks of realistic sample sales (Aug 3 - Aug 30, 2026)
@@ -99,12 +100,30 @@ Whenever you make changes later: GitHub Desktop will show them under "Changes" �
 - Every weather call has an 8-second timeout and a single retry; if the service is unreachable or you're offline, the rest of the app works exactly as before with a friendly note instead of an error.
 - A small "Today: 58°F, Light rain" line on the dashboard (only shown when weather is turned on), with weather condition categories (Dry/Light rain/Rain/Snow and Cold/Cool/Mild/Warm/Hot) defined by one named constant in `js/weather.js` (`WEATHER_THRESHOLDS`) so the thresholds are easy to find and change.
 - The saved-data format moved to version 3 to add the `weather` store; export/import backup and "Delete all my data" all cover it, and old backup files (without weather) still import cleanly.
+- Two dashboard charts: "Average Sales by Weather Condition" and "Average Sales by Temperature," shown once weather is on and there's data to plot.
+- The weekly trend chart's markers now include notable rain/snow days alongside holidays and day notes.
+- A "Use my current location" one-click option (uses the browser's own geolocation, no typing required) alongside the city/ZIP search.
+- A quiet nudge on the dashboard ("Turn on weather in My Data →") when weather is off, so the feature stays discoverable.
+
+**Expandable tip cards (dashboard insights, no server needed):**
+- Every tip on the dashboard is now a clickable/tappable card. Collapsed, it looks the same as before (headline + one-line action). Expanded, it shows: the exact numbers behind it, a plain-English "why this matters" sentence, 2-3 concrete next steps that reference your actual numbers, and a small chart illustrating the pattern.
+- All 9 tip types (best/slowest day, holiday impact, weather comparison, peak hours, week-over-week, top seller, quiet stretch, delivery share, rarely-ordered items) have their own detail content — still entirely rule-based JavaScript templates, no AI, no server.
+- Fully bilingual, including the sparkline charts and every stat line.
+
+**Ask a Question (`#/ask`, no AI, no server, works offline):**
+- A chat-style panel where you can type a plain-English question about your own sales ("what was my best day?", "why was Tuesday slow?", "how's delivery doing?") and get an answer computed from your real numbers.
+- This is **rule-based, not AI** — it recognizes about a dozen common question patterns (best/worst day, a specific weekday, busiest/quietest hour, top or rarely-ordered items, sales trend, weather, holidays, order type, total sales) and answers using the same calculations the rest of the app already does. A question it doesn't recognize still gets a useful short overview instead of "I don't understand."
+- Nothing is sent anywhere — it works with the network completely off, since it's just JavaScript reading your own already-loaded data.
+- 4 suggested starter questions, a short session history (not saved to disk), and a 300-character question limit.
+- **Why not the real Claude-powered version described in the original request:** that would require a paid Anthropic API key, a Cloudflare Worker backend, and server-side rate limiting to prevent unexpected bills, which is a meaningful step up in cost and complexity from every other part of this app (which is free and has no backend). We agreed to ship this free, local version now, and revisit a Claude-powered version later as an explicit, off-by-default opt-in — same pattern as the weather feature — once you're ready to manage billing for it.
 
 ## What doesn't (yet)
 
 - There's no way to edit or delete individual rows once uploaded — only "delete all."
 - The "orders" count is an approximation when the file has no Order ID column: it groups rows by matching date+time, which works well for most register exports but can undercount if two different orders happen to share the exact same minute.
 - Column matching is remembered per exact header signature — if a register changes even one column header later, you'll be asked to re-match once for that new format.
+- **Ask a Question** recognizes a set list of common question patterns rather than truly understanding open-ended free text — an oddly-phrased or very unusual question falls back to a short general overview instead of a tailored answer. A real Claude-powered version (discussed above) would handle that much more gracefully, at the cost of needing a paid backend.
+- The weekly trend chart's weather/holiday markers only flag rain and snow days (not every dry or light-rain day), to avoid cluttering the chart with a marker on nearly every week.
 
 ## Three most useful next improvements
 

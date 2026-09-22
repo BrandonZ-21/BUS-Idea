@@ -27,6 +27,8 @@ const App = {
   weatherGeocodeCandidates: null, // pending list shown for the owner to confirm
   weatherLastError: null,
   weatherLoading: false,
+
+  askHistory: [], // [{question, answer}] -- session only, not saved to disk
 };
 
 function closedDates() {
@@ -107,6 +109,7 @@ App.updateActiveNav = function (route) {
 function renderNav() {
   const items = [
     ["#/dashboard", "navDashboard"],
+    ["#/ask", "navAsk"],
     ["#/notes", "navNotes"],
     ["#/data", "navData"],
   ];
@@ -816,6 +819,10 @@ async function refreshWeatherIfNeeded() {
   else dispatchRoute();
 }
 
+function busiestHourOf(hourTotals) {
+  return hourTotals.indexOf(Math.max(...hourTotals));
+}
+
 // ---------- Insights ----------
 function generateInsights(rows) {
   const insights = [];
@@ -841,9 +848,23 @@ function generateInsights(rows) {
   if (dowAverages[worstIdx] >= 0 && bestIdx !== worstIdx && dowAverages[worstIdx] > 0) {
     const pct = Math.round(((dowAverages[bestIdx] - dowAverages[worstIdx]) / dowAverages[worstIdx]) * 100);
     if (pct > 0) {
+      const { dayCounts } = salesByDow(baselineRows);
       insights.push({
+        type: "bestVsSlowest",
         headline: t("insightBestVsSlowestHeadline", { bestDay: dayLong(bestIdx), slowestDay: dayLong(worstIdx) }),
         action: t("insightBestVsSlowestAction", { bestDay: dayLong(bestIdx), slowestDay: dayLong(worstIdx), pct }),
+        stats: [
+          t("statAvgPerDay", { day: dayLong(bestIdx), amount: formatMoney(dowAverages[bestIdx]), count: dayCounts[bestIdx] }),
+          t("statAvgPerDay", { day: dayLong(worstIdx), amount: formatMoney(dowAverages[worstIdx]), count: dayCounts[worstIdx] }),
+          t("statDifference", { amount: formatMoney(dowAverages[bestIdx] - dowAverages[worstIdx]), pct }),
+        ],
+        why: t("whyBestVsSlowest"),
+        steps: [
+          t("stepBestVsSlowest1", { bestDay: dayLong(bestIdx) }),
+          t("stepBestVsSlowest2", { slowestDay: dayLong(worstIdx) }),
+          t("stepBestVsSlowest3", { slowestDay: dayLong(worstIdx) }),
+        ],
+        sparkline: { kind: "bar", labels: Array.from({ length: 7 }, (_, i) => dayShort(i)), data: dowAverages, highlightIndexes: [bestIdx, worstIdx] },
       });
     }
   }
@@ -866,15 +887,27 @@ function generateInsights(rows) {
       if (typical > 0 && daysUsed >= 2) {
         const pct = Math.round(((revenue - typical) / typical) * 100);
         if (Math.abs(pct) >= 15 && (!bestHoliday || Math.abs(pct) > Math.abs(bestHoliday.pct))) {
-          bestHoliday = { date, name: t(h.nameKey), pct, dow };
+          bestHoliday = { date, name: t(h.nameKey), pct, dow, revenue, typical, daysUsed };
         }
       }
     });
     if (bestHoliday) {
       const dir = bestHoliday.pct >= 0 ? "up" : "down";
       insights.push({
+        type: "holidayImpact",
         headline: t("insightHolidayImpactHeadline", { name: bestHoliday.name, pct: Math.abs(bestHoliday.pct), direction: t(dir), day: dayLong(bestHoliday.dow) }),
         action: t("insightHolidayImpactAction", { name: bestHoliday.name }),
+        stats: [
+          t("statOnDate", { label: bestHoliday.name, date: bestHoliday.date, amount: formatMoney(bestHoliday.revenue) }),
+          t("statAvgPerDay", { day: dayLong(bestHoliday.dow), amount: formatMoney(bestHoliday.typical), count: bestHoliday.daysUsed }),
+          t("statDifference", { amount: formatMoney(Math.abs(bestHoliday.revenue - bestHoliday.typical)), pct: Math.abs(bestHoliday.pct) }),
+        ],
+        why: t("whyHolidayImpact"),
+        steps: [
+          t("stepHolidayImpact1", { name: bestHoliday.name }),
+          t("stepHolidayImpact2"),
+        ],
+        sparkline: { kind: "bar", labels: [bestHoliday.name, t("statTypicalLabel", { day: dayLong(bestHoliday.dow) })], data: [bestHoliday.revenue, bestHoliday.typical], highlightIndexes: [0] },
       });
     }
   }
@@ -909,9 +942,23 @@ function generateInsights(rows) {
     if (bestWeather) {
       const dir = bestWeather.pct >= 0 ? "up" : "down";
       const adj = weatherCategoryAdjective(bestWeather.cat);
+      const avgCat = groups[bestWeather.cat].sum / groups[bestWeather.cat].count;
+      const avgDry = dry.sum / dry.count;
       insights.push({
+        type: "weather",
         headline: t("insightWeatherHeadline", { category: adj, pct: Math.abs(bestWeather.pct), direction: t(dir) }),
         action: t("insightWeatherAction", { category: adj, catDays: bestWeather.catCount, dryDays: bestWeather.dryCount }),
+        stats: [
+          t("statAvgPerDay", { day: weatherCategoryLabel(bestWeather.cat), amount: formatMoney(avgCat), count: bestWeather.catCount }),
+          t("statAvgPerDay", { day: weatherCategoryLabel("dry"), amount: formatMoney(avgDry), count: bestWeather.dryCount }),
+          t("statDifference", { amount: formatMoney(Math.abs(avgCat - avgDry)), pct: Math.abs(bestWeather.pct) }),
+        ],
+        why: t("whyWeather"),
+        steps: [
+          t("stepWeather1", { category: adj }),
+          t("stepWeather2", { category: adj }),
+        ],
+        sparkline: { kind: "bar", labels: [weatherCategoryLabel(bestWeather.cat), weatherCategoryLabel("dry")], data: [avgCat, avgDry], highlightIndexes: [0] },
       });
     }
   }
@@ -924,9 +971,22 @@ function generateInsights(rows) {
     const top2Sum = top2.reduce((s, x) => s + x[1], 0);
     if (summary.totalSales > 0 && top2Sum > 0) {
       const pct = Math.round((top2Sum / summary.totalSales) * 100);
+      const hour1 = formatHourLabel(top2[0][0]), hour2 = formatHourLabel(top2[1] ? top2[1][0] : top2[0][0]);
       insights.push({
+        type: "peakHours",
         headline: t("insightPeakHoursHeadline", { pct }),
-        action: t("insightPeakHoursAction", { hour1: formatHourLabel(top2[0][0]), hour2: formatHourLabel(top2[1] ? top2[1][0] : top2[0][0]) }),
+        action: t("insightPeakHoursAction", { hour1, hour2 }),
+        stats: [
+          t("statAtHour", { hour: hour1, amount: formatMoney(top2[0][1]) }),
+          t("statAtHour", { hour: hour2, amount: formatMoney(top2[1] ? top2[1][1] : top2[0][1]) }),
+          t("statShareOfTotal", { pct, amount: formatMoney(top2Sum) }),
+        ],
+        why: t("whyPeakHours"),
+        steps: [
+          t("stepPeakHours1", { hour1, hour2 }),
+          t("stepPeakHours2", { hour1, hour2 }),
+        ],
+        sparkline: { kind: "bar", labels: Array.from({ length: 24 }, (_, i) => formatHourLabel(i)), data: hourTotals, highlightIndexes: top2.map((x) => x[0]) },
       });
     }
   }
@@ -941,9 +1001,22 @@ function generateInsights(rows) {
       if (prior > 0) {
         const pct = Math.round(Math.abs((last - prior) / prior) * 100);
         const dir = last >= prior ? "up" : "down";
+        const recentWeeks = byWeek.slice(-6);
         insights.push({
+          type: "weekOverWeek",
           headline: t("insightWeekOverWeekHeadline", { direction: t(dir), pct }),
           action: t(dir === "up" ? "insightWeekOverWeekActionUp" : "insightWeekOverWeekActionDown"),
+          stats: [
+            t("statWeekOf", { week: byWeek[byWeek.length - 1][0], amount: formatMoney(last) }),
+            t("statWeekOf", { week: byWeek[byWeek.length - 2][0], amount: formatMoney(prior) }),
+            t("statDifference", { amount: formatMoney(Math.abs(last - prior)), pct }),
+          ],
+          why: t("whyWeekOverWeek"),
+          steps: [
+            t(dir === "up" ? "stepWeekOverWeekUp1" : "stepWeekOverWeekDown1"),
+            t(dir === "up" ? "stepWeekOverWeekUp2" : "stepWeekOverWeekDown2"),
+          ],
+          sparkline: { kind: "line", labels: recentWeeks.map((w) => w[0]), data: recentWeeks.map((w) => w[1]), highlightIndexes: [recentWeeks.length - 1] },
         });
       }
     }
@@ -955,8 +1028,19 @@ function generateInsights(rows) {
     const totalQty = all.reduce((s, x) => s + x.quantity, 0);
     const pct = totalQty > 0 ? Math.round((top[0].quantity / totalQty) * 100) : 0;
     insights.push({
+      type: "topItem",
       headline: t("insightTopItemHeadline", { item: top[0].item }),
       action: t("insightTopItemAction", { pct }),
+      stats: [
+        t("statItemSold", { item: top[0].item, qty: top[0].quantity, revenue: formatMoney(top[0].revenue) }),
+        t("statShareOfItems", { pct, totalQty }),
+      ],
+      why: t("whyTopItem"),
+      steps: [
+        t("stepTopItem1", { item: top[0].item }),
+        t("stepTopItem2", { item: top[0].item }),
+      ],
+      sparkline: { kind: "bar", horizontal: true, labels: top.map((x) => x.item), data: top.map((x) => x.quantity), highlightIndexes: [0] },
     });
   }
 
@@ -972,9 +1056,22 @@ function generateInsights(rows) {
         if (windowVal < quietVal) { quietVal = windowVal; quietStart = h; }
       }
       if (quietVal < Infinity) {
+        const startHour = formatHourLabel(quietStart), endHour = formatHourLabel(quietStart + 2);
         insights.push({
-          headline: t("insightQuietStretchHeadline", { startHour: formatHourLabel(quietStart), endHour: formatHourLabel(quietStart + 2) }),
+          type: "quietStretch",
+          headline: t("insightQuietStretchHeadline", { startHour, endHour }),
           action: t("insightQuietStretchAction"),
+          stats: [
+            t("statAtHour", { hour: startHour, amount: formatMoney(hourTotals[quietStart]) }),
+            t("statAtHour", { hour: endHour, amount: formatMoney(hourTotals[quietStart + 1] || 0) }),
+            t("statBusiestForComparison", { hour: formatHourLabel(busiestHourOf(hourTotals)), amount: formatMoney(Math.max(...hourTotals)) }),
+          ],
+          why: t("whyQuietStretch"),
+          steps: [
+            t("stepQuietStretch1", { startHour, endHour }),
+            t("stepQuietStretch2", { startHour, endHour }),
+          ],
+          sparkline: { kind: "bar", labels: Array.from({ length: 24 }, (_, i) => formatHourLabel(i)), data: hourTotals, highlightIndexes: [quietStart, quietStart + 1] },
         });
       }
     }
@@ -985,19 +1082,42 @@ function generateInsights(rows) {
     const deliveryRevenue = rows.filter((r) => r.orderType && r.orderType.toLowerCase().includes("deliver")).reduce((s, r) => s + rowRevenue(r), 0);
     if (deliveryRevenue > 0 && summary.totalSales > 0) {
       const pct = Math.round((deliveryRevenue / summary.totalSales) * 100);
+      const otherRevenue = summary.totalSales - deliveryRevenue;
+      const typesForSpark = orderTypeSplit(rows);
       insights.push({
+        type: "deliveryShare",
         headline: t("insightDeliveryShareHeadline", { pct }),
         action: t("insightDeliveryShareAction"),
+        stats: [
+          t("statAmount", { label: t("orderTypeDelivery"), amount: formatMoney(deliveryRevenue) }),
+          t("statAmount", { label: t("statOtherOrderTypes"), amount: formatMoney(otherRevenue) }),
+          t("statShareOfTotal", { pct, amount: formatMoney(deliveryRevenue) }),
+        ],
+        why: t("whyDeliveryShare"),
+        steps: [
+          t("stepDeliveryShare1"),
+          t("stepDeliveryShare2"),
+        ],
+        sparkline: { kind: "bar", labels: typesForSpark.map((x) => orderTypeLabel(x.type)), data: typesForSpark.map((x) => x.revenue), highlightIndexes: typesForSpark.map((x, i) => (x.type || "").toLowerCase().includes("deliver") ? i : -1).filter((i) => i >= 0) },
       });
     }
   }
 
   // 7. Rare items
-  const rareCount = all.filter((x) => x.quantity <= 3).length;
+  const rareItemsList = all.filter((x) => x.quantity <= 3);
+  const rareCount = rareItemsList.length;
   if (rareCount > 0) {
     insights.push({
+      type: "rareItems",
       headline: t("insightRareItemsHeadline", { count: rareCount }),
       action: t("insightRareItemsAction"),
+      stats: rareItemsList.slice(0, 5).map((x) => t("statItemSold", { item: x.item, qty: x.quantity, revenue: formatMoney(x.revenue) })),
+      why: t("whyRareItems"),
+      steps: [
+        t("stepRareItems1"),
+        t("stepRareItems2"),
+      ],
+      sparkline: rareItemsList.length ? { kind: "bar", horizontal: true, labels: rareItemsList.slice(0, 5).map((x) => x.item), data: rareItemsList.slice(0, 5).map((x) => x.quantity), highlightIndexes: [] } : null,
     });
   }
 
@@ -1157,16 +1277,54 @@ App.renderDashboard = function () {
   }
 
   const insights = generateInsights(rows);
-  document.getElementById("insightsList").innerHTML = insights.map((ins) => `
+  renderInsightCards(insights);
+};
+
+// Renders the dashboard's expandable tip cards. Each card starts collapsed
+// (just the headline + short action, like before); clicking/tapping it
+// expands in place to show the exact numbers, a "why this matters" note,
+// concrete next steps, and a small chart -- all computed locally, no AI.
+function renderInsightCards(insights) {
+  const container = document.getElementById("insightsList");
+  container.innerHTML = insights.map((ins, i) => `
     <div class="insight-card">
-      <div class="insight-icon" aria-hidden="true">✨</div>
-      <div>
-        <div class="insight-headline">${esc(ins.headline)}</div>
-        <div class="insight-action">${esc(ins.action)}</div>
+      <button type="button" class="insight-toggle" id="insight-toggle-${i}" aria-expanded="false" aria-controls="insight-detail-${i}">
+        <span class="insight-icon" aria-hidden="true">✨</span>
+        <span class="insight-headline-wrap">
+          <span class="insight-headline">${esc(ins.headline)}</span>
+          <span class="insight-action">${esc(ins.action)}</span>
+        </span>
+        <span class="insight-caret" aria-hidden="true">▾</span>
+      </button>
+      <div class="insight-detail" id="insight-detail-${i}" hidden>
+        ${ins.stats && ins.stats.length ? `<ul class="finding-list">${ins.stats.map((s) => `<li>${esc(s)}</li>`).join("")}</ul>` : ""}
+        ${ins.why ? `<p class="insight-why">${esc(ins.why)}</p>` : ""}
+        ${ins.steps && ins.steps.length ? `<ul class="try-list">${ins.steps.map((s) => `<li>${esc(s)}</li>`).join("")}</ul>` : ""}
+        ${ins.sparkline ? `<div class="chart-canvas-wrap" style="height:180px;"><canvas id="insight-spark-${i}"></canvas></div>` : ""}
       </div>
     </div>
   `).join("") || `<p>${esc(t("dataNoData"))}</p>`;
-};
+
+  insights.forEach((ins, i) => {
+    const btn = document.getElementById(`insight-toggle-${i}`);
+    const detail = document.getElementById(`insight-detail-${i}`);
+    let sparkDrawn = false;
+    btn.addEventListener("click", () => {
+      const expanded = btn.getAttribute("aria-expanded") === "true";
+      btn.setAttribute("aria-expanded", String(!expanded));
+      detail.hidden = expanded;
+      if (!expanded && ins.sparkline && !sparkDrawn) {
+        sparkDrawn = true;
+        const sp = ins.sparkline;
+        if (sp.kind === "line") {
+          renderLineChart(`insight-spark-${i}`, sp.labels, sp.data, {});
+        } else {
+          renderBarChart(`insight-spark-${i}`, sp.labels, sp.data, { horizontal: !!sp.horizontal, highlightIndexes: sp.highlightIndexes || [] });
+        }
+      }
+    });
+  });
+}
 
 // ---------- Detail: Hours ----------
 App.renderHoursDetail = function () {
@@ -1614,6 +1772,71 @@ App.renderNotes = function () {
     await refreshDayNotes();
     App.editingNoteDate = null;
     App.renderNotes();
+  });
+};
+
+// ---------- Ask a Question (rule-based, no AI, no network) ----------
+const ASK_MAX_LENGTH = 300;
+
+App.renderAsk = function () {
+  const root = document.getElementById("view-root");
+  const starters = [t("askStarter1"), t("askStarter2"), t("askStarter3"), t("askStarter4")];
+
+  root.innerHTML = `
+    <h1>${esc(t("askTitle"))}</h1>
+    <p>${esc(t("askIntro"))}</p>
+
+    <div class="card">
+      <p style="font-weight:600;margin-bottom:8px;">${esc(t("askStarterTitle"))}</p>
+      <div class="upload-secondary" style="justify-content:flex-start;">
+        ${starters.map((s, i) => `<button type="button" class="btn btn-secondary askStarterBtn" data-q="${esc(s)}">${esc(s)}</button>`).join("")}
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:20px;">
+      <div id="askHistoryList">
+        ${App.askHistory.length ? App.askHistory.map((h) => `
+          <div class="ask-turn">
+            <div class="ask-question"><strong>${esc(t("askYouAsked"))}:</strong> ${esc(h.question)}</div>
+            <div class="ask-answer">${esc(h.answer)}</div>
+          </div>
+        `).join("") : `<p class="match-note" id="askHistoryEmpty">${esc(t("askHistoryEmpty"))}</p>`}
+      </div>
+
+      <form id="askForm" style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap;">
+        <label class="visually-hidden" for="askInput">${esc(t("askInputLabel"))}</label>
+        <input type="text" id="askInput" placeholder="${esc(t("askPlaceholder"))}" maxlength="${ASK_MAX_LENGTH}"
+          style="flex:1;min-width:200px;padding:10px;border-radius:8px;border:1px solid var(--border);" />
+        <button type="submit" class="btn btn-primary">${esc(t("askSubmit"))}</button>
+      </form>
+    </div>
+  `;
+
+  function submitQuestion(question) {
+    const q = question.trim();
+    if (!q) return;
+    if (q.length > ASK_MAX_LENGTH) {
+      showError(t("askTooLong"));
+      return;
+    }
+    clearError();
+    const answer = answerQuestion(q, getFilteredRows()) || t("qaError");
+    App.askHistory.push({ question: q, answer });
+    App.renderAsk();
+    // Scroll the newest turn into view.
+    const list = document.getElementById("askHistoryList");
+    if (list) list.scrollTop = list.scrollHeight;
+  }
+
+  root.querySelectorAll(".askStarterBtn").forEach((btn) => {
+    btn.addEventListener("click", () => submitQuestion(btn.dataset.q));
+  });
+
+  document.getElementById("askForm").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const input = document.getElementById("askInput");
+    submitQuestion(input.value);
+    input.value = "";
   });
 };
 
