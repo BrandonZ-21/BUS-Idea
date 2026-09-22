@@ -116,6 +116,13 @@ Whenever you make changes later: GitHub Desktop will show them under "Changes" �
 - Nothing is sent anywhere — it works with the network completely off, since it's just JavaScript reading your own already-loaded data.
 - 4 suggested starter questions, a short session history (not saved to disk), and a 300-character question limit.
 - **Why not the real Claude-powered version described in the original request:** that would require a paid Anthropic API key, a Cloudflare Worker backend, and server-side rate limiting to prevent unexpected bills, which is a meaningful step up in cost and complexity from every other part of this app (which is free and has no backend). We agreed to ship this free, local version now, and revisit a Claude-powered version later as an explicit, off-by-default opt-in — same pattern as the weather feature — once you're ready to manage billing for it.
+- **Later improvements:** it now also recognizes two more question shapes — naming one of your actual menu items ("how's the latte doing?") and comparing two weekdays in one question ("compare Saturday and Tuesday"). Question text is also normalized (punctuation stripped, case-insensitive) so small phrasing differences match the same way.
+
+**Weather actually connected to your sales data, custom holidays, and chart legends (latest round):**
+- **Weather now backfills automatically on every upload, not just once.** Previously, if you turned weather on and later uploaded more sales data, the new dates wouldn't get weather attached until something else happened to trigger a refresh (like reloading the page). Uploading a file or importing a backup now automatically fills in weather for any new dates, using a single Chrome test that reproduced the gap before fixing it. The historical fetch is also now scoped to just the missing date range instead of re-requesting the whole span every time.
+- **Custom holidays**, for anything not on the standard US calendar — Chinese New Year, Diwali, Eid, a local festival, or any lunar/lunisolar holiday whose date shifts every year. Manage them on the Day Notes page: add one at a time, or import a file with `date` and `name` columns (a downloadable template is provided). They show up everywhere a US holiday already does — the dashboard's holiday line, the trend chart's markers, and the holiday-impact insight. *We didn't try to compute Chinese New Year or similar lunar holidays automatically — getting lunisolar calendar math exactly right without a verified library is a real risk of being subtly wrong every year, so it's safer to let you enter the correct date once a year.*
+- The saved-data format moved to version 4 to add the `customHolidays` store; backup/import/delete all cover it, and older backups still import cleanly.
+- **Chart legends and axis titles** on every dashboard and detail-page chart: labeled X/Y axes, a small caption explaining what the highlighted (amber) bar means, and a dashed "your overall average" reference line on the Hours and Days charts so you can see at a glance whether a bar is above or below normal. The heatmap now has a "Less busy → Busier" color-scale legend, and the trend chart explains what its amber dots mean.
 
 ## What doesn't (yet)
 
@@ -124,6 +131,8 @@ Whenever you make changes later: GitHub Desktop will show them under "Changes" �
 - Column matching is remembered per exact header signature — if a register changes even one column header later, you'll be asked to re-match once for that new format.
 - **Ask a Question** recognizes a set list of common question patterns rather than truly understanding open-ended free text — an oddly-phrased or very unusual question falls back to a short general overview instead of a tailored answer. A real Claude-powered version (discussed above) would handle that much more gracefully, at the cost of needing a paid backend.
 - The weekly trend chart's weather/holiday markers only flag rain and snow days (not every dry or light-rain day), to avoid cluttering the chart with a marker on nearly every week.
+- Ask's menu-item lookup matches the literal item text in your data — a question typed in Chinese won't match an English menu item name (and vice versa), since there's no translation dictionary involved, only the words you actually sold under.
+- The small sparkline charts inside expanded tip cards intentionally stay simple (no axis titles/legend) so they don't overwhelm a small inline chart — the full legend treatment is on the dashboard and detail-page charts.
 
 ## Three most useful next improvements
 

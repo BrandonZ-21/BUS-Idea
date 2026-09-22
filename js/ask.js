@@ -15,15 +15,37 @@ const WEEKDAY_KEYWORDS = [
   { dow: 6, en: ["saturday", "sat"], zh: ["星期六", "周六"] },
 ];
 
-function findWeekdayInText(qLower) {
+// Returns every distinct weekday mentioned in the question, in the order
+// they appear in the WEEKDAY_KEYWORDS list (not the order typed) -- used
+// both for a single-day question and for "compare X and Y" questions.
+function findWeekdaysInText(qLower) {
+  const found = [];
   for (const w of WEEKDAY_KEYWORDS) {
-    if (w.en.some((k) => qLower.includes(k)) || w.zh.some((k) => qLower.includes(k))) return w.dow;
+    if (w.en.some((k) => qLower.includes(k)) || w.zh.some((k) => qLower.includes(k))) found.push(w.dow);
   }
-  return null;
+  return found;
 }
 
 function matchesAny(qLower, list) {
   return list.some((k) => qLower.includes(k));
+}
+
+// Looks for one of the owner's actual menu item names inside the question
+// (e.g. "how's the chicken katsu bowl doing?"), so item questions work
+// without needing a fixed keyword list -- this uses whatever the owner
+// actually sells. Ignores very short names (<3 chars) to avoid false
+// matches, and prefers the longest/most specific match if more than one
+// item name appears to be present.
+function findItemInText(qLower, rows) {
+  const { all } = topItems(rows, Infinity);
+  let best = null;
+  all.forEach((x) => {
+    const nameLower = x.item.toLowerCase();
+    if (nameLower.length >= 3 && qLower.includes(nameLower)) {
+      if (!best || nameLower.length > best.item.length) best = x;
+    }
+  });
+  return best;
 }
 
 // Each handler: { keywords: [...strings...], run(rows, qLower) => answer string | null }
@@ -144,7 +166,7 @@ function buildQuestionHandlers() {
           const dow = rowDayOfWeek({ date });
           const typical = nonHolidayByDow.averages[dow];
           if (typical > 0 && (!best || Math.abs(revenue - typical) / typical > Math.abs(best.pctRaw))) {
-            best = { name: t(h.nameKey), date, revenue, typical, pctRaw: (revenue - typical) / typical };
+            best = { name: h.name, date, revenue, typical, pctRaw: (revenue - typical) / typical };
           }
         });
         if (!best) return t("qaHolidayNone");
@@ -179,7 +201,7 @@ function buildQuestionHandlers() {
       },
     },
     {
-      keywords: ["total sales", "how much", "revenue", "总销售额", "一共卖了多少", "总共赚了多少"],
+      keywords: ["total sales", "how much", "revenue", "orders", "average order", "总销售额", "一共卖了多少", "总共赚了多少", "订单数", "平均客单价"],
       run: (rows) => {
         const s = computeSummary(rows);
         return t("qaTotalSales", { amount: formatMoney(s.totalSales), orders: s.orderCount.toLocaleString(), avg: formatMoney2(s.avgOrder) });
@@ -195,13 +217,43 @@ function answerQuestion(question, rows) {
   const q = (question || "").trim();
   if (!q) return null;
   if (!rows || !rows.length) return t("qaNoData");
-  const qLower = q.toLowerCase();
+  // Normalize: lowercase and drop common punctuation, so "What's my best
+  // day?" matches the same keywords as "whats my best day".
+  const qLower = q.toLowerCase().replace(/[?!.,;:'"()]/g, "");
 
   try {
-    // A specific weekday mentioned anywhere in the question (works for
-    // "why was Tuesday slow", "how's Saturday", "星期二怎么样", etc.)
-    const dow = findWeekdayInText(qLower);
-    if (dow !== null) {
+    // "Compare X and Y" / "Saturday vs Tuesday" -- two different weekdays
+    // named in the same question -- takes priority since it's the most
+    // specific thing being asked.
+    const dows = findWeekdaysInText(qLower);
+    if (dows.length >= 2) {
+      const { averages, dayCounts } = salesByDow(rows);
+      const [a, b] = dows;
+      const higher = averages[a] >= averages[b] ? a : b;
+      const lower = higher === a ? b : a;
+      const pct = averages[lower] > 0 ? Math.round(((averages[higher] - averages[lower]) / averages[lower]) * 100) : 0;
+      return t("qaCompareDays", {
+        day1: dayLong(a), amount1: formatMoney(averages[a]), count1: dayCounts[a],
+        day2: dayLong(b), amount2: formatMoney(averages[b]), count2: dayCounts[b],
+        higherDay: dayLong(higher), pct,
+      });
+    }
+
+    // A real item name from the owner's own menu, mentioned anywhere in the
+    // question (works for "how's the latte doing?", "拿铁卖得怎么样", etc.)
+    const item = findItemInText(qLower, rows);
+    if (item) {
+      const { all } = topItems(rows, Infinity);
+      const totalQty = all.reduce((s, x) => s + x.quantity, 0);
+      const rank = all.findIndex((x) => x.item === item.item) + 1;
+      const pct = totalQty > 0 ? Math.round((item.quantity / totalQty) * 100) : 0;
+      return t("qaItemLookup", { item: item.item, qty: item.quantity, revenue: formatMoney(item.revenue), rank, total: all.length, pct });
+    }
+
+    // A single specific weekday mentioned anywhere (works for "why was
+    // Tuesday slow", "how's Saturday", "星期二怎么样", etc.)
+    if (dows.length === 1) {
+      const dow = dows[0];
       const { averages, dayCounts } = salesByDow(rows);
       const overall = averages.reduce((s, v) => s + v, 0) / averages.filter((v) => v > 0).length;
       const pct = overall > 0 ? Math.round(Math.abs((averages[dow] - overall) / overall) * 100) : 0;

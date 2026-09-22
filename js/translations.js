@@ -323,6 +323,33 @@ const TRANSLATIONS = {
     notesShowAllDays: "Show all days with sales",
     notesShowNotedOnly: "Show only days with notes or holidays",
 
+    // Custom holidays (Chinese New Year, Diwali, Eid, or anything else not
+    // on the computed US calendar)
+    customHolidaysTitle: "Custom Holidays",
+    customHolidaysIntro: "The 17 standard US holidays are added automatically — no setup needed. For holidays that shift every year or aren't on the standard US calendar (Chinese New Year, Diwali, Eid, a local festival, etc.), add them here, one at a time or by importing a file with \"date\" and \"name\" columns.",
+    customHolidayNameLabel: "Holiday name",
+    customHolidayNamePlaceholder: "e.g. Chinese New Year",
+    customHolidayAdd: "Add holiday",
+    customHolidayImport: "Import from a file",
+    customHolidayTemplate: "Download a template",
+    customHolidayImportError: "We couldn't read that file. Make sure it has \"date\" and \"name\" columns (see the template).",
+    customHolidayImportSuccess: "{count} holidays imported.",
+
+    // Chart axis titles and legends
+    axisSales: "Sales ($)",
+    axisHourOfDay: "Hour of day",
+    axisDayOfWeek: "Day of week",
+    axisItem: "Item",
+    axisWeek: "Week",
+    axisWeatherCondition: "Weather condition",
+    axisTemperature: "Temperature",
+    axisOrderCount: "Number sold",
+    legendHighlighted: "Highlighted bar",
+    legendAverageLine: "Your overall average",
+    trendLegendMarker: "Larger amber dot = a holiday, note, or notable rain/snow that week",
+    heatmapLegendLess: "Less busy",
+    heatmapLegendMore: "Busier",
+
     // Ask a question (Phase 2: rule-based, no AI, no network)
     navAsk: "Ask",
     askTitle: "Ask a Question",
@@ -359,6 +386,8 @@ const TRANSLATIONS = {
     qaOrderTypeSpecific: "{type} makes up {pct}% of your sales ({amount}).",
     qaTotalSales: "You've made {amount} across {orders} orders, averaging {avg} per order.",
     qaSpecificDay: "{day} averages {amount} across {count} days, which is {direction} {pct}% vs. your overall daily average of {overall}.",
+    qaCompareDays: "{day1} averages {amount1} (based on {count1} days) vs. {day2} at {amount2} (based on {count2} days) — {higherDay} is higher by {pct}%.",
+    qaItemLookup: "{item} has sold {qty} times for {revenue} total — ranked #{rank} out of {total} items ({pct}% of everything sold).",
     qaError: "Something went wrong answering that. Try rephrasing your question.",
     qaNoData: "Upload some sales data first, then I can answer questions about it.",
     qaFallbackSummary: "I'm not sure exactly what you're asking, but here's a quick overview: you've made {amount} across {orders} orders, {bestDay} is your best day, and {item} is your top seller. Try one of the suggested questions below for more specific answers.",
@@ -707,6 +736,33 @@ const TRANSLATIONS = {
     notesShowAllDays: "显示所有有销售数据的日子",
     notesShowNotedOnly: "只显示有备注或节假日的日子",
 
+    // Custom holidays (Chinese New Year, Diwali, Eid, or anything else not
+    // on the computed US calendar)
+    customHolidaysTitle: "自定义节假日",
+    customHolidaysIntro: "17 个美国标准节假日会自动添加，无需设置。对于每年日期不固定或不在美国标准日历上的节假日（比如春节、排灯节、开斋节，或当地的庆典），可以在这里添加——一个一个加，或者导入一个包含“date”和“name”两列的文件。",
+    customHolidayNameLabel: "节假日名称",
+    customHolidayNamePlaceholder: "例如：春节",
+    customHolidayAdd: "添加节假日",
+    customHolidayImport: "从文件导入",
+    customHolidayTemplate: "下载模板",
+    customHolidayImportError: "无法读取该文件，请确认它包含“date”和“name”两列（参考模板）。",
+    customHolidayImportSuccess: "已导入 {count} 个节假日。",
+
+    // Chart axis titles and legends
+    axisSales: "销售额（$）",
+    axisHourOfDay: "一天中的时段",
+    axisDayOfWeek: "星期",
+    axisItem: "商品",
+    axisWeek: "周",
+    axisWeatherCondition: "天气状况",
+    axisTemperature: "气温",
+    axisOrderCount: "销售数量",
+    legendHighlighted: "高亮柱形",
+    legendAverageLine: "你的整体平均值",
+    trendLegendMarker: "较大的橙色圆点 = 当周有节假日、备注，或明显的雨雪天气",
+    heatmapLegendLess: "较闲",
+    heatmapLegendMore: "较忙",
+
     // Ask a question (Phase 2: rule-based, no AI, no network)
     navAsk: "提问",
     askTitle: "提问",
@@ -743,6 +799,8 @@ const TRANSLATIONS = {
     qaOrderTypeSpecific: "{type}占你销售额的 {pct}%（{amount}）。",
     qaTotalSales: "你一共卖出了 {amount}，来自 {orders} 笔订单，平均每单 {avg}。",
     qaSpecificDay: "{day}平均 {amount}（基于 {count} 天的数据），比你整体每日平均 {overall} {direction}了 {pct}%。",
+    qaCompareDays: "{day1}平均 {amount1}（基于 {count1} 天），{day2}平均 {amount2}（基于 {count2} 天）——{higherDay}更高，高出 {pct}%。",
+    qaItemLookup: "{item} 一共卖出 {qty} 次，共 {revenue}——在 {total} 件商品中排名第 {rank}（占总销量的 {pct}%）。",
     qaError: "回答这个问题时出了点问题，试着换个说法问问看。",
     qaNoData: "请先上传销售数据，我才能回答相关问题。",
     qaFallbackSummary: "我不太确定你在问什么，不过这里有个简单概览：你一共卖出了 {amount}，来自 {orders} 笔订单，{bestDay}是你最好的一天，{item} 是你的畅销商品。可以试试下面推荐的问题，获得更具体的答案。",

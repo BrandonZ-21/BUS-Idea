@@ -13,7 +13,8 @@ const App = {
   itemsSearch: "",
   hoursScope: "all",
   ignoreHolidays: true,
-  holidaysMap: new Map(), // "YYYY-MM-DD" -> { key, nameKey }
+  holidaysMap: new Map(), // "YYYY-MM-DD" -> { key, nameKey } (computed US holidays)
+  customHolidaysMap: new Map(), // "YYYY-MM-DD" -> { date, name } (owner-entered: Chinese New Year, etc.)
   dayNotesMap: new Map(), // "YYYY-MM-DD" -> { date, text, tags }
   notesFilter: "all", // "all" | "noted"
   editingNoteDate: null,
@@ -39,8 +40,17 @@ function closedDates() {
   return set;
 }
 
+// Looks up a holiday on a date from either source and returns a uniform
+// { name, custom } shape, so every caller can just read `.name` without
+// caring whether it's a computed US holiday or one the owner entered by
+// hand (Chinese New Year, Diwali, Eid, or anything else not on the standard
+// US calendar). A custom entry on the same date takes priority.
 function holidayAt(dateStr) {
-  return App.holidaysMap.get(dateStr) || null;
+  const custom = App.customHolidaysMap.get(dateStr);
+  if (custom) return { name: custom.name, custom: true };
+  const national = App.holidaysMap.get(dateStr);
+  if (national) return { name: t(national.nameKey), key: national.key, custom: false };
+  return null;
 }
 
 function noteAt(dateStr) {
@@ -381,7 +391,13 @@ function confirmMatch() {
     clearError();
     location.hash = App.matchReturnHash;
     App.matchReturnHash = "#/dashboard";
-    refreshAllRows().then(dispatchRoute);
+    refreshAllRows().then(() => {
+      dispatchRoute();
+      // If weather is already on, make sure it covers the newly-added
+      // dates too -- not just whatever range existed the last time the
+      // page loaded or the location was set.
+      if (App.weatherEnabled && App.weatherLocation) refreshWeatherIfNeeded();
+    });
   }).catch(() => showError(t("errorGeneric")));
 }
 
@@ -424,11 +440,17 @@ async function refreshAllRows() {
   App.allRows = await DB.getAllRows();
   App.holidaysMap = holidaysForRows(App.allRows);
   await refreshDayNotes();
+  await refreshCustomHolidays();
 }
 
 async function refreshDayNotes() {
   const notes = await DB.getAllDayNotes();
   App.dayNotesMap = new Map(notes.map((n) => [n.date, n]));
+}
+
+async function refreshCustomHolidays() {
+  const holidays = await DB.getAllCustomHolidays();
+  App.customHolidaysMap = new Map(holidays.map((h) => [h.date, h]));
 }
 
 async function refreshWeatherMap() {
@@ -496,7 +518,7 @@ function eventsInWeek(weekStartStr) {
     const ds = dateStrPlusDays(weekStartStr, i);
     const shortDate = `${parseInt(ds.slice(5, 7), 10)}/${parseInt(ds.slice(8, 10), 10)}`;
     const h = holidayAt(ds);
-    if (h) events.push(`${t(h.nameKey)} (${shortDate})`);
+    if (h) events.push(`${h.name} (${shortDate})`);
     const n = noteAt(ds);
     if (n && (n.text || (n.tags && n.tags.length))) {
       const label = n.text || (n.tags || []).map(tagLabel).join(", ");
@@ -603,8 +625,14 @@ function renderHolidayLine(rows) {
   const range = dateRangeOf(rows);
   if (!range) return "";
   const holidaysInRange = [];
-  App.holidaysMap.forEach((h, date) => {
-    if (date >= range.min && date <= range.max) holidaysInRange.push({ date, name: t(h.nameKey) });
+  const seenDates = new Set();
+  [App.holidaysMap, App.customHolidaysMap].forEach((map) => {
+    map.forEach((_, date) => {
+      if (date >= range.min && date <= range.max && !seenDates.has(date)) {
+        seenDates.add(date);
+        holidaysInRange.push({ date, name: holidayAt(date).name });
+      }
+    });
   });
   if (!holidaysInRange.length) return "";
   holidaysInRange.sort((a, b) => (a.date < b.date ? -1 : 1));
@@ -790,9 +818,12 @@ async function refreshWeatherIfNeeded() {
         const histEnd = range.max < lagCutoff ? range.max : lagCutoff;
         const neededDates = [];
         for (let d = range.min; d <= histEnd; d = dateStrPlusDays(d, 1)) neededDates.push(d);
-        const missing = neededDates.some((d) => !App.weatherMap.has(d));
-        if (missing) {
-          const records = await fetchHistoricalWeather(loc.latitude, loc.longitude, range.min, histEnd, loc.timezone);
+        const missingDates = neededDates.filter((d) => !App.weatherMap.has(d));
+        if (missingDates.length) {
+          // Fetch just the span that bounds the missing dates (still one
+          // batched call), not the whole history every time -- this matters
+          // once new sales data can extend the range on every upload.
+          const records = await fetchHistoricalWeather(loc.latitude, loc.longitude, missingDates[0], missingDates[missingDates.length - 1], loc.timezone);
           await DB.putWeatherDays(records);
         }
       }
@@ -821,6 +852,14 @@ async function refreshWeatherIfNeeded() {
 
 function busiestHourOf(hourTotals) {
   return hourTotals.indexOf(Math.max(...hourTotals));
+}
+
+// Average across only the nonzero entries -- used for a chart's "average"
+// reference line, so closed hours/days don't drag a baseline down to
+// somewhere meaningless.
+function avgOfActive(arr) {
+  const active = arr.filter((v) => v > 0);
+  return active.length ? active.reduce((s, v) => s + v, 0) / active.length : 0;
 }
 
 // ---------- Insights ----------
@@ -887,7 +926,7 @@ function generateInsights(rows) {
       if (typical > 0 && daysUsed >= 2) {
         const pct = Math.round(((revenue - typical) / typical) * 100);
         if (Math.abs(pct) >= 15 && (!bestHoliday || Math.abs(pct) > Math.abs(bestHoliday.pct))) {
-          bestHoliday = { date, name: t(h.nameKey), pct, dow, revenue, typical, daysUsed };
+          bestHoliday = { date, name: h.name, pct, dow, revenue, typical, daysUsed };
         }
       }
     });
@@ -1236,21 +1275,36 @@ App.renderDashboard = function () {
     renderBarChart("chart-hours", Array.from({ length: 24 }, (_, i) => formatHourLabel(i)), hourTotals, {
       highlightIndexes: top2HourIdx,
       onClick: () => { location.hash = "#/hours"; },
+      xAxisLabel: t("axisHourOfDay"), yAxisLabel: t("axisSales"),
+      averageLine: avgOfActive(hourTotals), averageLineLabel: t("legendAverageLine"),
     });
+    attachChartLegend("chart-hours", [
+      { color: COLORS.amber, label: t("legendHighlighted") },
+      { color: COLORS.muted, label: t("legendAverageLine") },
+    ]);
   }
   renderBarChart("chart-days", Array.from({ length: 7 }, (_, i) => dayShort(i)), dowTotals, {
     highlightIndexes: [bestDowIdx],
     onClick: () => { location.hash = "#/days"; },
+    xAxisLabel: t("axisDayOfWeek"), yAxisLabel: t("axisSales"),
+    averageLine: avgOfActive(dowTotals), averageLineLabel: t("legendAverageLine"),
   });
+  attachChartLegend("chart-days", [
+    { color: COLORS.amber, label: t("legendHighlighted") },
+    { color: COLORS.muted, label: t("legendAverageLine") },
+  ]);
   if (showTrend) {
     renderLineChart("chart-trend", byWeek.map((w) => w[0]), byWeek.map((w) => w[1]), Object.assign({
       onClick: () => { location.hash = "#/trend"; },
+      xAxisLabel: t("axisWeek"), yAxisLabel: t("axisSales"),
     }, trendMarkerOpts(byWeek)));
+    attachChartLegend("chart-trend", [{ color: COLORS.amber, label: t("trendLegendMarker") }]);
   }
   renderBarChart("chart-items", topItemsList.map((x) => x.item), topItemsList.map((x) => x.quantity), {
     horizontal: true,
     tooltipFormatter: (ctx) => ctx.parsed.x + (ctx.parsed.x === 1 ? " item" : " items"),
     onClick: () => { location.hash = "#/items"; },
+    xAxisLabel: t("axisOrderCount"), yAxisLabel: t("axisItem"),
   });
   if (hasOrderType) {
     renderDoughnutChart("chart-ordertype", orderTypes.map((x) => orderTypeLabel(x.type)), orderTypes.map((x) => x.revenue), {
@@ -1260,11 +1314,13 @@ App.renderDashboard = function () {
   if (weatherByPrecip && weatherByPrecip.labels.length >= 2) {
     renderBarChart("chart-weather-precip", weatherByPrecip.labels, weatherByPrecip.avgs, {
       tooltipFormatter: (ctx) => `${formatMoney(ctx.parsed.y)} (${weatherByPrecip.dayCounts[ctx.dataIndex]} days)`,
+      xAxisLabel: t("axisWeatherCondition"), yAxisLabel: t("axisSales"),
     });
   }
   if (weatherByTemp && weatherByTemp.labels.length >= 2) {
     renderBarChart("chart-weather-temp", weatherByTemp.labels, weatherByTemp.avgs, {
       tooltipFormatter: (ctx) => `${formatMoney(ctx.parsed.y)} (${weatherByTemp.dayCounts[ctx.dataIndex]} days)`,
+      xAxisLabel: t("axisTemperature"), yAxisLabel: t("axisSales"),
     });
   }
   if (hasTime) {
@@ -1273,6 +1329,7 @@ App.renderDashboard = function () {
       dayLabels: Array.from({ length: 7 }, (_, i) => dayShort(i)),
       cellLabel: (dow, h, v) => t("heatmapCellLabel", { day: dayLong(dow), hour: formatHourLabel(h), amount: formatMoney(v) }),
       onCellClick: () => { location.hash = "#/heatmap"; },
+      legendLessLabel: t("heatmapLegendLess"), legendMoreLabel: t("heatmapLegendMore"),
     });
   }
 
@@ -1397,7 +1454,13 @@ App.renderHoursDetail = function () {
 
   renderBarChart("chart-hours-detail", Array.from({ length: 24 }, (_, i) => formatHourLabel(i)), hourTotals, {
     highlightIndexes: top2.map((x) => x[0]),
+    xAxisLabel: t("axisHourOfDay"), yAxisLabel: t("axisSales"),
+    averageLine: avgOfActive(hourTotals), averageLineLabel: t("legendAverageLine"),
   });
+  attachChartLegend("chart-hours-detail", [
+    { color: COLORS.amber, label: t("legendHighlighted") },
+    { color: COLORS.muted, label: t("legendAverageLine") },
+  ]);
 
   root.querySelectorAll(".toggle-group button").forEach((btn) => {
     btn.addEventListener("click", () => { App.hoursScope = btn.dataset.scope; App.renderHoursDetail(); });
@@ -1447,7 +1510,13 @@ App.renderDaysDetail = function () {
     const data = mode === "total" ? totals : averages;
     renderBarChart("chart-days-detail", Array.from({ length: 7 }, (_, i) => dayShort(i)), data, {
       highlightIndexes: [mode === "total" ? totals.indexOf(Math.max(...totals)) : bestIdx],
+      xAxisLabel: t("axisDayOfWeek"), yAxisLabel: t("axisSales"),
+      averageLine: avgOfActive(data), averageLineLabel: t("legendAverageLine"),
     });
+    attachChartLegend("chart-days-detail", [
+      { color: COLORS.amber, label: t("legendHighlighted") },
+      { color: COLORS.muted, label: t("legendAverageLine") },
+    ]);
   };
   draw();
   root.querySelectorAll(".toggle-group button").forEach((btn) => {
@@ -1511,7 +1580,9 @@ App.renderItemsDetail = function () {
     </div>
   `;
 
-  renderBarChart("chart-items-detail", top.map((x) => x.item), top.map((x) => x.quantity), { horizontal: true });
+  renderBarChart("chart-items-detail", top.map((x) => x.item), top.map((x) => x.quantity), {
+    horizontal: true, xAxisLabel: t("axisOrderCount"), yAxisLabel: t("axisItem"),
+  });
 
   function renderTable() {
     let list = all.filter((x) => x.item.toLowerCase().includes(App.itemsSearch.toLowerCase()));
@@ -1577,7 +1648,10 @@ App.renderTrendDetail = function () {
       </table>
     </div>` : ""}
   `;
-  renderLineChart("chart-trend-detail", byWeek.map((w) => w[0]), byWeek.map((w) => w[1]), trendMarkerOpts(byWeek));
+  renderLineChart("chart-trend-detail", byWeek.map((w) => w[0]), byWeek.map((w) => w[1]), Object.assign({
+    xAxisLabel: t("axisWeek"), yAxisLabel: t("axisSales"),
+  }, trendMarkerOpts(byWeek)));
+  attachChartLegend("chart-trend-detail", [{ color: COLORS.amber, label: t("trendLegendMarker") }]);
 };
 
 // ---------- Detail: Order Types ----------
@@ -1634,6 +1708,7 @@ App.renderHeatmapDetail = function () {
   renderHeatmap(document.getElementById("heatmap-detail"), grid, {
     dayLabels: Array.from({ length: 7 }, (_, i) => dayShort(i)),
     cellLabel: (dow, h, v) => t("heatmapCellLabel", { day: dayLong(dow), hour: formatHourLabel(h), amount: formatMoney(v) }),
+    legendLessLabel: t("heatmapLegendLess"), legendMoreLabel: t("heatmapLegendMore"),
   });
 };
 
@@ -1652,11 +1727,12 @@ App.renderNotes = function () {
   const dateSet = new Set();
   if (App.notesFilter === "all") dailyTotals.forEach((_, d) => dateSet.add(d));
   App.dayNotesMap.forEach((_, d) => dateSet.add(d));
+  App.customHolidaysMap.forEach((_, d) => dateSet.add(d));
   if (range) App.holidaysMap.forEach((_, d) => { if (d >= range.min && d <= range.max) dateSet.add(d); });
 
   let dates = Array.from(dateSet).sort();
   if (App.notesFilter === "noted") {
-    dates = dates.filter((d) => App.dayNotesMap.has(d) || App.holidaysMap.has(d));
+    dates = dates.filter((d) => App.dayNotesMap.has(d) || App.holidaysMap.has(d) || App.customHolidaysMap.has(d));
   }
 
   const editing = App.editingNoteDate;
@@ -1698,6 +1774,42 @@ App.renderNotes = function () {
       </form>
     </div>
 
+    <div class="card" style="margin-top:20px;">
+      <h2>${esc(t("customHolidaysTitle"))}</h2>
+      <p class="match-note">${esc(t("customHolidaysIntro"))}</p>
+      <form id="customHolidayForm" style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-top:10px;">
+        <div class="match-field" style="max-width:180px;">
+          <label for="customHolidayDate">${esc(t("notesDateLabel"))}</label>
+          <input type="date" id="customHolidayDate" required />
+        </div>
+        <div class="match-field" style="flex:1;min-width:180px;">
+          <label for="customHolidayName">${esc(t("customHolidayNameLabel"))}</label>
+          <input type="text" id="customHolidayName" placeholder="${esc(t("customHolidayNamePlaceholder"))}" required
+            style="width:100%;padding:10px;border-radius:8px;border:1px solid var(--border);" />
+        </div>
+        <button type="submit" class="btn btn-primary">${esc(t("customHolidayAdd"))}</button>
+      </form>
+
+      <div class="data-actions" style="margin-top:14px;">
+        <button type="button" class="btn btn-secondary" id="importHolidaysBtn">${esc(t("customHolidayImport"))}</button>
+        <input type="file" accept=".csv,text/csv" id="importHolidaysInput" class="visually-hidden" />
+        <button type="button" class="btn btn-ghost" id="downloadHolidayTemplateBtn">${esc(t("customHolidayTemplate"))}</button>
+      </div>
+
+      ${App.customHolidaysMap.size ? `
+      <table class="data-table" style="margin-top:16px;">
+        <thead><tr><th>${esc(t("notesColDate"))}</th><th>${esc(t("customHolidayNameLabel"))}</th><th></th></tr></thead>
+        <tbody>
+          ${Array.from(App.customHolidaysMap.values()).sort((a, b) => (a.date < b.date ? -1 : 1)).map((h) => `
+            <tr>
+              <td>${esc(h.date)}</td><td>${esc(h.name)}</td>
+              <td><button type="button" class="btn btn-ghost customHolidayDeleteBtn" data-date="${esc(h.date)}" style="padding:6px 10px;">${esc(t("notesDelete"))}</button></td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>` : ""}
+    </div>
+
     <div class="toggle-group" role="group" style="margin-top:20px;">
       <button type="button" data-filter="all" class="${App.notesFilter === "all" ? "active" : ""}">${esc(t("notesShowAllDays"))}</button>
       <button type="button" data-filter="noted" class="${App.notesFilter === "noted" ? "active" : ""}">${esc(t("notesShowNotedOnly"))}</button>
@@ -1719,7 +1831,7 @@ App.renderNotes = function () {
             const noteText = n ? [n.text, ...(n.tags || []).map(tagLabel)].filter(Boolean).join(" — ") : "";
             return `<tr>
               <td>${esc(d)}</td><td>${esc(dow)}</td><td>${esc(sales)}</td>
-              <td>${h ? esc(t(h.nameKey)) : ""}</td>
+              <td>${h ? esc(h.name) : ""}</td>
               <td>${esc(noteText)}</td>
               <td style="white-space:nowrap;">
                 <button type="button" class="btn btn-ghost noteEditBtn" data-date="${esc(d)}" style="padding:6px 10px;">${esc(n ? t("notesEdit") : t("notesAddAction"))}</button>
@@ -1772,6 +1884,81 @@ App.renderNotes = function () {
     await refreshDayNotes();
     App.editingNoteDate = null;
     App.renderNotes();
+  });
+
+  // ---- Custom holidays: manual add, CSV import, template, delete ----
+  document.getElementById("customHolidayForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const date = document.getElementById("customHolidayDate").value;
+    const name = document.getElementById("customHolidayName").value.trim();
+    if (!date || !name) return;
+    await DB.setCustomHoliday({ date, name });
+    await refreshCustomHolidays();
+    App.renderNotes();
+  });
+
+  root.querySelectorAll(".customHolidayDeleteBtn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const date = btn.dataset.date;
+      showModal({
+        title: t("notesDeleteConfirmTitle"),
+        body: t("notesDeleteConfirmBody"),
+        confirmLabel: t("notesDelete"),
+        cancelLabel: t("notesCancel"),
+        danger: true,
+        onConfirm: async () => {
+          await DB.deleteCustomHoliday(date);
+          await refreshCustomHolidays();
+          App.renderNotes();
+        },
+      });
+    });
+  });
+
+  document.getElementById("downloadHolidayTemplateBtn").addEventListener("click", () => {
+    const csv = "date,name\n2026-02-17,Chinese New Year\n2026-11-01,Diwali\n";
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "holiday-template.csv";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  });
+
+  document.getElementById("importHolidaysBtn").addEventListener("click", () => {
+    document.getElementById("importHolidaysInput").click();
+  });
+  document.getElementById("importHolidaysInput").addEventListener("change", (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    Papa.parse(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: async (results) => {
+        const rows = results.data || [];
+        const fields = (results.meta && results.meta.fields) || [];
+        const dateField = fields.find((f) => /date/i.test(f)) || fields[0];
+        const nameField = fields.find((f) => /name|holiday|label/i.test(f)) || fields[1];
+        const holidays = [];
+        rows.forEach((r) => {
+          const { date } = parseDateString(r[dateField]);
+          const name = (r[nameField] || "").trim();
+          if (date && name) holidays.push({ date, name });
+        });
+        if (!holidays.length) {
+          showError(t("customHolidayImportError"));
+          return;
+        }
+        await DB.setCustomHolidays(holidays);
+        await refreshCustomHolidays();
+        showMergeBanner(t("customHolidayImportSuccess", { count: holidays.length }));
+        App.renderNotes();
+      },
+      error: () => showError(t("customHolidayImportError")),
+    });
   });
 };
 
@@ -1967,11 +2154,13 @@ async function deleteAllData() {
 //   version 1 -> just { rows }.
 //   version 2 -> adds { dayNotes, settings } (Phase 1: holidays & day notes).
 //   version 3 -> adds { weather } and weather settings (weather initiative
-//   Phase 1). Importing an older backup still works: any field it doesn't
-//   have simply defaults to empty/off.
+//   Phase 1).
+//   version 4 -> adds { customHolidays } (owner-entered holidays). Importing
+//   an older backup still works: any field it doesn't have simply defaults
+//   to empty/off.
 function exportBackup() {
   const payload = {
-    version: 3,
+    version: 4,
     exportedAt: new Date().toISOString(),
     rows: App.allRows.map((r) => {
       const copy = Object.assign({}, r);
@@ -1980,6 +2169,7 @@ function exportBackup() {
     }),
     dayNotes: Array.from(App.dayNotesMap.values()),
     weather: Array.from(App.weatherMap.values()),
+    customHolidays: Array.from(App.customHolidaysMap.values()),
     settings: {
       ignoreHolidays: App.ignoreHolidays,
       weatherEnabled: App.weatherEnabled,
@@ -2009,6 +2199,7 @@ function importBackupFile(file) {
       // failing, so old backup files still import cleanly.
       await DB.replaceAllDayNotes(Array.isArray(payload.dayNotes) ? payload.dayNotes : []);
       await DB.replaceAllWeather(Array.isArray(payload.weather) ? payload.weather : []);
+      await DB.replaceAllCustomHolidays(Array.isArray(payload.customHolidays) ? payload.customHolidays : []);
       const s = payload.settings || {};
       if (typeof s.ignoreHolidays === "boolean") {
         await DB.setSetting("ignoreHolidays", s.ignoreHolidays);
@@ -2025,6 +2216,7 @@ function importBackupFile(file) {
       showMergeBanner(t("dataImportSuccess", { count: payload.rows.length }));
       location.hash = "#/data";
       dispatchRoute();
+      if (App.weatherEnabled && App.weatherLocation) refreshWeatherIfNeeded();
     } catch (err) {
       showError(t("dataImportError"));
     }

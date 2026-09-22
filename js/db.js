@@ -9,11 +9,15 @@ const DB_NAME = "cafeInsightsDB";
 //        so nothing you've uploaded before is lost.
 //   3 -> added "weather" store (weather cache, opt-in feature). Same rule:
 //        only a new store is added, nothing existing is touched or lost.
-const DB_VERSION = 3;
+//   4 -> added "customHolidays" store (owner-entered holidays -- Chinese
+//        New Year, Diwali, Eid, or anything else not on the computed US
+//        calendar). Same rule: only a new store is added.
+const DB_VERSION = 4;
 const STORE_SALES = "sales";
 const STORE_SETTINGS = "settings";
 const STORE_DAY_NOTES = "dayNotes";
 const STORE_WEATHER = "weather";
+const STORE_CUSTOM_HOLIDAYS = "customHolidays";
 
 let dbPromise = null;
 
@@ -46,6 +50,9 @@ function openDB() {
       }
       if (!db.objectStoreNames.contains(STORE_WEATHER)) {
         db.createObjectStore(STORE_WEATHER, { keyPath: "date" });
+      }
+      if (!db.objectStoreNames.contains(STORE_CUSTOM_HOLIDAYS)) {
+        db.createObjectStore(STORE_CUSTOM_HOLIDAYS, { keyPath: "date" });
       }
     };
     req.onsuccess = (e) => {
@@ -96,11 +103,12 @@ const DB = {
   async clearAll() {
     const db = await openDB();
     return new Promise((resolve, reject) => {
-      const tx = db.transaction([STORE_SALES, STORE_SETTINGS, STORE_DAY_NOTES, STORE_WEATHER], "readwrite");
+      const tx = db.transaction([STORE_SALES, STORE_SETTINGS, STORE_DAY_NOTES, STORE_WEATHER, STORE_CUSTOM_HOLIDAYS], "readwrite");
       tx.objectStore(STORE_SALES).clear();
       tx.objectStore(STORE_SETTINGS).clear();
       tx.objectStore(STORE_DAY_NOTES).clear();
       tx.objectStore(STORE_WEATHER).clear();
+      tx.objectStore(STORE_CUSTOM_HOLIDAYS).clear();
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
     });
@@ -235,6 +243,61 @@ const DB = {
     return new Promise((resolve, reject) => {
       const tx = db.transaction(STORE_WEATHER, "readwrite");
       tx.objectStore(STORE_WEATHER).clear();
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  },
+
+  async getAllCustomHolidays() {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_CUSTOM_HOLIDAYS, "readonly");
+      const req = tx.objectStore(STORE_CUSTOM_HOLIDAYS).getAll();
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  },
+
+  // holiday: { date: "YYYY-MM-DD", name: "Chinese New Year" }
+  async setCustomHoliday(holiday) {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_CUSTOM_HOLIDAYS, "readwrite");
+      tx.objectStore(STORE_CUSTOM_HOLIDAYS).put(holiday);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  },
+
+  async setCustomHolidays(holidays) {
+    if (!holidays || !holidays.length) return;
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_CUSTOM_HOLIDAYS, "readwrite");
+      const store = tx.objectStore(STORE_CUSTOM_HOLIDAYS);
+      holidays.forEach((h) => store.put(h));
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  },
+
+  async deleteCustomHoliday(date) {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_CUSTOM_HOLIDAYS, "readwrite");
+      tx.objectStore(STORE_CUSTOM_HOLIDAYS).delete(date);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  },
+
+  async replaceAllCustomHolidays(holidays) {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_CUSTOM_HOLIDAYS, "readwrite");
+      const store = tx.objectStore(STORE_CUSTOM_HOLIDAYS);
+      store.clear();
+      (holidays || []).forEach((h) => store.add(h));
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
     });

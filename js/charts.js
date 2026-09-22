@@ -36,6 +36,29 @@ function formatHourLabel(h) {
   return `${hour12}${period === "AM" ? "am" : "pm"}`;
 }
 
+// Renders a small "what do these colors mean" legend as an HTML string,
+// meant to be inserted right after a chart's canvas wrapper. items:
+// [{ color: "#hex", label: "text" }, ...]
+function renderChartLegendHtml(items) {
+  if (!items || !items.length) return "";
+  return `<div class="chart-legend">${items.map((it) => `
+    <span class="chart-legend-item"><span class="chart-legend-swatch" style="background:${it.color};"></span>${it.label}</span>
+  `).join("")}</div>`;
+}
+
+// Inserts a legend right after a given chart's canvas wrapper in the DOM.
+// Called after the chart itself is created; whatever was there before gets
+// wiped naturally the next time the page re-renders its innerHTML, so there
+// is no need to track/remove old legends here.
+function attachChartLegend(canvasId, items) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  const wrap = canvas.closest(".chart-canvas-wrap");
+  if (!wrap) return;
+  const html = renderChartLegendHtml(items);
+  if (html) wrap.insertAdjacentHTML("afterend", html);
+}
+
 function renderBarChart(canvasId, labels, data, opts) {
   opts = opts || {};
   destroyChart(canvasId);
@@ -43,18 +66,33 @@ function renderBarChart(canvasId, labels, data, opts) {
   if (!canvas) return null;
   const highlightIdx = new Set(opts.highlightIndexes || []);
   const colors = data.map((_, i) => (highlightIdx.has(i) ? COLORS.amber : COLORS.green));
+  const datasets = [{
+    label: opts.datasetLabel || "",
+    data,
+    backgroundColor: colors,
+    borderRadius: 4,
+    maxBarThickness: opts.horizontal ? 28 : 34,
+    order: 2,
+  }];
+  // Optional dashed reference line (e.g. "your overall average") drawn across
+  // every bar at a fixed value, so a bar chart can show how each category
+  // compares to the average without a separate chart.
+  if (typeof opts.averageLine === "number") {
+    datasets.push({
+      type: "line",
+      label: opts.averageLineLabel || "",
+      data: labels.map(() => opts.averageLine),
+      borderColor: COLORS.muted,
+      borderWidth: 1.5,
+      borderDash: [6, 4],
+      pointRadius: 0,
+      fill: false,
+      order: 1,
+    });
+  }
   const chart = new Chart(canvas, {
-    type: opts.horizontal ? "bar" : "bar",
-    data: {
-      labels,
-      datasets: [{
-        label: opts.datasetLabel || "",
-        data,
-        backgroundColor: colors,
-        borderRadius: 4,
-        maxBarThickness: opts.horizontal ? 28 : 34,
-      }],
-    },
+    type: "bar",
+    data: { labels, datasets },
     options: {
       indexAxis: opts.horizontal ? "y" : "x",
       responsive: true,
@@ -72,11 +110,13 @@ function renderBarChart(canvasId, labels, data, opts) {
         x: {
           grid: { display: !opts.horizontal, color: COLORS.border },
           ticks: opts.horizontal ? {} : { autoSkip: true, maxRotation: 0 },
+          title: { display: !!(opts.horizontal ? opts.yAxisLabel : opts.xAxisLabel), text: opts.horizontal ? opts.yAxisLabel : opts.xAxisLabel, color: COLORS.muted, font: { size: 11 } },
         },
         y: {
           beginAtZero: true,
           grid: { color: COLORS.border },
           ticks: opts.horizontal ? {} : { callback: (v) => formatMoney(v) },
+          title: { display: !!(opts.horizontal ? opts.xAxisLabel : opts.yAxisLabel), text: opts.horizontal ? opts.xAxisLabel : opts.yAxisLabel, color: COLORS.muted, font: { size: 11 } },
         },
       },
     },
@@ -124,8 +164,8 @@ function renderLineChart(canvasId, labels, data, opts) {
       },
       onClick: opts.onClick,
       scales: {
-        x: { grid: { display: false } },
-        y: { beginAtZero: true, grid: { color: COLORS.border }, ticks: { callback: (v) => formatMoney(v) } },
+        x: { grid: { display: false }, title: { display: !!opts.xAxisLabel, text: opts.xAxisLabel, color: COLORS.muted, font: { size: 11 } } },
+        y: { beginAtZero: true, grid: { color: COLORS.border }, ticks: { callback: (v) => formatMoney(v) }, title: { display: !!opts.yAxisLabel, text: opts.yAxisLabel, color: COLORS.muted, font: { size: 11 } } },
       },
     },
   });
@@ -215,4 +255,12 @@ function renderHeatmap(container, grid, opts) {
   }
   table.appendChild(tbody);
   container.appendChild(table);
+
+  if (opts.legendLessLabel) {
+    const legend = document.createElement("div");
+    legend.className = "heatmap-legend";
+    const swatches = [0.06, 0.25, 0.45, 0.65, 0.91].map((a) => `<span style="background:rgba(31,92,74,${a});"></span>`).join("");
+    legend.innerHTML = `<span>${opts.legendLessLabel}</span><span class="heatmap-legend-scale">${swatches}</span><span>${opts.legendMoreLabel}</span>`;
+    container.appendChild(legend);
+  }
 }
