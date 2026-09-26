@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Returning-customer math tests</title>
+<style>
+  body { font-family: monospace; padding: 24px; background: #fff; color: #111; }
+  .pass { color: #1F5C4A; }
+  .fail { color: #b3401f; font-weight: bold; }
+  h1 { font-family: sans-serif; }
+  #summary { font-family: sans-serif; font-size: 1.2em; margin-top: 16px; }
+</style>
+</head>
+<body>
+<h1>Returning-customer math tests</h1>
+<p>A hand-worked 3-customer case (see comments in this file for the by-hand math), checked against <code>../js/customers.js</code>. Also confirms hashing produces no raw values.</p>
+<div id="results"></div>
+<div id="summary"></div>
+
+<script src="../js/parser.js"></script>
+<script src="../js/customers.js"></script>
+<script>
+(async () => {
+  const results = [];
+  let pass = 0, fail = 0;
+  function assert(label, condition) {
+    if (condition) pass++; else fail++;
+    results.push({ label, ok: condition });
+  }
+  function assertEqual(label, actual, expected, tolerance) {
+    tolerance = tolerance || 0;
+    const ok = typeof expected === "number" ? Math.abs(actual - expected) <= tolerance : actual === expected;
+    assert(`${label} (got ${actual}, expected ${expected})`, ok);
+  }
+
+  // Hand-worked case:
+  //   Customer A: visits 2026-01-01, 2026-02-01 (31 days later), 2026-03-01 (28 days later)
+  //   Customer B: visits 2026-01-05 only
+  //   Customer C: visits 2026-01-10, 2026-04-10 (90 days later)
+  //   maxDate = 2026-04-10 (the latest date across all rows)
+  const rows = [
+    { date: "2026-01-01", customerHash: "A" },
+    { date: "2026-02-01", customerHash: "A" },
+    { date: "2026-03-01", customerHash: "A" },
+    { date: "2026-01-05", customerHash: "B" },
+    { date: "2026-01-10", customerHash: "C" },
+    { date: "2026-04-10", customerHash: "C" },
+  ];
+  const visits = computeCustomerVisits(rows);
+  assertEqual("3 distinct customers found", visits.size, 3);
+  assertEqual("Customer A has 3 visit dates", visits.get("A").length, 3);
+  assertEqual("Customer B has 1 visit date", visits.get("B").length, 1);
+  assertEqual("Customer C has 2 visit dates", visits.get("C").length, 2);
+
+  assertEqual("daysBetweenDates(Jan 1, Feb 1) = 31", daysBetweenDates("2026-01-01", "2026-02-01"), 31);
+  assertEqual("daysBetweenDates(Jan 10, Apr 10) = 90", daysBetweenDates("2026-01-10", "2026-04-10"), 90);
+
+  const maxDate = "2026-04-10";
+
+  // By hand: repeat rate at 30 days.
+  //   A: first=Jan1, eligible (99 days to maxDate >= 30). Next visits are 31
+  //      and 59 days after first -- neither is <=30, so NOT counted as returned.
+  //   B: eligible (95 days), only one visit -> not returned.
+  //   C: eligible (90 days), only later visit is 90 days after first -- not <=30 -> not returned.
+  //   => 0 of 3 returned within 30 days = 0%.
+  const rr30 = computeRepeatRate(visits, maxDate, 30);
+  assertEqual("30-day repeat rate: eligible customers", rr30.eligible, 3);
+  assertEqual("30-day repeat rate: returned customers", rr30.returned, 0);
+  assertEqual("30-day repeat rate: percent", rr30.pct, 0);
+
+  // By hand: repeat rate at 90 days.
+  //   A: eligible (99>=90). Feb1 visit is 31 days after first, <=90 -> returned.
+  //   B: eligible (95>=90). No other visit -> not returned.
+  //   C: eligible (90>=90, boundary). Apr10 visit is exactly 90 days after first -> returned.
+  //   => 2 of 3 returned within 90 days = 67% (rounded).
+  const rr90 = computeRepeatRate(visits, maxDate, 90);
+  assertEqual("90-day repeat rate: eligible customers", rr90.eligible, 3);
+  assertEqual("90-day repeat rate: returned customers", rr90.returned, 2);
+  assertEqual("90-day repeat rate: percent", rr90.pct, 67);
+
+  // By hand: visit stats.
+  //   Repeat customers (2+ visits): A (3 visits), C (2 visits) => 2 repeat customers.
+  //   Total visits among them: 3 + 2 = 5 -> average 2.5 visits per repeat customer.
+  //   Gaps: A: Jan1->Feb1 = 31, Feb1->Mar1 = 28 (Feb 2026 has 28 days). C: Jan10->Apr10 = 90.
+  //   Total gap days = 31 + 28 + 90 = 149 across 3 gaps -> average 49.67 days.
+  const vs = computeVisitStats(visits);
+  assertEqual("Repeat customers (2+ visits)", vs.repeatCustomers, 2);
+  assertEqual("Average visits per repeat customer", vs.avgVisitsPerRepeat, 2.5, 0.01);
+  assertEqual("Average days between visits", vs.avgGapDays, 149 / 3, 0.01);
+
+  // By hand: win-back count at 60+ days since last visit.
+  //   A: last visit Mar1, Mar1->Apr10 = 40 days -> not win-back.
+  //   B: last (only) visit Jan5, Jan5->Apr10 = 95 days -> win-back.
+  //   C: last visit Apr10 (=maxDate), 0 days -> not win-back.
+  //   => 1 customer.
+  const winBack = computeWinBackCount(visits, maxDate, 60);
+  assertEqual("Win-back count (60+ days)", winBack, 1);
+
+  // By hand: new vs returning by month.
+  //   Buckets by month: Jan (A's 1st visit, B's only visit, C's 1st visit),
+  //   Feb (A's 2nd visit), Mar (A's 3rd visit), Apr (C's 2nd visit).
+  //   Jan: A new, B new, C new => newCount=3, returningCount=0.
+  //   Feb: A returning => newCount=0, returningCount=1.
+  //   Mar: A returning => newCount=0, returningCount=1.
+  //   Apr: C returning => newCount=0, returningCount=1.
+  const byMonth = newVsReturningByPeriod(visits, (d) => d.slice(0, 7));
+  assertEqual("Jan bucket: new", byMonth.get("2026-01").newCount, 3);
+  assertEqual("Jan bucket: returning", byMonth.get("2026-01").returningCount, 0);
+  assertEqual("Feb bucket: returning", byMonth.get("2026-02").returningCount, 1);
+  assertEqual("Mar bucket: returning", byMonth.get("2026-03").returningCount, 1);
+  assertEqual("Apr bucket: returning", byMonth.get("2026-04").returningCount, 1);
+
+  // Hashing sanity: the raw value never appears in the hash, hashing is
+  // deterministic for the same salt, and different salts produce different
+  // hashes (so regenerating the salt really does invalidate old history).
+  const h1 = await hashCustomerId("555-123-4567", "saltA");
+  const h2 = await hashCustomerId("(555) 123-4567", "saltA"); // same number, different formatting
+  const h3 = await hashCustomerId("555-123-4567", "saltB");
+  assert("Hash is a 64-char hex string (SHA-256)", /^[0-9a-f]{64}$/.test(h1));
+  assert("Hash never contains the raw phone number digits", !h1.includes("5551234567") && !h1.includes("555-123-4567"));
+  assertEqual("Same number, different formatting, same salt -> same hash", h2, h1);
+  assert("Same number, different salt -> different hash", h3 !== h1);
+  const emptyHash = await hashCustomerId("", "saltA");
+  assertEqual("Empty value hashes to null (skipped, not stored)", emptyHash, null);
+
+  const el = document.getElementById("results");
+  results.forEach((r) => {
+    const div = document.createElement("div");
+    div.className = r.ok ? "pass" : "fail";
+    div.textContent = (r.ok ? "PASS - " : "FAIL - ") + r.label;
+    el.appendChild(div);
+  });
+  document.getElementById("summary").innerHTML = fail === 0
+    ? `<span class="pass">All ${pass} checks passed.</span>`
+    : `<span class="fail">${fail} of ${pass + fail} checks FAILED.</span>`;
+})();
+</script>
+</body>
+</html>

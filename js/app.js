@@ -30,6 +30,9 @@ const App = {
   weatherLoading: false,
 
   askHistory: [], // [{question, answer}] -- session only, not saved to disk
+
+  showSunsetOnTrend: false, // toggle on the trend chart; remembered across visits
+  customerIdColumnName: null, // the header name last used for hashed customer tracking, shown on the privacy disclosure only
 };
 
 function closedDates() {
@@ -57,7 +60,22 @@ function noteAt(dateStr) {
   return App.dayNotesMap.get(dateStr) || null;
 }
 
-const KNOWN_NOTE_TAGS = ["rainy", "festival", "shortStaffed", "closed"];
+// A marketing/promo note can span a date range (start date + endDate), not
+// just the single day it's stored under. This finds any promo whose range
+// covers a given date, excluding its own start date (already covered by
+// noteAt) so it isn't listed twice on that day.
+function promoNotesActiveOn(dateStr) {
+  const results = [];
+  App.dayNotesMap.forEach((n) => {
+    if (n.tags && n.tags.includes("promo") && n.endDate && n.date !== dateStr && dateStr >= n.date && dateStr <= n.endDate) {
+      results.push(n);
+    }
+  });
+  return results;
+}
+
+const KNOWN_NOTE_TAGS = ["rainy", "festival", "shortStaffed", "closed", "promo"];
+const PROMO_CHANNELS = ["social", "flyer", "email", "discountCode", "other"];
 function tagLabel(tag) {
   if (KNOWN_NOTE_TAGS.includes(tag)) {
     return t("notesTag" + tag.charAt(0).toUpperCase() + tag.slice(1));
@@ -121,6 +139,7 @@ function renderNav() {
     ["#/dashboard", "navDashboard"],
     ["#/ask", "navAsk"],
     ["#/notes", "navNotes"],
+    ["#/customers", "navCustomers"],
     ["#/data", "navData"],
   ];
   document.getElementById("mainNav").innerHTML = items
@@ -330,6 +349,7 @@ const MATCH_FIELDS = [
   ["price", "matchPrice", true],
   ["orderType", "matchOrderType", false],
   ["orderId", "matchOrderId", false],
+  ["customerId", "matchCustomerId", false],
 ];
 
 function renderMatchScreen() {
@@ -356,6 +376,7 @@ function renderMatchScreen() {
             <select id="match-${field}" name="${field}">${options(p.guesses[field])}</select>
             ${field === "quantity" ? `<p class="match-note">${esc(t("matchQuantityNote"))}</p>` : ""}
             ${field === "date" ? `<p class="match-note">${esc(t("matchCombinedHint"))}</p>` : ""}
+            ${field === "customerId" ? `<p class="match-note">${esc(t("matchCustomerIdExplain"))}</p>` : ""}
           </div>
         `).join("")}
       </div>
@@ -368,7 +389,22 @@ function renderMatchScreen() {
   });
 }
 
-function confirmMatch() {
+// The salt that customer-identifier values are hashed with. Generated once
+// with the browser's cryptographic RNG, stored only in this device's
+// IndexedDB settings, and never sent anywhere -- it exists purely so the
+// same phone/email hashes the same way across uploads (letting repeat
+// visits be recognized) without ever storing the phone/email itself.
+async function getOrCreateCustomerSalt() {
+  let salt = await DB.getSetting("customerHashSalt");
+  if (!salt) {
+    const bytes = crypto.getRandomValues(new Uint8Array(16));
+    salt = Array.from(bytes).map((b) => b.toString(16).padStart(2, "0")).join("");
+    await DB.setSetting("customerHashSalt", salt);
+  }
+  return salt;
+}
+
+async function confirmMatch() {
   const p = App.pendingParse;
   const mapping = {};
   MATCH_FIELDS.forEach(([field]) => {
@@ -379,26 +415,32 @@ function confirmMatch() {
     showError(t("errorMissingRequired"));
     return;
   }
-  const { rows, badCount } = buildRows(p.dataRows, mapping);
-  if (!rows.length) {
-    showError(t("errorNoValidRows"));
-    return;
-  }
-  DB.setSetting("format:" + p.signature, mapping).then(() => {
+  try {
+    const customerSalt = mapping.customerId ? await getOrCreateCustomerSalt() : null;
+    const { rows, badCount } = await buildRows(p.dataRows, mapping, customerSalt);
+    if (!rows.length) {
+      showError(t("errorNoValidRows"));
+      return;
+    }
+    await DB.setSetting("format:" + p.signature, mapping);
+    if (mapping.customerId) {
+      await DB.setSetting("customerIdColumnName", mapping.customerId);
+      App.customerIdColumnName = mapping.customerId;
+    }
     App.pendingParse = null;
-    return mergeNewRows(rows);
-  }).then(() => {
+    await mergeNewRows(rows);
     clearError();
     location.hash = App.matchReturnHash;
     App.matchReturnHash = "#/dashboard";
-    refreshAllRows().then(() => {
-      dispatchRoute();
-      // If weather is already on, make sure it covers the newly-added
-      // dates too -- not just whatever range existed the last time the
-      // page loaded or the location was set.
-      if (App.weatherEnabled && App.weatherLocation) refreshWeatherIfNeeded();
-    });
-  }).catch(() => showError(t("errorGeneric")));
+    await refreshAllRows();
+    dispatchRoute();
+    // If weather is already on, make sure it covers the newly-added
+    // dates too -- not just whatever range existed the last time the
+    // page loaded or the location was set.
+    if (App.weatherEnabled && App.weatherLocation) refreshWeatherIfNeeded();
+  } catch (err) {
+    showError(t("errorGeneric"));
+  }
 }
 
 // ---------- Merge / dedupe ----------
@@ -524,6 +566,9 @@ function eventsInWeek(weekStartStr) {
       const label = n.text || (n.tags || []).map(tagLabel).join(", ");
       events.push(`${label} (${shortDate})`);
     }
+    promoNotesActiveOn(ds).forEach((p) => {
+      events.push(`${p.text || t("notesTagPromo")} (${shortDate})`);
+    });
     // Only notable weather (rain/snow, not routine dry/light-rain days) gets
     // a marker here, so the trend chart doesn't get cluttered every week.
     if (App.weatherEnabled) {
@@ -542,9 +587,37 @@ function eventsInWeek(weekStartStr) {
 function trendMarkerOpts(byWeek) {
   const markerIndexes = [];
   byWeek.forEach((w, i) => { if (eventsInWeek(w[0]).length) markerIndexes.push(i); });
+
+  // Optional sunset overlay: a week's average sunset time, and an indigo
+  // ring around weeks where the sun sets before 5pm on average. Purely
+  // local math -- works whenever a location is on file.
+  const showSunset = App.showSunsetOnTrend && App.weatherLocation;
+  const secondaryMarkerIndexes = [];
+  const avgSunsetByWeek = [];
+  if (showSunset) {
+    byWeek.forEach((w, i) => {
+      let sum = 0, count = 0;
+      for (let d = 0; d < 7; d++) {
+        const ds = dateStrPlusDays(w[0], d);
+        const info = daylightFor(ds, App.weatherLocation);
+        if (info) { sum += info.sunsetMin; count++; }
+      }
+      const avg = count ? sum / count : null;
+      avgSunsetByWeek.push(avg);
+      if (avg !== null && avg < EARLY_SUNSET_MINUTES) secondaryMarkerIndexes.push(i);
+    });
+  }
+
   return {
     markerIndexes,
-    markerLabelFn: (i) => eventsInWeek(byWeek[i][0]),
+    secondaryMarkerIndexes,
+    markerLabelFn: (i) => {
+      const lines = eventsInWeek(byWeek[i][0]);
+      if (showSunset && avgSunsetByWeek[i] !== null && avgSunsetByWeek[i] !== undefined) {
+        lines.push(t("trendSunsetTooltip", { time: formatClockMinutes(avgSunsetByWeek[i]) }));
+      }
+      return lines;
+    },
   };
 }
 
@@ -862,6 +935,14 @@ function avgOfActive(arr) {
   return active.length ? active.reduce((s, v) => s + v, 0) / active.length : 0;
 }
 
+// Shared thresholds for "does this outside factor actually matter" style
+// comparisons (weather, daylight, and any future factor): both groups need
+// at least this many days before we trust the comparison, and the two
+// averages need to differ by at least this percent before it's worth
+// mentioning as an insight rather than noise.
+const FACTOR_MIN_DAYS = 5;
+const FACTOR_MIN_PCT_DIFF = 8;
+
 // ---------- Insights ----------
 function generateInsights(rows) {
   const insights = [];
@@ -970,11 +1051,11 @@ function generateInsights(rows) {
     let bestWeather = null;
     ["rain", "lightRain", "snow"].forEach((cat) => {
       const g = groups[cat];
-      if (!g || !dry || g.count < 5 || dry.count < 5) return;
+      if (!g || !dry || g.count < FACTOR_MIN_DAYS || dry.count < FACTOR_MIN_DAYS) return;
       const avgCat = g.sum / g.count, avgDry = dry.sum / dry.count;
       if (avgDry <= 0) return;
       const pct = Math.round(((avgCat - avgDry) / avgDry) * 100);
-      if (Math.abs(pct) >= 8 && (!bestWeather || Math.abs(pct) > Math.abs(bestWeather.pct))) {
+      if (Math.abs(pct) >= FACTOR_MIN_PCT_DIFF && (!bestWeather || Math.abs(pct) > Math.abs(bestWeather.pct))) {
         bestWeather = { cat, pct, catCount: g.count, dryCount: dry.count };
       }
     });
@@ -999,6 +1080,45 @@ function generateInsights(rows) {
         ],
         sparkline: { kind: "bar", labels: [weatherCategoryLabel(bestWeather.cat), weatherCategoryLabel("dry")], data: [avgCat, avgDry], highlightIndexes: [0] },
       });
+    }
+  }
+
+  // 1d. Daylight/sunset comparison -- purely local math, so (unlike weather)
+  // this works whenever a location is on file, whether or not live weather
+  // fetching is turned on.
+  if (App.weatherLocation) {
+    const dailyTotals = computeDailyTotals(rows);
+    const early = { sum: 0, count: 0 };
+    const late = { sum: 0, count: 0 };
+    dailyTotals.forEach((revenue, date) => {
+      if (App.ignoreHolidays && holidayAt(date)) return;
+      const d = daylightFor(date, App.weatherLocation);
+      if (!d) return;
+      const bucket = d.sunsetMin < EARLY_SUNSET_MINUTES ? early : late;
+      bucket.sum += revenue;
+      bucket.count++;
+    });
+    if (early.count >= FACTOR_MIN_DAYS && late.count >= FACTOR_MIN_DAYS) {
+      const avgEarly = early.sum / early.count, avgLate = late.sum / late.count;
+      if (avgLate > 0) {
+        const pct = Math.round(((avgEarly - avgLate) / avgLate) * 100);
+        if (Math.abs(pct) >= FACTOR_MIN_PCT_DIFF) {
+          const dir = pct >= 0 ? "up" : "down";
+          insights.push({
+            type: "daylight",
+            headline: t("insightDaylightHeadline", { pct: Math.abs(pct), direction: t(dir) }),
+            action: t("insightDaylightAction", { earlyDays: early.count, lateDays: late.count }),
+            stats: [
+              t("statAvgPerDay", { day: t("statEarlySunsetLabel"), amount: formatMoney(avgEarly), count: early.count }),
+              t("statAvgPerDay", { day: t("statLongDaylightLabel"), amount: formatMoney(avgLate), count: late.count }),
+              t("statDifference", { amount: formatMoney(Math.abs(avgEarly - avgLate)), pct: Math.abs(pct) }),
+            ],
+            why: t("whyDaylight"),
+            steps: [t("stepDaylight1"), t("stepDaylight2")],
+            sparkline: { kind: "bar", labels: [t("statEarlySunsetLabel"), t("statLongDaylightLabel")], data: [avgEarly, avgLate], highlightIndexes: [0] },
+          });
+        }
+      }
     }
   }
 
@@ -1219,6 +1339,10 @@ App.renderDashboard = function () {
       <div class="card chart-card full-width">
         <h3>${esc(t("chartTrendTitle"))}</h3>
         <div class="chart-meta">${esc(maturityLabel(weeks))} ${weeks >= 8 ? "&middot; " + esc(t("dataMatureMonthly")) : ""}</div>
+        ${App.weatherLocation ? `<label style="display:flex;align-items:center;gap:8px;font-size:0.85rem;color:var(--muted);margin-bottom:8px;">
+          <input type="checkbox" id="sunsetToggleDashboard" ${App.showSunsetOnTrend ? "checked" : ""} />
+          ${esc(t("trendSunsetToggle"))}
+        </label>` : ""}
         <div class="chart-canvas-wrap"><canvas id="chart-trend" aria-label="${esc(t("chartTrendTitle"))}" role="img"></canvas></div>
         <a class="see-details-link" href="#/trend">${esc(t("seeDetails"))}</a>
       </div>` : `<div class="card chart-card"><h3>${esc(t("chartTrendTitle"))}</h3><p class="chart-meta">${esc(t("trendNeedsMoreData"))}</p></div>`}
@@ -1298,7 +1422,17 @@ App.renderDashboard = function () {
       onClick: () => { location.hash = "#/trend"; },
       xAxisLabel: t("axisWeek"), yAxisLabel: t("axisSales"),
     }, trendMarkerOpts(byWeek)));
-    attachChartLegend("chart-trend", [{ color: COLORS.amber, label: t("trendLegendMarker") }]);
+    const trendLegendItems = [{ color: COLORS.amber, label: t("trendLegendMarker") }];
+    if (App.showSunsetOnTrend && App.weatherLocation) trendLegendItems.push({ color: COLORS.indigo, label: t("trendSunsetLegend") });
+    attachChartLegend("chart-trend", trendLegendItems);
+    const sunsetToggle = document.getElementById("sunsetToggleDashboard");
+    if (sunsetToggle) {
+      sunsetToggle.addEventListener("change", async (e) => {
+        App.showSunsetOnTrend = e.target.checked;
+        await DB.setSetting("showSunsetOnTrend", App.showSunsetOnTrend);
+        App.renderDashboard();
+      });
+    }
   }
   renderBarChart("chart-items", topItemsList.map((x) => x.item), topItemsList.map((x) => x.quantity), {
     horizontal: true,
@@ -1616,6 +1750,10 @@ App.renderTrendDetail = function () {
     <div class="detail-header"><h1>${esc(t("chartTrendTitle"))}</h1><span class="maturity-note">${esc(maturityLabel(weeks))}</span></div>
     ${byWeek.length < 3 ? `<p class="chart-meta">${esc(t("trendNeedsMoreData"))}</p>` : ""}
 
+    ${App.weatherLocation ? `<label style="display:flex;align-items:center;gap:8px;font-size:0.9rem;color:var(--muted);margin-bottom:10px;">
+      <input type="checkbox" id="sunsetToggleDetail" ${App.showSunsetOnTrend ? "checked" : ""} />
+      ${esc(t("trendSunsetToggle"))}
+    </label>` : ""}
     <div class="card"><div class="chart-canvas-wrap tall"><canvas id="chart-trend-detail"></canvas></div></div>
 
     <div class="detail-section"><h2>${esc(t("detailWhatShows"))}</h2><p>${esc(t("trendWhatShows"))}</p></div>
@@ -1636,13 +1774,24 @@ App.renderTrendDetail = function () {
     </div>
     <div class="card">
       <table class="data-table">
-        <thead><tr><th>${esc(t("trendColWeek"))}</th><th>${esc(t("trendColSales"))}</th><th>${esc(t("trendColChange"))}</th><th>${esc(t("trendColNotes"))}</th></tr></thead>
+        <thead><tr><th>${esc(t("trendColWeek"))}</th><th>${esc(t("trendColSales"))}</th><th>${esc(t("trendColChange"))}</th>
+          ${App.showSunsetOnTrend && App.weatherLocation ? `<th>${esc(t("trendColSunset"))}</th>` : ""}
+          <th>${esc(t("trendColNotes"))}</th></tr></thead>
         <tbody>
           ${byWeek.map((w, i) => {
             const prevVal = i > 0 ? byWeek[i - 1][1] : null;
             const change = prevVal && prevVal > 0 ? Math.round(((w[1] - prevVal) / prevVal) * 100) : null;
             const events = eventsInWeek(w[0]);
-            return `<tr><td>${esc(w[0])}</td><td>${formatMoney(w[1])}</td><td>${change === null ? "—" : (change >= 0 ? "+" : "") + change + "%"}</td><td>${esc(events.join("; "))}</td></tr>`;
+            let sunsetCell = "";
+            if (App.showSunsetOnTrend && App.weatherLocation) {
+              let sum = 0, count = 0;
+              for (let d = 0; d < 7; d++) {
+                const info = daylightFor(dateStrPlusDays(w[0], d), App.weatherLocation);
+                if (info) { sum += info.sunsetMin; count++; }
+              }
+              sunsetCell = `<td>${count ? esc(formatClockMinutes(sum / count)) : "—"}</td>`;
+            }
+            return `<tr><td>${esc(w[0])}</td><td>${formatMoney(w[1])}</td><td>${change === null ? "—" : (change >= 0 ? "+" : "") + change + "%"}</td>${sunsetCell}<td>${esc(events.join("; "))}</td></tr>`;
           }).join("")}
         </tbody>
       </table>
@@ -1651,7 +1800,17 @@ App.renderTrendDetail = function () {
   renderLineChart("chart-trend-detail", byWeek.map((w) => w[0]), byWeek.map((w) => w[1]), Object.assign({
     xAxisLabel: t("axisWeek"), yAxisLabel: t("axisSales"),
   }, trendMarkerOpts(byWeek)));
-  attachChartLegend("chart-trend-detail", [{ color: COLORS.amber, label: t("trendLegendMarker") }]);
+  const trendDetailLegend = [{ color: COLORS.amber, label: t("trendLegendMarker") }];
+  if (App.showSunsetOnTrend && App.weatherLocation) trendDetailLegend.push({ color: COLORS.indigo, label: t("trendSunsetLegend") });
+  attachChartLegend("chart-trend-detail", trendDetailLegend);
+  const sunsetToggleDetail = document.getElementById("sunsetToggleDetail");
+  if (sunsetToggleDetail) {
+    sunsetToggleDetail.addEventListener("change", async (e) => {
+      App.showSunsetOnTrend = e.target.checked;
+      await DB.setSetting("showSunsetOnTrend", App.showSunsetOnTrend);
+      App.renderTrendDetail();
+    });
+  }
 };
 
 // ---------- Detail: Order Types ----------
@@ -1767,6 +1926,21 @@ App.renderNotes = function () {
             value="${esc(editingNote ? (editingNote.tags || []).find((tg) => !KNOWN_NOTE_TAGS.includes(tg)) || "" : "")}"
             style="margin-top:8px;padding:8px 10px;border-radius:8px;border:1px solid var(--border);" />
         </div>
+        <div class="match-field" id="promoFieldsWrap" ${editingNote && editingNote.tags && editingNote.tags.includes("promo") ? "" : "hidden"}>
+          <p class="match-note">${esc(t("notesPromoExplain"))}</p>
+          <div style="display:flex;gap:12px;flex-wrap:wrap;">
+            <div>
+              <label for="notePromoEndDate">${esc(t("notesPromoEndDate"))}</label>
+              <input type="date" id="notePromoEndDate" value="${esc(editingNote && editingNote.endDate ? editingNote.endDate : "")}" />
+            </div>
+            <div>
+              <label for="notePromoChannel">${esc(t("notesPromoChannel"))}</label>
+              <select id="notePromoChannel">
+                ${PROMO_CHANNELS.map((c) => `<option value="${c}" ${editingNote && editingNote.channel === c ? "selected" : ""}>${esc(t("notesPromoChannel" + c.charAt(0).toUpperCase() + c.slice(1)))}</option>`).join("")}
+              </select>
+            </div>
+          </div>
+        </div>
         <div class="data-actions">
           <button type="submit" class="btn btn-primary">${esc(t("notesSave"))}</button>
           ${editing ? `<button type="button" class="btn btn-ghost" id="noteCancelBtn">${esc(t("notesCancel"))}</button>` : ""}
@@ -1828,7 +2002,11 @@ App.renderNotes = function () {
             const h = holidayAt(d);
             const n = noteAt(d);
             const dow = dayShort(rowDayOfWeek({ date: d }));
-            const noteText = n ? [n.text, ...(n.tags || []).map(tagLabel)].filter(Boolean).join(" — ") : "";
+            let noteText = n ? [n.text, ...(n.tags || []).map(tagLabel)].filter(Boolean).join(" — ") : "";
+            if (n && n.tags && n.tags.includes("promo")) {
+              const channelLabel = t("notesPromoChannel" + n.channel.charAt(0).toUpperCase() + n.channel.slice(1));
+              noteText += ` (${n.date} – ${n.endDate}, ${channelLabel})`;
+            }
             return `<tr>
               <td>${esc(d)}</td><td>${esc(dow)}</td><td>${esc(sales)}</td>
               <td>${h ? esc(h.name) : ""}</td>
@@ -1872,6 +2050,12 @@ App.renderNotes = function () {
   const cancelBtn = document.getElementById("noteCancelBtn");
   if (cancelBtn) cancelBtn.addEventListener("click", () => { App.editingNoteDate = null; App.renderNotes(); });
 
+  const promoCheckbox = document.querySelector('.noteTagCheckbox[value="promo"]');
+  const promoWrap = document.getElementById("promoFieldsWrap");
+  if (promoCheckbox && promoWrap) {
+    promoCheckbox.addEventListener("change", () => { promoWrap.hidden = !promoCheckbox.checked; });
+  }
+
   document.getElementById("noteForm").addEventListener("submit", async (e) => {
     e.preventDefault();
     const date = document.getElementById("noteDateInput").value;
@@ -1880,7 +2064,16 @@ App.renderNotes = function () {
     const tags = Array.from(document.querySelectorAll(".noteTagCheckbox:checked")).map((cb) => cb.value);
     const otherTag = document.getElementById("noteOtherTag").value.trim();
     if (otherTag) tags.push(otherTag);
-    await DB.setDayNote({ date, text, tags });
+    const note = { date, text, tags };
+    // A marketing/promo note can cover a date range and names a channel, so
+    // it's ready to plug into a before/after tracker down the road -- it
+    // just isn't built as a comparison tool yet, only stored and displayed.
+    if (tags.includes("promo")) {
+      const endDate = document.getElementById("notePromoEndDate").value;
+      note.endDate = endDate || date;
+      note.channel = document.getElementById("notePromoChannel").value;
+    }
+    await DB.setDayNote(note);
     await refreshDayNotes();
     App.editingNoteDate = null;
     App.renderNotes();
@@ -2027,6 +2220,145 @@ App.renderAsk = function () {
   });
 };
 
+// ---------- Returning Customers (privacy-sensitive: hashed IDs only) ----------
+// "2026-08" reads unambiguously in both languages without needing 12 more
+// translated month names just for this one chart's axis labels.
+function monthLabel(dateStr) {
+  return dateStr;
+}
+
+App.renderCustomers = function () {
+  const root = document.getElementById("view-root");
+  const rows = App.allRows; // uses all saved history, not just the range selector, since repeat behavior spans your whole dataset
+  const hasAnyHash = rows.some((r) => r.customerHash);
+
+  const privacyCard = `
+    <div class="card">
+      <h2>${esc(t("customersPrivacyTitle"))}</h2>
+      <p class="match-note">${esc(t("customersPrivacyBody"))}</p>
+      <p class="match-note">${App.customerIdColumnName
+        ? esc(t("customersDetectedColumn", { column: App.customerIdColumnName }))
+        : esc(t("customersNoColumnEver"))}</p>
+      <button type="button" class="btn btn-ghost" id="regenerateSaltBtn">${esc(t("customersRegenerateSalt"))}</button>
+    </div>`;
+
+  if (!hasAnyHash) {
+    root.innerHTML = `
+      <h1>${esc(t("customersTitle"))}</h1>
+      ${privacyCard}
+      <div class="card" style="margin-top:20px;">
+        <p>${esc(t("customersNoColumnFound"))}</p>
+      </div>
+    `;
+    wireCustomersPage();
+    return;
+  }
+
+  const visits = computeCustomerVisits(rows);
+  const range = dateRangeOf(rows);
+
+  if (visits.size < CUSTOMER_MIN_COUNT) {
+    root.innerHTML = `
+      <h1>${esc(t("customersTitle"))}</h1>
+      ${privacyCard}
+      <div class="card" style="margin-top:20px;">
+        <p>${esc(t("customersThinData", { count: visits.size, min: CUSTOMER_MIN_COUNT }))}</p>
+      </div>
+    `;
+    wireCustomersPage();
+    return;
+  }
+
+  const maxDate = range.max;
+  const rr30 = computeRepeatRate(visits, maxDate, 30);
+  const rr60 = computeRepeatRate(visits, maxDate, 60);
+  const rr90 = computeRepeatRate(visits, maxDate, 90);
+  const visitStats = computeVisitStats(visits);
+  const winBack = computeWinBackCount(visits, maxDate, 60);
+  const byMonth = newVsReturningByPeriod(visits, (d) => d.slice(0, 7));
+  const monthKeys = Array.from(byMonth.keys()).sort();
+
+  root.innerHTML = `
+    <h1>${esc(t("customersTitle"))}</h1>
+    <p>${esc(t("customersIntro"))}</p>
+    ${privacyCard}
+
+    <div class="card" style="margin-top:20px;">
+      <h2>${esc(t("customersChartTitle"))}</h2>
+      <div class="chart-meta">${esc(t("customersBasedOn", { count: visits.size }))}</div>
+      <div class="chart-canvas-wrap"><canvas id="chart-customers-newvreturning"></canvas></div>
+    </div>
+
+    <div class="stat-grid" style="margin-top:20px;">
+      <div class="card stat-card">
+        <div class="stat-label">${esc(t("customersRepeatRate30"))}</div>
+        <div class="stat-value">${rr30.pct === null ? "—" : rr30.pct + "%"}</div>
+        <p class="match-note">${esc(t("customersRepeatRateNote", { eligible: rr30.eligible }))}</p>
+      </div>
+      <div class="card stat-card">
+        <div class="stat-label">${esc(t("customersRepeatRate60"))}</div>
+        <div class="stat-value">${rr60.pct === null ? "—" : rr60.pct + "%"}</div>
+        <p class="match-note">${esc(t("customersRepeatRateNote", { eligible: rr60.eligible }))}</p>
+      </div>
+      <div class="card stat-card">
+        <div class="stat-label">${esc(t("customersRepeatRate90"))}</div>
+        <div class="stat-value">${rr90.pct === null ? "—" : rr90.pct + "%"}</div>
+        <p class="match-note">${esc(t("customersRepeatRateNote", { eligible: rr90.eligible }))}</p>
+      </div>
+      <div class="card stat-card">
+        <div class="stat-label">${esc(t("customersWinBack"))}</div>
+        <div class="stat-value">${winBack.toLocaleString()}</div>
+        <p class="match-note">${esc(t("customersWinBackNote"))}</p>
+      </div>
+    </div>
+
+    <div class="stat-grid" style="margin-top:16px; grid-template-columns: repeat(2, 1fr);">
+      <div class="card stat-card">
+        <div class="stat-label">${esc(t("customersAvgVisits"))}</div>
+        <div class="stat-value">${visitStats.avgVisitsPerRepeat === null ? "—" : visitStats.avgVisitsPerRepeat.toFixed(1)}</div>
+        <p class="match-note">${esc(t("customersAvgVisitsNote", { count: visitStats.repeatCustomers }))}</p>
+      </div>
+      <div class="card stat-card">
+        <div class="stat-label">${esc(t("customersAvgGap"))}</div>
+        <div class="stat-value">${visitStats.avgGapDays === null ? "—" : Math.round(visitStats.avgGapDays) + " " + t("customersDays")}</div>
+        <p class="match-note">${esc(t("customersAvgGapNote"))}</p>
+      </div>
+    </div>
+
+    <p class="insights-disclaimer">${esc(t("customersDisclaimer"))}</p>
+  `;
+
+  renderStackedBarChart("chart-customers-newvreturning", monthKeys.map(monthLabel),
+    [
+      { label: t("customersNew"), data: monthKeys.map((k) => byMonth.get(k).newCount), color: COLORS.green },
+      { label: t("customersReturning"), data: monthKeys.map((k) => byMonth.get(k).returningCount), color: COLORS.amber },
+    ],
+    { xAxisLabel: t("axisWeek"), yAxisLabel: t("customersCountAxis") }
+  );
+
+  wireCustomersPage();
+};
+
+function wireCustomersPage() {
+  const btn = document.getElementById("regenerateSaltBtn");
+  if (!btn) return;
+  btn.addEventListener("click", () => {
+    showModal({
+      title: t("customersRegenerateSaltConfirmTitle"),
+      body: t("customersRegenerateSaltConfirmBody"),
+      confirmLabel: t("customersRegenerateSalt"),
+      cancelLabel: t("notesCancel"),
+      danger: true,
+      onConfirm: async () => {
+        const bytes = crypto.getRandomValues(new Uint8Array(16));
+        const salt = Array.from(bytes).map((b) => b.toString(16).padStart(2, "0")).join("");
+        await DB.setSetting("customerHashSalt", salt);
+        App.renderCustomers();
+      },
+    });
+  });
+}
+
 // ---------- Data page ----------
 App.renderData = function () {
   const root = document.getElementById("view-root");
@@ -2058,12 +2390,13 @@ App.renderData = function () {
 
     <div class="card" style="margin-top:20px;">
       <h2>${esc(t("settingOutsideDataTitle"))}</h2>
-      <label style="display:flex;align-items:flex-start;gap:10px;font-weight:600;">
+      <p class="match-note">${esc(t("settingLocationSharedNote"))}</p>
+      <div id="weatherLocationSection">${renderWeatherLocationSection()}</div>
+      <label style="display:flex;align-items:flex-start;gap:10px;font-weight:600;margin-top:16px;">
         <input type="checkbox" id="weatherEnabledToggle" ${App.weatherEnabled ? "checked" : ""} style="margin-top:3px;" />
         <span>${esc(t("settingOutsideDataToggle"))}</span>
       </label>
       <p class="match-note">${esc(t("settingOutsideDataExplain"))}</p>
-      <div id="weatherLocationSection" ${App.weatherEnabled ? "" : "hidden"}>${renderWeatherLocationSection()}</div>
       ${App.weatherLastError ? `<p class="match-note" style="color:#b3401f;">${esc(App.weatherLastError)}</p>` : ""}
       <p class="match-note">${esc(t("weatherAttribution"))} <a href="https://open-meteo.com" target="_blank" rel="noopener noreferrer">Open-Meteo</a></p>
     </div>
@@ -2110,7 +2443,6 @@ App.renderData = function () {
   document.getElementById("weatherEnabledToggle").addEventListener("change", async (e) => {
     App.weatherEnabled = e.target.checked;
     await DB.setSetting("weatherEnabled", App.weatherEnabled);
-    document.getElementById("weatherLocationSection").hidden = !App.weatherEnabled;
     if (App.weatherEnabled) {
       refreshWeatherIfNeeded(); // fire-and-forget; renders itself in when data lands
     }
@@ -2145,6 +2477,7 @@ async function deleteAllData() {
   App.weatherUnits = { temp: "F", precip: "in" };
   App.weatherMap = new Map();
   App.weatherLastError = null;
+  App.customerIdColumnName = null;
   await refreshAllRows();
   location.hash = "#/dashboard";
   dispatchRoute();
@@ -2155,12 +2488,16 @@ async function deleteAllData() {
 //   version 2 -> adds { dayNotes, settings } (Phase 1: holidays & day notes).
 //   version 3 -> adds { weather } and weather settings (weather initiative
 //   Phase 1).
-//   version 4 -> adds { customHolidays } (owner-entered holidays). Importing
-//   an older backup still works: any field it doesn't have simply defaults
-//   to empty/off.
+//   version 4 -> adds { customHolidays } (owner-entered holidays).
+//   version 5 -> adds the customer-hash salt + detected column name to
+//   settings, so a restored backup keeps hashing future uploads
+//   consistently with already-hashed rows (which travel with `rows` as
+//   normal fields -- there is no raw customer data anywhere to carry).
+//   Importing an older backup still works: any field it doesn't have
+//   simply defaults to empty/off.
 function exportBackup() {
   const payload = {
-    version: 4,
+    version: 5,
     exportedAt: new Date().toISOString(),
     rows: App.allRows.map((r) => {
       const copy = Object.assign({}, r);
@@ -2175,8 +2512,16 @@ function exportBackup() {
       weatherEnabled: App.weatherEnabled,
       weatherLocation: App.weatherLocation,
       weatherUnits: App.weatherUnits,
+      customerIdColumnName: App.customerIdColumnName,
     },
   };
+  DB.getSetting("customerHashSalt").then((salt) => {
+    if (salt) payload.settings.customerHashSalt = salt;
+    downloadBackupPayload(payload);
+  });
+}
+
+function downloadBackupPayload(payload) {
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -2211,6 +2556,11 @@ function importBackupFile(file) {
       App.weatherLocation = s.weatherLocation || null;
       await DB.setSetting("weatherUnits", s.weatherUnits || { temp: "F", precip: "in" });
       App.weatherUnits = s.weatherUnits || { temp: "F", precip: "in" };
+      if (s.customerHashSalt) await DB.setSetting("customerHashSalt", s.customerHashSalt);
+      if (s.customerIdColumnName) {
+        await DB.setSetting("customerIdColumnName", s.customerIdColumnName);
+        App.customerIdColumnName = s.customerIdColumnName;
+      }
       await refreshAllRows();
       await refreshWeatherMap();
       showMergeBanner(t("dataImportSuccess", { count: payload.rows.length }));
@@ -2238,6 +2588,9 @@ async function initApp() {
     App.weatherLocation = savedWeatherLocation || null;
     const savedWeatherUnits = await DB.getSetting("weatherUnits");
     App.weatherUnits = savedWeatherUnits || { temp: App.lang === "zh" ? "C" : "F", precip: App.lang === "zh" ? "mm" : "in" };
+    const savedShowSunset = await DB.getSetting("showSunsetOnTrend");
+    App.showSunsetOnTrend = !!savedShowSunset;
+    App.customerIdColumnName = (await DB.getSetting("customerIdColumnName")) || null;
     applyStaticText();
     document.getElementById("langToggleBtn").addEventListener("click", () => {
       setLang(App.lang === "en" ? "zh" : "en");

@@ -13,6 +13,7 @@ const ROUTES = {
   "#/heatmap": "renderHeatmapDetail",
   "#/notes": "renderNotes",
   "#/ask": "renderAsk",
+  "#/customers": "renderCustomers",
 };
 
 function currentRouteName() {

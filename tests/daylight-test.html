@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Sunrise/sunset calculation tests</title>
+<style>
+  body { font-family: monospace; padding: 24px; background: #fff; color: #111; }
+  .pass { color: #1F5C4A; }
+  .fail { color: #b3401f; font-weight: bold; }
+  h1 { font-family: sans-serif; }
+  #summary { font-family: sans-serif; font-size: 1.2em; margin-top: 16px; }
+</style>
+</head>
+<body>
+<h1>Sunrise/sunset calculation tests</h1>
+<p>Checks the NOAA-formula calculator in <code>../js/daylight.js</code> against published reference times for New York City (published by timeanddate.com), allowing a 12-minute tolerance for formula/rounding differences.</p>
+<div id="results"></div>
+<div id="summary"></div>
+
+<script src="../js/daylight.js"></script>
+<script>
+  const results = [];
+  let pass = 0, fail = 0;
+  const TOLERANCE_MIN = 12;
+
+  function assert(label, condition) {
+    if (condition) pass++; else fail++;
+    results.push({ label, ok: condition });
+  }
+
+  function assertClose(label, actualMin, expectedMin) {
+    const diff = Math.abs(actualMin - expectedMin);
+    assert(`${label} (got ${formatClockMinutes(actualMin)}, expected ~${formatClockMinutes(expectedMin)}, off by ${diff} min)`, diff <= TOLERANCE_MIN);
+  }
+
+  const nyc = { latitude: 40.7128, longitude: -74.006, timezone: "America/New_York" };
+
+  // Reference times published by timeanddate.com for New York City.
+  const cases = [
+    { date: "2024-06-20", sunrise: 5 * 60 + 24, sunset: 20 * 60 + 31, label: "summer solstice" },
+    { date: "2024-12-21", sunrise: 7 * 60 + 16, sunset: 16 * 60 + 32, label: "winter solstice" },
+    { date: "2024-03-20", sunrise: 6 * 60 + 59, sunset: 19 * 60 + 7, label: "spring equinox" },
+    { date: "2024-09-22", sunrise: 6 * 60 + 41, sunset: 18 * 60 + 51, label: "fall equinox" },
+  ];
+
+  cases.forEach((c) => {
+    const d = daylightFor(c.date, nyc);
+    assert(`${c.date} (${c.label}): a sunrise/sunset was found`, !!d);
+    if (d) {
+      assertClose(`${c.date} (${c.label}) sunrise`, d.sunriseMin, c.sunrise);
+      assertClose(`${c.date} (${c.label}) sunset`, d.sunsetMin, c.sunset);
+    }
+  });
+
+  // Sanity: days get shorter from summer to winter solstice, and summer
+  // solstice has the longest day of the year in the northern hemisphere.
+  (function () {
+    const summer = daylightFor("2024-06-20", nyc);
+    const winter = daylightFor("2024-12-21", nyc);
+    const spring = daylightFor("2024-03-20", nyc);
+    assert("Summer solstice daylight is longer than winter solstice", summer.daylightMin > winter.daylightMin);
+    assert("Summer solstice daylight is longer than spring equinox", summer.daylightMin > spring.daylightMin);
+    assert("Spring equinox daylight is close to 12 hours", Math.abs(spring.daylightMin - 720) <= TOLERANCE_MIN * 2);
+  })();
+
+  // formatClockMinutes / formatDuration sanity checks.
+  assert("formatClockMinutes(0) is 12:00am", formatClockMinutes(0) === "12:00am");
+  assert("formatClockMinutes(720) is 12:00pm", formatClockMinutes(720) === "12:00pm");
+  assert("formatClockMinutes(17*60) is 5:00pm", formatClockMinutes(17 * 60) === "5:00pm");
+  assert("formatDuration(90) is 1h 30m", formatDuration(90) === "1h 30m");
+
+  const el = document.getElementById("results");
+  results.forEach((r) => {
+    const div = document.createElement("div");
+    div.className = r.ok ? "pass" : "fail";
+    div.textContent = (r.ok ? "PASS - " : "FAIL - ") + r.label;
+    el.appendChild(div);
+  });
+  document.getElementById("summary").innerHTML = fail === 0
+    ? `<span class="pass">All ${pass} checks passed.</span>`
+    : `<span class="fail">${fail} of ${pass + fail} checks FAILED.</span>`;
+</script>
+</body>
+</html>

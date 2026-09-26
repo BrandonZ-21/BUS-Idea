@@ -11,6 +11,13 @@ const FIELD_KEYWORDS = {
   price: ["price", "amount", "total", "saleprice", "unitprice", "linetotal", "revenue", "netsales", "grosssales", "subtotal"],
   orderType: ["ordertype", "type", "servicetype", "channel", "diningoption", "fulfillment"],
   orderId: ["orderid", "order#", "ordernumber", "receiptid", "transactionid", "checknumber", "orderno", "receiptno"],
+  // Deliberately specific (not bare "id"/"name"/"number") so this doesn't
+  // false-match unrelated columns like "Item Name" or "Order Number".
+  customerId: [
+    "phone", "email", "loyalty", "loyaltyid", "loyaltynumber",
+    "customerid", "customername", "customernumber", "customerphone", "customeremail",
+    "memberid", "membernumber", "clientid", "clientname", "clientemail", "clientphone",
+  ],
 };
 
 function normalizeHeader(h) {
@@ -20,7 +27,7 @@ function normalizeHeader(h) {
 // Returns { guesses: {field: originalHeaderOrNull}, hasDatetimeColumn: bool }
 function guessColumns(headers) {
   const normalized = headers.map(normalizeHeader);
-  const guesses = { date: null, time: null, item: null, quantity: null, price: null, orderType: null, orderId: null };
+  const guesses = { date: null, time: null, item: null, quantity: null, price: null, orderType: null, orderId: null, customerId: null };
   let datetimeCol = null;
 
   headers.forEach((h, i) => {
@@ -54,6 +61,7 @@ function guessColumns(headers) {
   guesses.price = findFirst("price");
   guesses.orderType = findFirst("orderType");
   guesses.orderId = findFirst("orderId");
+  guesses.customerId = findFirst("customerId");
 
   return { guesses, hasDatetimeColumn: !!datetimeCol };
 }
@@ -143,8 +151,25 @@ function parseQuantity(raw) {
   return isNaN(n) || n <= 0 ? 1 : n;
 }
 
-// mapping: { date, time, item, quantity, price, orderType, orderId } -> original header names or null
-function buildRows(dataRows, mapping) {
+// SHA-256 hash of a customer identifier (phone/email/loyalty ID/name),
+// salted with a random value that's generated once and never leaves this
+// device (see getOrCreateCustomerSalt in app.js). The raw value is only
+// ever held in a short-lived local variable long enough to compute this
+// hash -- it is never assigned onto a row object, so it can't accidentally
+// end up in IndexedDB, a chart, a tooltip, an export, or a console log.
+// Normalizing (lowercase, strip non-alphanumeric) means "(555) 123-4567"
+// and "555-123-4567" hash the same way, and email case doesn't matter.
+async function hashCustomerId(rawValue, saltHex) {
+  const normalized = String(rawValue || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  if (!normalized) return null;
+  const data = new TextEncoder().encode(saltHex + ":" + normalized);
+  const digest = await crypto.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+// mapping: { date, time, item, quantity, price, orderType, orderId, customerId } -> original header names or null
+// customerSalt: only needed/used when mapping.customerId is set.
+async function buildRows(dataRows, mapping, customerSalt) {
   const rows = [];
   let badCount = 0;
   for (const raw of dataRows) {
@@ -162,7 +187,15 @@ function buildRows(dataRows, mapping) {
       badCount++;
       continue;
     }
-    rows.push({ date, time: time || null, item, quantity, price, orderType: orderType || null, orderId: orderId || null });
+    const row = { date, time: time || null, item, quantity, price, orderType: orderType || null, orderId: orderId || null };
+    if (mapping.customerId && customerSalt) {
+      const rawCustomerVal = raw[mapping.customerId]; // never touches `row` -- only feeds the hash below
+      if (rawCustomerVal) {
+        const hash = await hashCustomerId(rawCustomerVal, customerSalt);
+        if (hash) row.customerHash = hash;
+      }
+    }
+    rows.push(row);
   }
   return { rows, badCount };
 }

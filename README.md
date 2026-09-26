@@ -6,6 +6,8 @@ A single-page web app for small restaurant/cafe owners. Upload a sales export (C
 
 **Weather (optional, off by default):** if you turn on "Use weather data" in Settings, the app sends an approximate location (latitude/longitude rounded to two decimal places) and date ranges to [Open-Meteo](https://open-meteo.com) — a free weather service that needs no API key or account. Your sales figures, item names, and business name are never sent anywhere. Open-Meteo is free for **non-commercial use**; if this app is ever used commercially (e.g. charging restaurant owners for it), check [Open-Meteo's commercial terms](https://open-meteo.com/en/pricing) first.
 
+**Returning-customer tracking (optional, only if your file has one):** if your sales file includes a phone number, email, loyalty ID, or customer name column, the app can show whether customers come back. The instant the file is read, each value is scrambled with SHA-256 (salted with a random code generated once on your device) before anything else happens — the actual phone number/email/name is never stored, displayed, exported, or logged anywhere, only the scrambled code. This never involves a network request, and no individual customer is ever identified or listed — only aggregate counts (e.g. "6 new, 2 returning customers this month"). See the **Customers** page for the exact detected column name and a button to reset the scrambling code (which starts your repeat-customer history over).
+
 ## Running it locally
 
 No build step, no server, no installs required.
@@ -29,8 +31,12 @@ js/router.js            Simple #/hash router for the detail pages
 js/holidays.js          US holiday date calculator (no external service)
 js/weather.js           Open-Meteo lookup/fetch, unit conversion, weather categories (opt-in, off by default)
 js/ask.js               Rule-based "Ask a question" answer engine (no AI, no network)
+js/daylight.js          Sunrise/sunset calculator (pure math, no external service, no privacy concern)
+js/customers.js         Returning-customer math -- operates only on hashed customer IDs, never raw data
 js/app.js               Main app logic gluing everything together
-tests/holidays-test.html  Open this in a browser to run the holiday date-rule checks
+tests/holidays-test.html    Open in a browser to run the holiday date-rule checks
+tests/daylight-test.html    Open in a browser to check sunrise/sunset math against published reference times
+tests/customers-test.html   Open in a browser to check the repeat-customer math + hashing on a hand-worked example
 sample-data.csv         ~4 weeks of realistic sample sales (Aug 3 - Aug 30, 2026)
 sample-data-2.csv       A second sample export with different column names, overlapping
                         the last 5 days of sample-data.csv plus 9 new days — use this to
@@ -124,6 +130,12 @@ Whenever you make changes later: GitHub Desktop will show them under "Changes" �
 - The saved-data format moved to version 4 to add the `customHolidays` store; backup/import/delete all cover it, and older backups still import cleanly.
 - **Chart legends and axis titles** on every dashboard and detail-page chart: labeled X/Y axes, a small caption explaining what the highlighted (amber) bar means, and a dashed "your overall average" reference line on the Hours and Days charts so you can see at a glance whether a bar is above or below normal. The heatmap now has a "Less busy → Busier" color-scale legend, and the trend chart explains what its amber dots mean.
 
+**Sunset/daylight, marketing notes, and returning-customer tracking:**
+- **Sunset & daylight insights** — computed with the standard NOAA sunrise/sunset formula (see `js/daylight.js`), checked against 4 published reference dates for accuracy (within 1-3 minutes). This needs a location on file (the same one used for weather, or set independently — the location field on My Data is no longer tied to turning weather on, since sunset math is pure local calculation with zero privacy concern either way). Adds an "evenings with early sunset run X% higher/lower" insight when there's enough data on both sides, and an optional "Show sunset info" toggle on the trend chart that marks early-sunset weeks with an indigo ring and adds average sunset time to the tooltip and table.
+- **Marketing/Promo day notes** — a new tag on the Day Notes page with a date range and a channel (Instagram/social, flyer, email, discount code, other), so a multi-day promotion shows up correctly across its whole run on the trend chart, not just on the day it was logged. *Note: there's no "Did it work?" before/after comparison tracker in this app yet — that was proposed in an earlier round but never built. This promo entry is structured (date range + description + channel) so it's ready to plug into that tracker whenever it exists, but right now it's a note you can see, not something the app compares before/after for you.*
+- **Returning-customer tracking (`#/customers`)** — see the privacy section above for the full explanation. Short version: an optional column (phone/email/loyalty ID/customer name) is auto-detected during upload, hashed with SHA-256 on your device before anything else touches it, and used only for aggregate counts: new vs. returning customers by month (stacked chart), repeat rate at 30/60/90 days, average visits and time between visits for repeat customers, and a count (never a list) of customers who haven't been back in 60+ days. Gracefully explains itself if no such column was found, or if there isn't enough data yet (fewer than 5 distinct customers). The math was hand-verified against a worked 3-customer example in `tests/customers-test.html`, and I directly inspected IndexedDB in a test run to confirm no raw phone number ever gets stored.
+- The saved-data format moved to version 5, adding the customer-hash scrambling code and detected column name to backups; older backups still import cleanly, defaulting these to off/empty.
+
 ## What doesn't (yet)
 
 - There's no way to edit or delete individual rows once uploaded — only "delete all."
@@ -133,9 +145,12 @@ Whenever you make changes later: GitHub Desktop will show them under "Changes" �
 - The weekly trend chart's weather/holiday markers only flag rain and snow days (not every dry or light-rain day), to avoid cluttering the chart with a marker on nearly every week.
 - Ask's menu-item lookup matches the literal item text in your data — a question typed in Chinese won't match an English menu item name (and vice versa), since there's no translation dictionary involved, only the words you actually sold under.
 - The small sparkline charts inside expanded tip cards intentionally stay simple (no axis titles/legend) so they don't overwhelm a small inline chart — the full legend treatment is on the dashboard and detail-page charts.
+- Returning-customer matching depends on the same identifier appearing consistently across uploads (the normalization handles formatting differences like "(555) 123-4567" vs "555-123-4567", but a customer who sometimes gives their phone and sometimes their email won't be recognized as the same person).
+- There's no dedicated `#/privacy` page yet — the customer-hashing disclosure, detected column name, and salt-reset button live on the Customers page itself instead, since that's the only feature with this kind of privacy nuance right now.
+- The Marketing/Promo day-note type stores a date range, description, and channel, but there's no "Did it work?" before/after comparison feature yet to actually measure a promo's impact — see the note above.
 
 ## Three most useful next improvements
 
-1. **Editable rows / manual corrections** — let an owner fix a clearly wrong row (e.g. a $0 price from a register glitch) instead of re-uploading everything.
-2. **Multi-location support** — right now all uploaded data is pooled together; owners with more than one location would want to tag and filter by location.
-3. **Printable/shareable weekly summary** — a one-page PDF or image export of the dashboard an owner could print for a staff meeting or send to a business partner.
+1. **A real "Did it work?" tracker** — log a change (a promo, a new hour, a price change) and see a before/after comparison. The Marketing/Promo day-note type added this round was deliberately shaped to plug into this later.
+2. **Editable rows / manual corrections** — let an owner fix a clearly wrong row (e.g. a $0 price from a register glitch) instead of re-uploading everything.
+3. **Multi-location support** — right now all uploaded data is pooled together; owners with more than one location would want to tag and filter by location.

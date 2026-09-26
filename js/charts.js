@@ -3,6 +3,7 @@ const COLORS = {
   green: "#1F5C4A",
   lightGreen: "#E7EFE9",
   amber: "#C8781E",
+  indigo: "#5B4B8A",
   text: "#1F2421",
   muted: "#4A524D",
   border: "#E4DDCF",
@@ -132,9 +133,16 @@ function renderLineChart(canvasId, labels, data, opts) {
   if (!canvas) return null;
   // opts.markerIndexes: array of data indexes that have a holiday/note to flag (drawn in amber).
   // opts.markerLabelFn: (index) => array of short strings to append to that point's tooltip.
+  // opts.secondaryMarkerIndexes: a second, independent set of indexes (e.g.
+  // "early sunset" weeks) drawn with an indigo ring around the point instead
+  // of changing its fill, so it can combine with an amber event marker
+  // without the two meanings being confused for each other.
   const markerSet = new Set(opts.markerIndexes || []);
+  const secondarySet = new Set(opts.secondaryMarkerIndexes || []);
   const pointColors = data.map((_, i) => (markerSet.has(i) ? COLORS.amber : COLORS.green));
-  const pointRadii = data.map((_, i) => (markerSet.has(i) ? 6 : 4));
+  const pointRadii = data.map((_, i) => (markerSet.has(i) || secondarySet.has(i) ? 6 : 4));
+  const pointBorderColors = data.map((_, i) => (secondarySet.has(i) ? COLORS.indigo : pointColors[i]));
+  const pointBorderWidths = data.map((_, i) => (secondarySet.has(i) ? 3 : 1));
   const chart = new Chart(canvas, {
     type: "line",
     data: {
@@ -147,6 +155,8 @@ function renderLineChart(canvasId, labels, data, opts) {
         fill: true,
         tension: 0.25,
         pointBackgroundColor: pointColors,
+        pointBorderColor: pointBorderColors,
+        pointBorderWidth: pointBorderWidths,
         pointRadius: pointRadii,
       }],
     },
@@ -166,6 +176,43 @@ function renderLineChart(canvasId, labels, data, opts) {
       scales: {
         x: { grid: { display: false }, title: { display: !!opts.xAxisLabel, text: opts.xAxisLabel, color: COLORS.muted, font: { size: 11 } } },
         y: { beginAtZero: true, grid: { color: COLORS.border }, ticks: { callback: (v) => formatMoney(v) }, title: { display: !!opts.yAxisLabel, text: opts.yAxisLabel, color: COLORS.muted, font: { size: 11 } } },
+      },
+    },
+  });
+  chartRegistry.set(canvasId, chart);
+  return chart;
+}
+
+// series: [{ label, data: [...], color: "#hex" }, ...]. Bars stack on top
+// of each other per label (e.g. new customers + returning customers = the
+// full bar for that week).
+function renderStackedBarChart(canvasId, labels, series, opts) {
+  opts = opts || {};
+  destroyChart(canvasId);
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return null;
+  const chart = new Chart(canvas, {
+    type: "bar",
+    data: {
+      labels,
+      datasets: series.map((s) => ({
+        label: s.label,
+        data: s.data,
+        backgroundColor: s.color,
+        borderRadius: 3,
+        maxBarThickness: 34,
+      })),
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { position: "bottom", labels: { color: COLORS.text } },
+        tooltip: { mode: "index", intersect: false },
+      },
+      scales: {
+        x: { stacked: true, grid: { display: false }, title: { display: !!opts.xAxisLabel, text: opts.xAxisLabel, color: COLORS.muted, font: { size: 11 } } },
+        y: { stacked: true, beginAtZero: true, grid: { color: COLORS.border }, title: { display: !!opts.yAxisLabel, text: opts.yAxisLabel, color: COLORS.muted, font: { size: 11 } } },
       },
     },
   });
