@@ -41,7 +41,25 @@ sample-data.csv         ~4 weeks of realistic sample sales (Aug 3 - Aug 30, 2026
 sample-data-2.csv       A second sample export with different column names, overlapping
                         the last 5 days of sample-data.csv plus 9 new days — use this to
                         test that merging/duplicate-skipping works.
+mock-data-3-years.csv   3 full years of generated sales data, built to exercise every
+                        feature at once — see "Trying out every feature at once" below.
 ```
+
+## Trying out every feature at once
+
+`mock-data-3-years.csv` is a generated (not real) dataset covering **2023-09-26 through 2026-09-25** (~20,500 rows), built specifically so a new user can see every feature with real-looking numbers instead of empty states, without waiting months for real data to accumulate. It's not part of the app's code — it's just a CSV to upload like any other export.
+
+What's baked into it, and how to see each feature:
+- **A `Customer Phone` column** on about a third of rows (the rest are blank, like a real register where not everyone gives a phone number). Upload the file, and when asked to match columns, confirm "Customer Phone" is picked up as the customer identifier. Includes ~15 "regulars" (visit every 5-9 days across all 3 years), ~40 "occasional" customers (active for a stretch, then quiet), and ~12 who stopped visiting 70-200 days before the end date specifically to show up in the Customers page's "may be worth a win-back promo" count. One customer's phone number is formatted differently on different visits (`(555) 123-4567` vs `555-123-4567`) to demonstrate that hashing normalizes formatting. Visit `#/customers` after uploading.
+- **A slow, steady growth trend** (~18% more daily transactions by the end than the start) plus normal day-of-week variation (busiest Saturdays, slowest Mondays) — visible on the dashboard trend chart and `#/trend`.
+- **Noticeably fewer after-5pm transactions in November–February**, to line up with the sunset/daylight insight and the trend chart's sunset toggle — turn on "Show sunset info" on `#/trend` and set a location (any city) on the My Data page to see it.
+- **Four built-in sales bumps** meant to line up with promo entries you add yourself on the Day Notes page (`#/notes`), since promos aren't part of a sales file — add a "Marketing/Promo" note for each date range below and you'll see the bump on the trend chart right where the note marker is:
+  - March 4–10, 2024 — Instagram post
+  - November 18–24, 2024 — Email discount code
+  - June 9–15, 2025 — Flyer + discount
+  - November 17–23, 2025 — Black Friday week email promo
+- **Real weather/holiday correlations**, once you turn on weather and set a location — because the dates are real historical dates, Open-Meteo returns real historical weather for them, so the weather-comparison and holiday insights use genuine data rather than anything fabricated.
+- Enough total volume and date range to clear every "thin data" threshold in the app (week-over-week, month-over-month, the 5-distinct-customer minimum for the Customers page, etc.), so nothing shows a "not enough data yet" message.
 
 ## Deploying for free on Cloudflare Pages (recommended)
 
