@@ -33,6 +33,8 @@ js/weather.js           Open-Meteo lookup/fetch, unit conversion, weather catego
 js/ask.js               Rule-based "Ask a question" answer engine (no AI, no network)
 js/daylight.js          Sunrise/sunset calculator (pure math, no external service, no privacy concern)
 js/customers.js         Returning-customer math -- operates only on hashed customer IDs, never raw data
+js/customer-summary.js  Parses an already-aggregated monthly new/returning customer report (a different
+                        data shape than a per-order file -- no hashing involved, since it's already just counts)
 js/business-tips.js     Business-type detection, the menu engineering matrix, and the curated tip-rule bank
 js/app.js               Main app logic gluing everything together
 tests/holidays-test.html    Open in a browser to run the holiday date-rule checks
@@ -40,6 +42,8 @@ tests/daylight-test.html    Open in a browser to check sunrise/sunset math again
 tests/customers-test.html   Open in a browser to check the repeat-customer math + hashing on a hand-worked example
 tests/business-tips-test.html   Open in a browser to check business-type detection, the menu-engineering
                                  quadrant split, and every tip rule (30 checks)
+tests/customer-summary-test.html   Open in a browser to check monthly-report parsing, column auto-detection,
+                                    and de-duplication of a re-stated month (30 checks)
 sample-data.csv         ~4 weeks of realistic sample sales (Aug 3 - Aug 30, 2026)
 sample-data-2.csv       A second sample export with different column names, overlapping
                         the last 5 days of sample-data.csv plus 9 new days — use this to
@@ -181,6 +185,13 @@ Whenever you make changes later: GitHub Desktop will show them under "Changes" �
 - *What this isn't:* a full Tableau-style authoring surface (drag-and-drop measures/dimensions, custom pivot tables, exporting a chart as an image). Cross-filtering was picked as the single highest-value piece of that toolkit to build well; a "choose your own measure" selector (Revenue vs. Orders vs. Average Order Value) is a reasonable next piece if more of this is wanted later.
 - **Temperature chart labels now show the actual cutoff** — "Warm" on its own didn't mean much without knowing the number behind it, so the Average Sales by Temperature chart's bars now read e.g. "Cold (≤41°F)", "Mild (≤75°F)", "Hot (>86°F)" — computed from the same thresholds in `js/weather.js` and shown in whichever unit (°F/°C) is set in Settings, so the label always matches what's actually being measured instead of a subjective word.
 
+**More flexible file upload, and a second way to track returning customers (latest round):**
+- **Fixed a false-positive column guess** — a column named something like "Total Orders" was being auto-guessed as the Price column, because "total" alone was too generic a keyword. It's now only accepted as Price if it doesn't also look like a count (contains "order," "guest," "qty," etc.) unless it also has a stronger money signal ("amount," "revenue," "sales"). Also added "Contact"/"Customer Contact" to the columns auto-detected as a customer identifier, and clarified that it's fine for that single column to mix phone numbers, emails, and blanks row-to-row — whatever's actually there gets scrambled.
+- **Much clearer errors when a file doesn't fit** — instead of a generic "check your columns," the column-matching screen now detects up front when a file doesn't look like a per-order export at all (no date/item/price columns found) and says so directly. If you do try to submit a file where the values just don't parse, the error now shows exactly what we saw and why — e.g. quoting the actual bad date value instead of a generic complaint.
+- **A second way to track returning customers, for a genuinely different file shape** — some registers can only export an already-aggregated *monthly* report (total new/returning customers per month) rather than a per-order file with a customer identifier column. That's not a formatting quirk the main upload can be made to handle; it's structurally different data (no per-row date, item, or price at all). Rather than force it through the same pipeline, it now has its own home: an "Import a monthly customer report" button on the Customers page (`js/customer-summary.js`), which auto-detects Month/New/Returning-style columns, stores the counts in their own IndexedDB store (no hashing needed or possible — a report like this never contains a raw identifier to begin with), and shows its own "Customer Growth Report" chart and totals, clearly separate from the hashed per-transaction analysis above it.
+- The saved-data format moved to version 6 (backup JSON) / IndexedDB version 5 to add this store; older backups still import cleanly, defaulting it to empty.
+- Tested against two real sample files: a per-order sales export with a "Customer Contact" column that mixes phone numbers, emails, and blanks (128k rows, auto-detected correctly, hashed and rendered without errors), and a genuinely separate monthly new/returning customer summary (imported cleanly into its own chart, matching the transaction file's own customer count almost exactly as a sanity check). See `tests/customer-summary-test.html` for the unit-level checks (month parsing in several formats, column auto-detection, and de-duplicating a re-stated month).
+
 ## What doesn't (yet)
 
 - There's no way to edit or delete individual rows once uploaded — only "delete all."
@@ -195,6 +206,8 @@ Whenever you make changes later: GitHub Desktop will show them under "Changes" �
 - The Marketing/Promo day-note type stores a date range, description, and channel, but there's no "Did it work?" before/after comparison feature yet to actually measure a promo's impact — see the note above.
 - The Menu Engineering Matrix on the Grow page uses price as a stand-in for profit margin (no ingredient-cost data is collected anywhere in the app), so an item that's cheap to make but priced low could land in "Dog" when it's actually a fine earner, and vice versa — the page says this directly rather than presenting it as more precise than it is.
 - Business-type detection on the Grow page is keyword matching against your item names, not a real classification model — an unusual or very generic menu may fall back to "general" and get fewer type-specific tips.
+- The monthly customer report import (Customers page) auto-detects its Month/New/Returning columns but has no interactive "confirm your columns" step like the main upload does — if your column names are unusual enough that auto-detection fails, the fix today is renaming the columns in the file rather than remapping them in the app.
+- Since the monthly report and the hashed per-transaction analysis are two separate data sources (one already-aggregated, one computed from scratch), the app doesn't try to reconcile or cross-check them against each other — if they disagree, that's something to notice yourself, not something the app will flag.
 
 ## Three most useful next improvements
 

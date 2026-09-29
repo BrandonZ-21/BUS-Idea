@@ -15,8 +15,9 @@ const FIELD_KEYWORDS = {
   // false-match unrelated columns like "Item Name" or "Order Number".
   customerId: [
     "phone", "email", "loyalty", "loyaltyid", "loyaltynumber",
-    "customerid", "customername", "customernumber", "customerphone", "customeremail",
+    "customerid", "customername", "customernumber", "customerphone", "customeremail", "customercontact",
     "memberid", "membernumber", "clientid", "clientname", "clientemail", "clientphone",
+    "contact", "contactinfo",
   ],
 };
 
@@ -59,6 +60,19 @@ function guessColumns(headers) {
   guesses.item = findFirst("item");
   guesses.quantity = findFirst("quantity");
   guesses.price = findFirst("price");
+  // "total" alone (used to catch things like "Line Total"/"Sale Total") can
+  // false-match a column that's actually a COUNT, not a dollar amount --
+  // e.g. "Total Orders" in an already-aggregated monthly summary. If the
+  // matched header also looks count-like and has no stronger money signal
+  // of its own, don't guess it.
+  if (guesses.price) {
+    const n = normalizeHeader(guesses.price);
+    const countHints = ["order", "guest", "cover", "qty", "quantity", "count", "customer", "visit"];
+    const moneyHints = ["price", "amount", "revenue", "sales", "subtotal"];
+    if (countHints.some((h) => n.includes(h)) && !moneyHints.some((h) => n.includes(h))) {
+      guesses.price = null;
+    }
+  }
   guesses.orderType = findFirst("orderType");
   guesses.orderId = findFirst("orderId");
   guesses.customerId = findFirst("customerId");

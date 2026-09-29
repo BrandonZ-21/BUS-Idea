@@ -65,7 +65,7 @@ const TRANSLATIONS = {
     matchOrderType: "Order Type (optional)",
     matchOrderId: "Order ID (optional)",
     matchCustomerId: "Customer ID (optional)",
-    matchCustomerIdExplain: "If your file has a phone number, email, loyalty ID, or customer name, choosing it here lets us show whether customers come back — but the instant your file is read, we scramble that value into a random code on your device before anything else happens. We never see or store the actual phone number, email, or name, only the scrambled code.",
+    matchCustomerIdExplain: "If your file has a phone number, email, loyalty ID, or customer name, choosing it here lets us show whether customers come back — but the instant your file is read, we scramble that value into a random code on your device before anything else happens. We never see or store the actual phone number, email, or name, only the scrambled code. It's fine if this one column mixes types — sometimes a phone number, sometimes an email, sometimes blank — we just scramble whatever's actually there in each row, and blank rows are simply skipped.",
     matchNone: "(none)",
     matchConfirm: "Looks good, continue",
     matchRemembered: "We remembered your column choices from last time. You can still change them below.",
@@ -78,7 +78,11 @@ const TRANSLATIONS = {
     errorEmpty: "That file doesn't seem to have any rows in it.",
     errorMissingRequired: "Please choose a column for both Date and Price before continuing.",
     errorNoValidRows: "We couldn't find any rows with a valid date and price. Please check your column choices.",
+    errorNoValidRowsNoItemColumn: "We couldn't find a column for Item, so none of the rows could be used. If your file is a pre-aggregated summary (monthly totals, for example) rather than one row per order, this main upload isn't the right fit for it -- see \"Import a customer growth report\" on the Customers page if it has new/returning customer counts by month.",
+    errorNoValidRowsBadDateSample: "We looked at your Date column but couldn't recognize its values as full dates -- for example, we saw \"{sample}\". We support things like 2021-01-15, 01/15/2021, or January 15, 2021, but need a specific day, not just a month or year. If your file only has monthly totals rather than individual orders, see \"Import a customer growth report\" on the Customers page instead.",
+    errorNoValidRowsBadPriceSample: "We looked at your Price column but couldn't read its values as dollar amounts -- for example, we saw \"{sample}\".",
     errorGeneric: "Something went wrong reading your file. Please try again or try the sample data.",
+    matchNotPerOrderWarning: "We couldn't find anything that looks like a date, item, or price column in this file. This screen is for a per-order sales export (one row per item sold). If this file is a pre-aggregated report instead -- for example monthly totals, or new/returning customer counts by month -- it needs a different kind of import; a monthly new/returning customer report can be added from the Customers page (\"Import a customer growth report\") once you have your regular sales data loaded.",
     dismiss: "Dismiss",
 
     // Merge summary
@@ -389,6 +393,7 @@ const TRANSLATIONS = {
     axisDayOfWeek: "Day of week",
     axisItem: "Item",
     axisWeek: "Week",
+    axisMonth: "Month",
     axisWeatherCondition: "Weather condition",
     axisTemperature: "Temperature",
     axisOrderCount: "Number sold",
@@ -455,6 +460,24 @@ const TRANSLATIONS = {
     customersReturning: "Returning",
     customersCountAxis: "Number of customers",
     customersDisclaimer: "These are patterns in your own data, not guarantees — and never a list of individual customers.",
+
+    // Customer Growth Report -- an optional, already-aggregated monthly
+    // new/returning count, for registers that can only export a summary
+    // like that rather than a per-order file with a customer identifier.
+    // A separate data source from the hashed analysis above; needs no
+    // hashing since it's already just counts, never a raw identifier.
+    customersSummaryTitle: "Customer Growth Report",
+    customersSummaryBody: "If your register can only export an already-summarized monthly report — total new and returning customers per month, not one row per order — you can import it here directly. Since a report like this is already just counts, there's nothing to scramble: it never contains an actual phone number, email, or name in the first place.",
+    customersSummaryImportBtn: "Import a monthly customer report",
+    customersSummaryBasedOn: "Based on {count} months of imported reports",
+    customersSummaryTotalNew: "Total New (All Months)",
+    customersSummaryTotalReturning: "Total Returning (All Months)",
+    customersSummaryReturningShare: "Returning Share (Overall)",
+    customersSummaryClear: "Remove imported report",
+    customersSummaryClearConfirmTitle: "Remove the imported customer report?",
+    customersSummaryClearConfirmBody: "This removes the monthly report you imported here. It doesn't affect your regular sales data or the hashed repeat-customer analysis above.",
+    customersSummaryImportError: "We couldn't find a Month column and a New/Returning customer count column in that file. Expected something like \"Month\", \"New Customers\", and \"Returning Customers\" — column names close to that should be detected automatically.",
+    customersSummaryImportSuccess: "Imported {count} months of customer growth data.",
 
     // Grow Your Business (#/grow) -- business-type detection, menu engineering, curated tips
     navGrow: "Grow",
@@ -650,7 +673,7 @@ const TRANSLATIONS = {
     matchOrderType: "订单类型（可选）",
     matchOrderId: "订单编号（可选）",
     matchCustomerId: "顾客标识（可选）",
-    matchCustomerIdExplain: "如果你的文件里有电话号码、邮箱、会员编号或顾客姓名，选择这一列可以让我们判断顾客是否回头——但在文件被读取的那一刻，我们就会在你的设备上把这个值打乱成一串随机代码，之后才会做其他任何处理。我们不会看到也不会保存真实的电话号码、邮箱或姓名，只会保存这串打乱后的代码。",
+    matchCustomerIdExplain: "如果你的文件里有电话号码、邮箱、会员编号或顾客姓名，选择这一列可以让我们判断顾客是否回头——但在文件被读取的那一刻，我们就会在你的设备上把这个值打乱成一串随机代码，之后才会做其他任何处理。我们不会看到也不会保存真实的电话号码、邮箱或姓名，只会保存这串打乱后的代码。如果这一列里混杂了不同类型也没关系——有时是电话号码，有时是邮箱，有时是空的——我们只会打乱每一行里实际存在的内容，空白的行会被直接跳过。",
     matchNone: "（无）",
     matchConfirm: "看起来没问题，继续",
     matchRemembered: "我们记住了你上次的列选择，你仍可以在下面修改。",
@@ -662,7 +685,11 @@ const TRANSLATIONS = {
     errorEmpty: "该文件中似乎没有任何数据行。",
     errorMissingRequired: "请先为“日期”和“价格”选择对应的列，然后再继续。",
     errorNoValidRows: "没有找到包含有效日期和价格的行，请检查你的列选择。",
+    errorNoValidRowsNoItemColumn: "没有找到“商品”对应的列，因此没有一行数据可以使用。如果你的文件是预先汇总好的报表（例如按月汇总的总数），而不是每行代表一笔订单，那么这个主上传入口并不适合它——如果文件里有按月统计的新/回头客数量，可以在“顾客”页面使用“导入顾客增长报告”。",
+    errorNoValidRowsBadDateSample: "我们查看了你选择的“日期”列，但无法把其中的值识别为完整日期——例如我们看到的是“{sample}”。支持的格式包括 2021-01-15、01/15/2021 或 January 15, 2021，但需要具体到某一天，而不只是月份或年份。如果你的文件只有按月汇总的数据，而不是逐笔订单，可以改用“顾客”页面的“导入顾客增长报告”。",
+    errorNoValidRowsBadPriceSample: "我们查看了你选择的“价格”列，但无法把其中的值识别为金额——例如我们看到的是“{sample}”。",
     errorGeneric: "读取文件时出了点问题，请重试或使用示例数据。",
+    matchNotPerOrderWarning: "在这个文件中，我们没有找到看起来像日期、商品或价格的列。这个页面适用于逐笔订单的销售导出文件（每行代表卖出的一件商品）。如果这个文件其实是一份预先汇总好的报表——例如按月汇总的总数，或按月统计的新/回头客数量——它需要另一种导入方式；在你已经上传了常规销售数据之后，可以在“顾客”页面通过“导入顾客增长报告”添加按月的新/回头客报告。",
     dismiss: "关闭",
 
     mergeSummary: "新增 {added} 行，跳过 {skipped} 行重复数据。",
@@ -959,6 +986,7 @@ const TRANSLATIONS = {
     axisDayOfWeek: "星期",
     axisItem: "商品",
     axisWeek: "周",
+    axisMonth: "月份",
     axisWeatherCondition: "天气状况",
     axisTemperature: "气温",
     axisOrderCount: "销售数量",
@@ -1025,6 +1053,19 @@ const TRANSLATIONS = {
     customersReturning: "回头客",
     customersCountAxis: "顾客数量",
     customersDisclaimer: "这些是你自己数据中的规律，不代表保证——也绝不会是具体顾客的名单。",
+
+    customersSummaryTitle: "顾客增长报告",
+    customersSummaryBody: "如果你的收银系统只能导出一份已经汇总好的月度报告——每月的新顾客和回头客总数，而不是每行代表一笔订单——你可以在这里直接导入它。因为这类报告本身就只是数字统计，没有什么需要打乱的：它从一开始就不会包含真实的电话号码、邮箱或姓名。",
+    customersSummaryImportBtn: "导入按月的顾客报告",
+    customersSummaryBasedOn: "基于已导入的 {count} 个月报告",
+    customersSummaryTotalNew: "新顾客总数（全部月份）",
+    customersSummaryTotalReturning: "回头客总数（全部月份）",
+    customersSummaryReturningShare: "回头客占比（总体）",
+    customersSummaryClear: "移除已导入的报告",
+    customersSummaryClearConfirmTitle: "移除已导入的顾客报告？",
+    customersSummaryClearConfirmBody: "这只会移除你在此处导入的月度报告，不会影响你的常规销售数据，也不会影响上方基于哈希的回头客分析。",
+    customersSummaryImportError: "在该文件中没有找到“月份”列，以及“新顾客/回头客”数量列。预期的列名类似“Month”“New Customers”“Returning Customers”——与之接近的列名通常可以被自动识别。",
+    customersSummaryImportSuccess: "已导入 {count} 个月的顾客增长数据。",
 
     // Grow Your Business (#/grow) -- business-type detection, menu engineering, curated tips
     navGrow: "成长",

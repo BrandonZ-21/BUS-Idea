@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Customer-summary import tests</title>
+<style>
+  body { font-family: monospace; padding: 24px; background: #fff; color: #111; }
+  .pass { color: #1F5C4A; }
+  .fail { color: #b3401f; font-weight: bold; }
+  h1 { font-family: sans-serif; }
+  #summary { font-family: sans-serif; font-size: 1.2em; margin-top: 16px; }
+</style>
+</head>
+<body>
+<h1>Customer-summary import tests</h1>
+<p>Checks month parsing, column auto-detection, and row building in <code>../js/customer-summary.js</code> -- the path for a register that can only export an already-aggregated monthly new/returning report instead of a per-order file.</p>
+<div id="results"></div>
+<div id="summary"></div>
+
+<script src="../js/parser.js"></script>
+<script src="../js/customer-summary.js"></script>
+<script>
+(() => {
+  const results = [];
+  let pass = 0, fail = 0;
+  function assert(label, condition) {
+    if (condition) pass++; else fail++;
+    results.push({ label, ok: condition });
+  }
+  function assertEqual(label, actual, expected) {
+    assert(`${label} (got ${JSON.stringify(actual)}, expected ${JSON.stringify(expected)})`, actual === expected);
+  }
+
+  // ---- parseMonthString ----
+  assertEqual("YYYY-MM", parseMonthString("2021-01"), "2021-01");
+  assertEqual("YYYY-M (single-digit month)", parseMonthString("2021-1"), "2021-01");
+  assertEqual("Full date takes just year/month", parseMonthString("2021-01-15"), "2021-01");
+  assertEqual("MM/YYYY", parseMonthString("01/2021"), "2021-01");
+  assertEqual("M/YYYY (single-digit month)", parseMonthString("1/2021"), "2021-01");
+  assertEqual("MM/DD/YYYY takes just year/month", parseMonthString("01/15/2021"), "2021-01");
+  assertEqual("Full month name + year", parseMonthString("January 2021"), "2021-01");
+  assertEqual("Abbreviated month + year", parseMonthString("Jan 2021"), "2021-01");
+  assertEqual("Garbage input returns null", parseMonthString("not a month"), null);
+  assertEqual("Empty input returns null", parseMonthString(""), null);
+  assertEqual("Null input returns null", parseMonthString(null), null);
+
+  // ---- guessCustomerSummaryColumns ----
+  // The exact headers from the real sample file that prompted this feature.
+  const headers = ["Month", "Total Orders", "New Customers (contact captured)", "Returning Customers (contact captured)"];
+  const guesses = guessCustomerSummaryColumns(headers);
+  assertEqual("Detects Month column", guesses.month, "Month");
+  assertEqual("Detects New Customers column despite extra wording", guesses.newCustomers, "New Customers (contact captured)");
+  assertEqual("Detects Returning Customers column despite extra wording", guesses.returningCustomers, "Returning Customers (contact captured)");
+  assertEqual("Detects Total Orders column", guesses.totalOrders, "Total Orders");
+
+  const unrelatedHeaders = ["Date", "Item", "Price"];
+  const noGuesses = guessCustomerSummaryColumns(unrelatedHeaders);
+  assertEqual("A per-order file's headers don't match Month", noGuesses.month, null);
+  assertEqual("A per-order file's headers don't match New Customers", noGuesses.newCustomers, null);
+
+  // ---- buildCustomerSummaryRows ----
+  // By hand: 3 raw rows -- two distinct months, plus a re-statement of
+  // 2021-01 (simulating a corrected/re-exported report) that should win
+  // over the first 2021-01 row since it's later in the file, and one bad
+  // row (no month value) that should be skipped entirely.
+  const mapping = { month: "Month", newCustomers: "New", returningCustomers: "Returning", totalOrders: "Total" };
+  const dataRows = [
+    { Month: "2021-01", New: "100", Returning: "50", Total: "150" },
+    { Month: "2021-02", New: "110", Returning: "60", Total: "170" },
+    { Month: "2021-01", New: "105", Returning: "55", Total: "160" }, // corrected restatement of Jan
+    { Month: "", New: "999", Returning: "999", Total: "999" }, // no month -- must be skipped
+  ];
+  const built = buildCustomerSummaryRows(dataRows, mapping);
+  assertEqual("2 distinct months after dedupe", built.rows.length, 2);
+  assertEqual("1 bad row (missing month) skipped", built.badCount, 1);
+  const jan = built.rows.find((r) => r.month === "2021-01");
+  const feb = built.rows.find((r) => r.month === "2021-02");
+  assertEqual("Later restatement of Jan wins: newCount", jan.newCount, 105);
+  assertEqual("Later restatement of Jan wins: returningCount", jan.returningCount, 55);
+  assertEqual("Later restatement of Jan wins: totalOrders", jan.totalOrders, 160);
+  assertEqual("Feb newCount", feb.newCount, 110);
+  assertEqual("Feb returningCount", feb.returningCount, 60);
+  assertEqual("Rows are sorted by month", built.rows[0].month, "2021-01");
+
+  // A row with a month but no usable new/returning value at all is also bad.
+  const emptyCountRows = buildCustomerSummaryRows([{ Month: "2021-03", New: "", Returning: "" }], mapping);
+  assertEqual("Month with no new/returning counts is skipped", emptyCountRows.rows.length, 0);
+  assertEqual("...and counted as a bad row", emptyCountRows.badCount, 1);
+
+  // A row with only ONE of new/returning present is still usable (the
+  // missing one defaults to 0 rather than being dropped).
+  const oneCountOnly = buildCustomerSummaryRows([{ Month: "2021-04", New: "42", Returning: "" }], mapping);
+  assertEqual("Only-new-count row is kept", oneCountOnly.rows.length, 1);
+  assertEqual("...with newCount as given", oneCountOnly.rows[0].newCount, 42);
+  assertEqual("...and returningCount defaulted to 0", oneCountOnly.rows[0].returningCount, 0);
+
+  const el = document.getElementById("results");
+  results.forEach((r) => {
+    const div = document.createElement("div");
+    div.className = r.ok ? "pass" : "fail";
+    div.textContent = (r.ok ? "PASS - " : "FAIL - ") + r.label;
+    el.appendChild(div);
+  });
+  document.getElementById("summary").innerHTML = fail === 0
+    ? `<span class="pass">All ${pass} checks passed.</span>`
+    : `<span class="fail">${fail} of ${pass + fail} checks FAILED.</span>`;
+})();
+</script>
+</body>
+</html>

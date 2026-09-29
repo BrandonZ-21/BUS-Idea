@@ -12,12 +12,18 @@ const DB_NAME = "cafeInsightsDB";
 //   4 -> added "customHolidays" store (owner-entered holidays -- Chinese
 //        New Year, Diwali, Eid, or anything else not on the computed US
 //        calendar). Same rule: only a new store is added.
-const DB_VERSION = 4;
+//   5 -> added "customerSummary" store: an optional, already-aggregated
+//        month-by-month new/returning customer report (some registers only
+//        export a monthly summary like this, not a per-transaction customer
+//        ID column) -- see js/customer-summary.js. Never contains any raw
+//        identifier, just monthly counts, so it needs no hashing at all.
+const DB_VERSION = 5;
 const STORE_SALES = "sales";
 const STORE_SETTINGS = "settings";
 const STORE_DAY_NOTES = "dayNotes";
 const STORE_WEATHER = "weather";
 const STORE_CUSTOM_HOLIDAYS = "customHolidays";
+const STORE_CUSTOMER_SUMMARY = "customerSummary";
 
 let dbPromise = null;
 
@@ -53,6 +59,9 @@ function openDB() {
       }
       if (!db.objectStoreNames.contains(STORE_CUSTOM_HOLIDAYS)) {
         db.createObjectStore(STORE_CUSTOM_HOLIDAYS, { keyPath: "date" });
+      }
+      if (!db.objectStoreNames.contains(STORE_CUSTOMER_SUMMARY)) {
+        db.createObjectStore(STORE_CUSTOMER_SUMMARY, { keyPath: "month" });
       }
     };
     req.onsuccess = (e) => {
@@ -103,12 +112,13 @@ const DB = {
   async clearAll() {
     const db = await openDB();
     return new Promise((resolve, reject) => {
-      const tx = db.transaction([STORE_SALES, STORE_SETTINGS, STORE_DAY_NOTES, STORE_WEATHER, STORE_CUSTOM_HOLIDAYS], "readwrite");
+      const tx = db.transaction([STORE_SALES, STORE_SETTINGS, STORE_DAY_NOTES, STORE_WEATHER, STORE_CUSTOM_HOLIDAYS, STORE_CUSTOMER_SUMMARY], "readwrite");
       tx.objectStore(STORE_SALES).clear();
       tx.objectStore(STORE_SETTINGS).clear();
       tx.objectStore(STORE_DAY_NOTES).clear();
       tx.objectStore(STORE_WEATHER).clear();
       tx.objectStore(STORE_CUSTOM_HOLIDAYS).clear();
+      tx.objectStore(STORE_CUSTOMER_SUMMARY).clear();
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
     });
@@ -298,6 +308,53 @@ const DB = {
       const store = tx.objectStore(STORE_CUSTOM_HOLIDAYS);
       store.clear();
       (holidays || []).forEach((h) => store.add(h));
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  },
+
+  async getAllCustomerSummary() {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_CUSTOMER_SUMMARY, "readonly");
+      const req = tx.objectStore(STORE_CUSTOMER_SUMMARY).getAll();
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  },
+
+  // row: { month: "YYYY-MM", newCount, returningCount, totalOrders }
+  // Upserts by month, so re-importing an updated report just overwrites
+  // matching months instead of duplicating them.
+  async putCustomerSummaryRows(rows) {
+    if (!rows || !rows.length) return;
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_CUSTOMER_SUMMARY, "readwrite");
+      const store = tx.objectStore(STORE_CUSTOMER_SUMMARY);
+      rows.forEach((r) => store.put(r));
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  },
+
+  async replaceAllCustomerSummary(rows) {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_CUSTOMER_SUMMARY, "readwrite");
+      const store = tx.objectStore(STORE_CUSTOMER_SUMMARY);
+      store.clear();
+      (rows || []).forEach((r) => store.add(r));
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  },
+
+  async clearCustomerSummary() {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_CUSTOMER_SUMMARY, "readwrite");
+      tx.objectStore(STORE_CUSTOMER_SUMMARY).clear();
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
     });

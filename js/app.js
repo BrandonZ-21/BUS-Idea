@@ -45,6 +45,7 @@ const App = {
 
   showSunsetOnTrend: false, // toggle on the trend chart; remembered across visits
   customerIdColumnName: null, // the header name last used for hashed customer tracking, shown on the privacy disclosure only
+  customerSummaryRows: [], // optional, already-aggregated monthly new/returning report -- a separate data source from hashed per-transaction rows, see js/customer-summary.js
 };
 
 function closedDates() {
@@ -436,9 +437,11 @@ function renderMatchScreen() {
     });
     return html;
   };
+  const looksLikeNotPerOrder = !p.guesses.date && !p.guesses.item && !p.guesses.price;
   el.innerHTML = `
     <h1>${esc(t("matchTitle"))}</h1>
     <p>${esc(t("matchIntro"))}</p>
+    ${looksLikeNotPerOrder ? `<div class="thin-data-banner">${esc(t("matchNotPerOrderWarning"))}</div>` : ""}
     ${p.remembered ? `<div class="match-remembered-note">${esc(t("matchRemembered"))}</div>` : ""}
     <form id="matchForm">
       <div class="match-grid">
@@ -476,6 +479,24 @@ async function getOrCreateCustomerSalt() {
   return salt;
 }
 
+// When every row failed to parse, a generic "check your columns" message
+// isn't very actionable. This looks at the actual mapped values to say
+// specifically what went wrong -- most often a date column whose values
+// aren't a full day (e.g. "2021-01", a month only).
+function explainWhyNoValidRows(dataRows, mapping) {
+  if (!mapping.item) return t("errorNoValidRowsNoItemColumn");
+  const sampleDateRaw = mapping.date ? dataRows.map((r) => r[mapping.date]).find((v) => v) : null;
+  if (sampleDateRaw) {
+    const { date } = parseDateString(sampleDateRaw);
+    if (!date) return t("errorNoValidRowsBadDateSample", { sample: String(sampleDateRaw) });
+  }
+  const samplePriceRaw = mapping.price ? dataRows.map((r) => r[mapping.price]).find((v) => v !== "" && v !== null && v !== undefined) : null;
+  if (samplePriceRaw !== null && samplePriceRaw !== undefined) {
+    if (parsePrice(samplePriceRaw) === null) return t("errorNoValidRowsBadPriceSample", { sample: String(samplePriceRaw) });
+  }
+  return t("errorNoValidRows");
+}
+
 async function confirmMatch() {
   const p = App.pendingParse;
   const mapping = {};
@@ -491,7 +512,7 @@ async function confirmMatch() {
     const customerSalt = mapping.customerId ? await getOrCreateCustomerSalt() : null;
     const { rows, badCount } = await buildRows(p.dataRows, mapping, customerSalt);
     if (!rows.length) {
-      showError(t("errorNoValidRows"));
+      showError(explainWhyNoValidRows(p.dataRows, mapping));
       return;
     }
     await DB.setSetting("format:" + p.signature, mapping);
@@ -2398,10 +2419,57 @@ function monthLabel(dateStr) {
   return dateStr;
 }
 
+// The "Customer Growth Report" section: an optional, separate data source
+// from the hashed per-transaction analysis below it. Some registers can
+// only export an already-aggregated monthly new/returning count, not a
+// per-order file with a customer identifier -- that's a genuinely different
+// shape of data (see js/customer-summary.js), so it gets its own card and
+// its own chart rather than being forced into the hashed repeat-rate math.
+function renderCustomerSummaryCard() {
+  const summaryRows = (App.customerSummaryRows || []).slice().sort((a, b) => a.month.localeCompare(b.month));
+  const totalNew = summaryRows.reduce((s, r) => s + r.newCount, 0);
+  const totalReturning = summaryRows.reduce((s, r) => s + r.returningCount, 0);
+  const returningShare = (totalNew + totalReturning) > 0 ? Math.round((totalReturning / (totalNew + totalReturning)) * 100) : null;
+
+  return `
+    <div class="card" style="margin-top:20px;">
+      <h2>${esc(t("customersSummaryTitle"))}</h2>
+      <p class="match-note">${esc(t("customersSummaryBody"))}</p>
+      <input type="file" accept=".csv,.tsv,.txt,.xlsx,.xls" id="customerSummaryInput" class="visually-hidden" />
+      <button type="button" class="btn btn-secondary" id="customerSummaryImportBtn">${esc(t("customersSummaryImportBtn"))}</button>
+      ${summaryRows.length ? `
+        <div style="margin-top:18px;">
+          <div class="chart-meta">${esc(t("customersSummaryBasedOn", { count: summaryRows.length }))}</div>
+          <div class="chart-canvas-wrap"><canvas id="chart-customers-summary"></canvas></div>
+        </div>
+        <div class="stat-grid" style="margin-top:16px; grid-template-columns: repeat(3, 1fr);">
+          <div class="card stat-card"><div class="stat-label">${esc(t("customersSummaryTotalNew"))}</div><div class="stat-value">${totalNew.toLocaleString()}</div></div>
+          <div class="card stat-card"><div class="stat-label">${esc(t("customersSummaryTotalReturning"))}</div><div class="stat-value">${totalReturning.toLocaleString()}</div></div>
+          <div class="card stat-card"><div class="stat-label">${esc(t("customersSummaryReturningShare"))}</div><div class="stat-value">${returningShare === null ? "—" : returningShare + "%"}</div></div>
+        </div>
+        <button type="button" class="btn btn-ghost" id="clearCustomerSummaryBtn" style="margin-top:14px;">${esc(t("customersSummaryClear"))}</button>
+      ` : ""}
+    </div>`;
+}
+
+function drawCustomerSummaryChart() {
+  const canvas = document.getElementById("chart-customers-summary");
+  if (!canvas) return;
+  const summaryRows = (App.customerSummaryRows || []).slice().sort((a, b) => a.month.localeCompare(b.month));
+  renderStackedBarChart("chart-customers-summary", summaryRows.map((r) => monthLabel(r.month)),
+    [
+      { label: t("customersNew"), data: summaryRows.map((r) => r.newCount), color: COLORS.green },
+      { label: t("customersReturning"), data: summaryRows.map((r) => r.returningCount), color: COLORS.amber },
+    ],
+    { xAxisLabel: t("axisMonth"), yAxisLabel: t("customersCountAxis") }
+  );
+}
+
 App.renderCustomers = function () {
   const root = document.getElementById("view-root");
   const rows = App.allRows; // uses all saved history, not just the range selector, since repeat behavior spans your whole dataset
   const hasAnyHash = rows.some((r) => r.customerHash);
+  const summaryCard = renderCustomerSummaryCard();
 
   const privacyCard = `
     <div class="card">
@@ -2416,11 +2484,13 @@ App.renderCustomers = function () {
   if (!hasAnyHash) {
     root.innerHTML = `
       <h1>${esc(t("customersTitle"))}</h1>
+      ${summaryCard}
       ${privacyCard}
       <div class="card" style="margin-top:20px;">
         <p>${esc(t("customersNoColumnFound"))}</p>
       </div>
     `;
+    drawCustomerSummaryChart();
     wireCustomersPage();
     return;
   }
@@ -2431,11 +2501,13 @@ App.renderCustomers = function () {
   if (visits.size < CUSTOMER_MIN_COUNT) {
     root.innerHTML = `
       <h1>${esc(t("customersTitle"))}</h1>
+      ${summaryCard}
       ${privacyCard}
       <div class="card" style="margin-top:20px;">
         <p>${esc(t("customersThinData", { count: visits.size, min: CUSTOMER_MIN_COUNT }))}</p>
       </div>
     `;
+    drawCustomerSummaryChart();
     wireCustomersPage();
     return;
   }
@@ -2452,6 +2524,7 @@ App.renderCustomers = function () {
   root.innerHTML = `
     <h1>${esc(t("customersTitle"))}</h1>
     <p>${esc(t("customersIntro"))}</p>
+    ${summaryCard}
     ${privacyCard}
 
     <div class="card" style="margin-top:20px;">
@@ -2504,30 +2577,95 @@ App.renderCustomers = function () {
       { label: t("customersNew"), data: monthKeys.map((k) => byMonth.get(k).newCount), color: COLORS.green },
       { label: t("customersReturning"), data: monthKeys.map((k) => byMonth.get(k).returningCount), color: COLORS.amber },
     ],
-    { xAxisLabel: t("axisWeek"), yAxisLabel: t("customersCountAxis") }
+    { xAxisLabel: t("axisMonth"), yAxisLabel: t("customersCountAxis") }
   );
+  drawCustomerSummaryChart();
 
   wireCustomersPage();
 };
 
+// Parses a monthly new/returning customer report (already-aggregated, no
+// per-customer identifier, so no hashing involved) and saves it to its own
+// store, upserted by month. Accepts CSV/TSV/Excel like the main upload.
+function handleCustomerSummaryFile(file) {
+  const ext = fileExt(file.name);
+  const onRows = async (dataRows) => {
+    if (!dataRows || !dataRows.length) { showError(t("errorEmpty")); return; }
+    const headers = Object.keys(dataRows[0]);
+    const guesses = guessCustomerSummaryColumns(headers);
+    if (!guesses.month || (!guesses.newCustomers && !guesses.returningCustomers)) {
+      showError(t("customersSummaryImportError"));
+      return;
+    }
+    const { rows } = buildCustomerSummaryRows(dataRows, guesses);
+    if (!rows.length) { showError(t("customersSummaryImportError")); return; }
+    await DB.putCustomerSummaryRows(rows);
+    App.customerSummaryRows = await DB.getAllCustomerSummary();
+    clearError();
+    showMergeBanner(t("customersSummaryImportSuccess", { count: rows.length }));
+    App.renderCustomers();
+  };
+  if (EXCEL_EXTENSIONS.includes(ext)) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const workbook = XLSX.read(new Uint8Array(e.target.result), { type: "array" });
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        onRows(XLSX.utils.sheet_to_json(sheet, { defval: "", raw: false }));
+      } catch (err) { showError(t("errorParse")); }
+    };
+    reader.onerror = () => showError(t("errorParse"));
+    reader.readAsArrayBuffer(file);
+  } else {
+    Papa.parse(file, { header: true, skipEmptyLines: true, complete: (results) => onRows(results.data), error: () => showError(t("errorParse")) });
+  }
+}
+
 function wireCustomersPage() {
   const btn = document.getElementById("regenerateSaltBtn");
-  if (!btn) return;
-  btn.addEventListener("click", () => {
-    showModal({
-      title: t("customersRegenerateSaltConfirmTitle"),
-      body: t("customersRegenerateSaltConfirmBody"),
-      confirmLabel: t("customersRegenerateSalt"),
-      cancelLabel: t("notesCancel"),
-      danger: true,
-      onConfirm: async () => {
-        const bytes = crypto.getRandomValues(new Uint8Array(16));
-        const salt = Array.from(bytes).map((b) => b.toString(16).padStart(2, "0")).join("");
-        await DB.setSetting("customerHashSalt", salt);
-        App.renderCustomers();
-      },
+  if (btn) {
+    btn.addEventListener("click", () => {
+      showModal({
+        title: t("customersRegenerateSaltConfirmTitle"),
+        body: t("customersRegenerateSaltConfirmBody"),
+        confirmLabel: t("customersRegenerateSalt"),
+        cancelLabel: t("notesCancel"),
+        danger: true,
+        onConfirm: async () => {
+          const bytes = crypto.getRandomValues(new Uint8Array(16));
+          const salt = Array.from(bytes).map((b) => b.toString(16).padStart(2, "0")).join("");
+          await DB.setSetting("customerHashSalt", salt);
+          App.renderCustomers();
+        },
+      });
     });
-  });
+  }
+
+  const importBtn = document.getElementById("customerSummaryImportBtn");
+  const importInput = document.getElementById("customerSummaryInput");
+  if (importBtn && importInput) {
+    importBtn.addEventListener("click", () => importInput.click());
+    importInput.addEventListener("change", (e) => {
+      if (e.target.files && e.target.files[0]) handleCustomerSummaryFile(e.target.files[0]);
+    });
+  }
+  const clearBtn = document.getElementById("clearCustomerSummaryBtn");
+  if (clearBtn) {
+    clearBtn.addEventListener("click", () => {
+      showModal({
+        title: t("customersSummaryClearConfirmTitle"),
+        body: t("customersSummaryClearConfirmBody"),
+        confirmLabel: t("customersSummaryClear"),
+        cancelLabel: t("notesCancel"),
+        danger: true,
+        onConfirm: async () => {
+          await DB.clearCustomerSummary();
+          App.customerSummaryRows = [];
+          App.renderCustomers();
+        },
+      });
+    });
+  }
 }
 
 // ---------- Grow Your Business ----------
@@ -2802,6 +2940,7 @@ async function deleteAllData() {
   App.weatherMap = new Map();
   App.weatherLastError = null;
   App.customerIdColumnName = null;
+  App.customerSummaryRows = [];
   await refreshAllRows();
   location.hash = "#/dashboard";
   dispatchRoute();
@@ -2817,11 +2956,14 @@ async function deleteAllData() {
 //   settings, so a restored backup keeps hashing future uploads
 //   consistently with already-hashed rows (which travel with `rows` as
 //   normal fields -- there is no raw customer data anywhere to carry).
+//   version 6 -> adds { customerSummary }: an optional, already-aggregated
+//   monthly new/returning customer report, a separate data source from the
+//   hashed per-transaction rows (see js/customer-summary.js).
 //   Importing an older backup still works: any field it doesn't have
 //   simply defaults to empty/off.
 function exportBackup() {
   const payload = {
-    version: 5,
+    version: 6,
     exportedAt: new Date().toISOString(),
     rows: App.allRows.map((r) => {
       const copy = Object.assign({}, r);
@@ -2831,6 +2973,7 @@ function exportBackup() {
     dayNotes: Array.from(App.dayNotesMap.values()),
     weather: Array.from(App.weatherMap.values()),
     customHolidays: Array.from(App.customHolidaysMap.values()),
+    customerSummary: App.customerSummaryRows || [],
     settings: {
       ignoreHolidays: App.ignoreHolidays,
       weatherEnabled: App.weatherEnabled,
@@ -2869,6 +3012,8 @@ function importBackupFile(file) {
       await DB.replaceAllDayNotes(Array.isArray(payload.dayNotes) ? payload.dayNotes : []);
       await DB.replaceAllWeather(Array.isArray(payload.weather) ? payload.weather : []);
       await DB.replaceAllCustomHolidays(Array.isArray(payload.customHolidays) ? payload.customHolidays : []);
+      await DB.replaceAllCustomerSummary(Array.isArray(payload.customerSummary) ? payload.customerSummary : []);
+      App.customerSummaryRows = await DB.getAllCustomerSummary();
       const s = payload.settings || {};
       if (typeof s.ignoreHolidays === "boolean") {
         await DB.setSetting("ignoreHolidays", s.ignoreHolidays);
@@ -2915,6 +3060,7 @@ async function initApp() {
     const savedShowSunset = await DB.getSetting("showSunsetOnTrend");
     App.showSunsetOnTrend = !!savedShowSunset;
     App.customerIdColumnName = (await DB.getSetting("customerIdColumnName")) || null;
+    App.customerSummaryRows = await DB.getAllCustomerSummary();
     applyStaticText();
     document.getElementById("langToggleBtn").addEventListener("click", () => {
       setLang(App.lang === "en" ? "zh" : "en");
