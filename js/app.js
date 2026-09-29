@@ -167,7 +167,7 @@ function applyStaticText() {
   document.title = t("appName");
   document.getElementById("brandName").textContent = t("appName");
   document.getElementById("privateBadgeText").textContent = t("privateBadge");
-  document.getElementById("privacyStrip").textContent = t("privacyNote");
+  document.getElementById("footerPrivacyText").textContent = t("privacyNote");
   document.getElementById("langToggleBtn").textContent = t("langToggle");
   document.getElementById("footerNote").textContent = t("insightsDisclaimer");
   renderNav();
@@ -1593,7 +1593,7 @@ App.renderDashboard = function () {
     });
     attachChartLegend("chart-hours", [
       { color: COLORS.amber, label: t("legendBusiestHours") },
-      { color: COLORS.indigo, label: t("legendClickToFilter") },
+      { color: COLORS.slate, label: t("legendClickToFilter") },
       { color: COLORS.muted, label: t("legendAverageLine") },
     ]);
   }
@@ -1606,7 +1606,7 @@ App.renderDashboard = function () {
   });
   attachChartLegend("chart-days", [
     { color: COLORS.amber, label: t("legendBusiestDayTotal") },
-    { color: COLORS.indigo, label: t("legendClickToFilter") },
+    { color: COLORS.slate, label: t("legendClickToFilter") },
     { color: COLORS.muted, label: t("legendAverageLine") },
   ]);
   if (showTrend) {
@@ -1615,7 +1615,7 @@ App.renderDashboard = function () {
       xAxisLabel: t("axisWeek"), yAxisLabel: t("axisSales"),
     }, trendMarkerOpts(byWeek)));
     const trendLegendItems = [{ color: COLORS.amber, label: t("trendLegendMarker") }];
-    if (App.showSunsetOnTrend && App.weatherLocation) trendLegendItems.push({ color: COLORS.indigo, label: t("trendSunsetLegend") });
+    if (App.showSunsetOnTrend && App.weatherLocation) trendLegendItems.push({ color: COLORS.slate, label: t("trendSunsetLegend") });
     attachChartLegend("chart-trend", trendLegendItems);
     const sunsetToggle = document.getElementById("sunsetToggleDashboard");
     if (sunsetToggle) {
@@ -1672,7 +1672,7 @@ function renderInsightCards(insights) {
   container.innerHTML = insights.map((ins, i) => `
     <div class="insight-card">
       <button type="button" class="insight-toggle" id="insight-toggle-${i}" aria-expanded="false" aria-controls="insight-detail-${i}">
-        <span class="insight-icon" aria-hidden="true">✨</span>
+        <span class="insight-icon" aria-hidden="true"></span>
         <span class="insight-headline-wrap">
           <span class="insight-headline">${esc(ins.headline)}</span>
           <span class="insight-action">${esc(ins.action)}</span>
@@ -2018,7 +2018,7 @@ App.renderTrendDetail = function () {
     xAxisLabel: t("axisWeek"), yAxisLabel: t("axisSales"),
   }, trendMarkerOpts(byWeek)));
   const trendDetailLegend = [{ color: COLORS.amber, label: t("trendLegendMarker") }];
-  if (App.showSunsetOnTrend && App.weatherLocation) trendDetailLegend.push({ color: COLORS.indigo, label: t("trendSunsetLegend") });
+  if (App.showSunsetOnTrend && App.weatherLocation) trendDetailLegend.push({ color: COLORS.slate, label: t("trendSunsetLegend") });
   attachChartLegend("chart-trend-detail", trendDetailLegend);
   const sunsetToggleDetail = document.getElementById("sunsetToggleDetail");
   if (sunsetToggleDetail) {
@@ -2835,7 +2835,7 @@ function renderInsightCardsInto(containerId, insights) {
   container.innerHTML = insights.map((ins, i) => `
     <div class="insight-card">
       <button type="button" class="insight-toggle" id="${containerId}-toggle-${i}" aria-expanded="false" aria-controls="${containerId}-detail-${i}">
-        <span class="insight-icon" aria-hidden="true">✨</span>
+        <span class="insight-icon" aria-hidden="true"></span>
         <span class="insight-headline-wrap">
           <span class="insight-headline">${esc(ins.headline)}</span>
           <span class="insight-action">${esc(ins.action)}</span>

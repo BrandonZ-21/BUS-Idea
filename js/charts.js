@@ -1,11 +1,15 @@
-// Thin wrappers around Chart.js using the app's warm/cafe color palette.
-// Names are historical (this palette used to be a warm cafe green/amber
-// theme); values now match the neutral modern palette in css/style.css.
+// Thin wrappers around Chart.js. Names are historical (this palette used to
+// be a warm cafe green/amber theme, then a blue/amber/violet one); it's now
+// a single accent (amber, meaning "this matters" -- a highlighted/busiest
+// bar, a selected filter) plus a blue "chrome" scale and grayscale for
+// everything else. `slate` (a neutral dark blue-gray, not a hue of its own)
+// replaced the old violet/indigo for secondary markers like the trend
+// chart's early-sunset ring or a cross-filter's selected bar.
 const COLORS = {
   green: "#2F6FED",
   lightGreen: "#EAF0FE",
   amber: "#F59E0B",
-  indigo: "#7C3AED",
+  slate: "#334155",
   text: "#14161A",
   muted: "#667085",
   border: "#E4E7EC",
@@ -69,10 +73,10 @@ function renderBarChart(canvasId, labels, data, opts) {
   if (!canvas) return null;
   const highlightIdx = new Set(opts.highlightIndexes || []);
   const colors = data.map((_, i) => (highlightIdx.has(i) ? COLORS.amber : COLORS.green));
-  // opts.selectedIndex: draws a violet outline around one bar -- used for
-  // cross-filter charts, to show which mark the owner clicked to filter the
-  // rest of the dashboard, distinct from the amber "highlighted" meaning.
-  const borderColors = data.map((_, i) => (i === opts.selectedIndex ? COLORS.indigo : "transparent"));
+  // opts.selectedIndex: draws a dark slate outline around one bar -- used
+  // for cross-filter charts, to show which mark the owner clicked to filter
+  // the rest of the dashboard, distinct from the amber "highlighted" meaning.
+  const borderColors = data.map((_, i) => (i === opts.selectedIndex ? COLORS.slate : "transparent"));
   const borderWidths = data.map((_, i) => (i === opts.selectedIndex ? 3 : 0));
   const datasets = [{
     label: opts.datasetLabel || "",
@@ -145,14 +149,14 @@ function renderLineChart(canvasId, labels, data, opts) {
   // opts.markerIndexes: array of data indexes that have a holiday/note to flag (drawn in amber).
   // opts.markerLabelFn: (index) => array of short strings to append to that point's tooltip.
   // opts.secondaryMarkerIndexes: a second, independent set of indexes (e.g.
-  // "early sunset" weeks) drawn with an indigo ring around the point instead
-  // of changing its fill, so it can combine with an amber event marker
-  // without the two meanings being confused for each other.
+  // "early sunset" weeks) drawn with a dark slate ring around the point
+  // instead of changing its fill, so it can combine with an amber event
+  // marker without the two meanings being confused for each other.
   const markerSet = new Set(opts.markerIndexes || []);
   const secondarySet = new Set(opts.secondaryMarkerIndexes || []);
   const pointColors = data.map((_, i) => (markerSet.has(i) ? COLORS.amber : COLORS.green));
   const pointRadii = data.map((_, i) => (markerSet.has(i) || secondarySet.has(i) ? 6 : 4));
-  const pointBorderColors = data.map((_, i) => (secondarySet.has(i) ? COLORS.indigo : pointColors[i]));
+  const pointBorderColors = data.map((_, i) => (secondarySet.has(i) ? COLORS.slate : pointColors[i]));
   const pointBorderWidths = data.map((_, i) => (secondarySet.has(i) ? 3 : 1));
   const datasets = [{
     label: opts.datasetLabel || "",
@@ -198,7 +202,16 @@ function renderLineChart(canvasId, labels, data, opts) {
       },
       onClick: opts.onClick,
       scales: {
-        x: { grid: { display: false }, title: { display: !!opts.xAxisLabel, text: opts.xAxisLabel, color: COLORS.muted, font: { size: 11 } } },
+        x: {
+          grid: { display: false },
+          // A trend chart can have well over 100 weekly points; showing a
+          // label for every one of them overlaps into an unreadable blur.
+          // Capping the tick COUNT (not the data) keeps a handful of evenly
+          // spaced, horizontal, readable labels while every point still has
+          // its exact value on hover/tap via the tooltip, unchanged.
+          ticks: { autoSkip: true, maxTicksLimit: 10, maxRotation: 0 },
+          title: { display: !!opts.xAxisLabel, text: opts.xAxisLabel, color: COLORS.muted, font: { size: 11 } },
+        },
         y: { beginAtZero: true, grid: { color: COLORS.border }, ticks: { callback: (v) => formatMoney(v) }, title: { display: !!opts.yAxisLabel, text: opts.yAxisLabel, color: COLORS.muted, font: { size: 11 } } },
       },
     },
@@ -235,7 +248,13 @@ function renderStackedBarChart(canvasId, labels, series, opts) {
         tooltip: { mode: "index", intersect: false },
       },
       scales: {
-        x: { stacked: true, grid: { display: false }, title: { display: !!opts.xAxisLabel, text: opts.xAxisLabel, color: COLORS.muted, font: { size: 11 } } },
+        x: {
+          stacked: true, grid: { display: false },
+          // Same reasoning as the trend chart -- a customer history can
+          // span many months; cap the tick count, not the data.
+          ticks: { autoSkip: true, maxTicksLimit: 10, maxRotation: 0 },
+          title: { display: !!opts.xAxisLabel, text: opts.xAxisLabel, color: COLORS.muted, font: { size: 11 } },
+        },
         y: { stacked: true, beginAtZero: true, grid: { color: COLORS.border }, title: { display: !!opts.yAxisLabel, text: opts.yAxisLabel, color: COLORS.muted, font: { size: 11 } } },
       },
     },
@@ -249,7 +268,10 @@ function renderDoughnutChart(canvasId, labels, data, opts) {
   destroyChart(canvasId);
   const canvas = document.getElementById(canvasId);
   if (!canvas) return null;
-  const palette = [COLORS.green, COLORS.amber, "#10B981", COLORS.indigo, COLORS.muted];
+  // This is a legend, not a "this matters" signal, so it's allowed more
+  // than one color -- but kept to one tonal family (blue/amber/gray) rather
+  // than fully separate hues, per the toned-down palette used everywhere else.
+  const palette = [COLORS.green, COLORS.amber, COLORS.muted, "#93B4F5", "#B45309"];
   const chart = new Chart(canvas, {
     type: "doughnut",
     data: {

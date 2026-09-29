@@ -11,12 +11,16 @@ const FIELD_KEYWORDS = {
   price: ["price", "amount", "total", "saleprice", "unitprice", "linetotal", "revenue", "netsales", "grosssales", "subtotal"],
   orderType: ["ordertype", "type", "servicetype", "channel", "diningoption", "fulfillment"],
   orderId: ["orderid", "order#", "ordernumber", "receiptid", "transactionid", "checknumber", "orderno", "receiptno"],
-  // Deliberately specific (not bare "id"/"name"/"number") so this doesn't
-  // false-match unrelated columns like "Item Name" or "Order Number".
+  // Deliberately specific about "name" (only compound forms like
+  // "customername", never bare "name") so this doesn't false-match
+  // unrelated columns like "Item Name" -- the item field's own keyword
+  // list also matches bare "name", so leaving it out here avoids a column
+  // simply titled "Name" being ambiguously claimed by both fields.
   customerId: [
     "phone", "email", "loyalty", "loyaltyid", "loyaltynumber",
     "customerid", "customername", "customernumber", "customerphone", "customeremail", "customercontact",
-    "memberid", "membernumber", "clientid", "clientname", "clientemail", "clientphone",
+    "member", "memberid", "membernumber", "rewards", "rewardsid",
+    "clientid", "clientname", "clientemail", "clientphone", "guestname",
     "contact", "contactinfo",
   ],
 };
