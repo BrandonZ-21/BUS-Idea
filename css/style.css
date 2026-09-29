@@ -99,7 +99,9 @@ button {
   flex-wrap: wrap;
 }
 .brand { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.brand-name { font-weight: 700; font-size: 1.3rem; letter-spacing: -0.01em; color: var(--text); }
+.brand-name { font-weight: 700; font-size: 1.3rem; letter-spacing: -0.01em; color: var(--text); text-decoration: none; }
+.brand-name:hover { color: var(--green); }
+.brand-name.active { color: var(--green); }
 .private-badge {
   display: inline-flex;
   align-items: center;
@@ -170,6 +172,21 @@ main { max-width: 1080px; margin: 0 auto; padding: 28px 20px 60px; }
   color: var(--green); font-size: 0.85rem; font-weight: 500;
 }
 .btn-lg { padding: 13px 26px; font-size: 1rem; border-radius: 12px; }
+
+.link-button {
+  display: block; margin: 14px auto 0; background: none; border: none; padding: 4px;
+  color: var(--muted); font-size: 0.85rem; text-decoration: underline; text-underline-offset: 2px;
+}
+.link-button:hover { color: var(--green); }
+
+.intro-points { list-style: none; padding: 0; margin: 16px 0 0; display: flex; flex-direction: column; gap: 14px; }
+.intro-points li {
+  padding-left: 20px; position: relative; color: var(--text); font-size: 0.95rem; line-height: 1.5;
+}
+.intro-points li::before {
+  content: ""; position: absolute; left: 0; top: 8px; width: 7px; height: 7px; border-radius: 50%;
+  background: var(--green);
+}
 
 .landing-section-title { text-align: center; font-size: 1.5rem; margin-bottom: 22px; }
 .landing-features, .landing-how { max-width: 1000px; margin: 64px auto 0; }

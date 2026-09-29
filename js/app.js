@@ -46,6 +46,7 @@ const App = {
   showSunsetOnTrend: false, // toggle on the trend chart; remembered across visits
   customerIdColumnName: null, // the header name last used for hashed customer tracking, shown on the privacy disclosure only
   customerSummaryRows: [], // optional, already-aggregated monthly new/returning report -- a separate data source from hashed per-transaction rows, see js/customer-summary.js
+  hasSeenIntro: false, // whether the first-visit explainer overlay has ever been dismissed
 };
 
 function closedDates() {
@@ -125,26 +126,27 @@ function orderTypeLabel(raw) {
 }
 
 function showView(name) {
-  ["view-upload", "view-match", "view-root"].forEach((id) => {
+  ["view-match", "view-root"].forEach((id) => {
     document.getElementById(id).hidden = id !== name;
   });
 }
 
-App.showEmptyState = function () {
-  document.getElementById("mainNav").innerHTML = "";
-  showView("view-upload");
-  renderUploadScreen();
-};
-
-App.showAppShell = function () {
+// hasData=false means nothing except #/home has anything to show, so the
+// nav bar (which only links to pages that need data) is left empty rather
+// than showing a bunch of links to pages that would just say "upload data
+// first" -- same as before, just no longer tangled up with routing itself.
+App.showAppShell = function (hasData) {
   showView("view-root");
-  renderNav();
+  if (hasData) renderNav();
+  else document.getElementById("mainNav").innerHTML = "";
 };
 
 App.updateActiveNav = function (route) {
   document.querySelectorAll("#mainNav a").forEach((a) => {
     a.classList.toggle("active", a.getAttribute("href") === route || (route === "#/dashboard" && a.getAttribute("href") === "#/dashboard"));
   });
+  const brand = document.getElementById("brandName");
+  if (brand) brand.classList.toggle("active", route === "#/home");
 };
 
 function renderNav() {
@@ -177,8 +179,6 @@ async function setLang(lang) {
   applyStaticText();
   if (App.pendingParse) {
     renderMatchScreen();
-  } else if (App.allRows.length === 0) {
-    App.showEmptyState();
   } else {
     dispatchRoute();
   }
@@ -220,11 +220,12 @@ function showModal({ title, body, confirmLabel, cancelLabel, onConfirm, danger }
   document.getElementById("modalConfirmBtn").focus();
 }
 
-// ---------- Landing / upload screen ----------
-// Everything on this view is shown before any data has been uploaded --
-// half marketing page, half functional dropzone, all still fully local
-// (no analytics, no images/fonts from a third party beyond the Google Fonts
-// stylesheet already loaded in index.html).
+// ---------- Home / landing page (#/home) ----------
+// Half marketing page, half functional dropzone -- reachable at any time,
+// whether or not you have data saved, via the "Counter" wordmark in the
+// header or the #/home route directly. All still fully local (no analytics,
+// no images/fonts from a third party beyond the Google Fonts stylesheet
+// already loaded in index.html).
 const LANDING_FEATURES = [
   { icon: "💬", titleKey: "landingFeatureDashboardTitle", bodyKey: "landingFeatureDashboardBody" },
   { icon: "🌦️", titleKey: "landingFeatureWeatherTitle", bodyKey: "landingFeatureWeatherBody" },
@@ -239,8 +240,8 @@ const LANDING_STEPS = [
   { titleKey: "landingStep3Title", bodyKey: "landingStep3Body" },
 ];
 
-function renderUploadScreen() {
-  const el = document.getElementById("view-upload");
+App.renderHome = function () {
+  const el = document.getElementById("view-root");
   el.innerHTML = `
     <section class="landing-hero">
       <h1>${esc(t("landingHeadline"))}</h1>
@@ -253,6 +254,7 @@ function renderUploadScreen() {
         <svg aria-hidden="true" viewBox="0 0 24 24" width="14" height="14"><path fill="currentColor" d="M12 1a5 5 0 0 0-5 5v3H6a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-9a2 2 0 0 0-2-2h-1V6a5 5 0 0 0-5-5zm-3 8V6a3 3 0 0 1 6 0v3z"/></svg>
         ${esc(t("privacyNote"))}
       </p>
+      <button type="button" class="link-button" id="introReopenBtn">${esc(t("introLearnMoreLink"))}</button>
     </section>
 
     <section class="landing-features">
@@ -302,6 +304,42 @@ function renderUploadScreen() {
   const scrollToUpload = () => document.getElementById("landingUploadSection").scrollIntoView({ behavior: "smooth", block: "start" });
   document.getElementById("heroGetStartedBtn").addEventListener("click", scrollToUpload);
   document.getElementById("heroSampleBtn").addEventListener("click", () => loadSampleFile("sample-data.csv"));
+  document.getElementById("introReopenBtn").addEventListener("click", showIntroOverlay);
+
+  // Shown automatically exactly once, the very first time anyone opens the
+  // app before uploading anything -- never again after that (tracked in
+  // IndexedDB settings, not just this tab), and never blocks reaching the
+  // dropzone or dashboard either way.
+  if (!App.hasSeenIntro && App.allRows.length === 0) {
+    App.hasSeenIntro = true;
+    DB.setSetting("hasSeenIntro", true);
+    showIntroOverlay();
+  }
+};
+
+// A short, dismissible "what is this" overlay: 3 modest, non-salesy points.
+// Reachable again anytime via the link on the home page, regardless of
+// whether it's already been seen.
+function showIntroOverlay() {
+  const root = document.getElementById("modalRoot");
+  root.innerHTML = `
+    <div class="modal-overlay" id="introOverlay">
+      <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="introOverlayTitle">
+        <h2 id="introOverlayTitle">${esc(t("introTitle"))}</h2>
+        <ul class="intro-points">
+          <li>${esc(t("introPoint1"))}</li>
+          <li>${esc(t("introPoint2"))}</li>
+          <li>${esc(t("introPoint3"))}</li>
+        </ul>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-primary" id="introDismissBtn">${esc(t("introDismiss"))}</button>
+        </div>
+      </div>
+    </div>`;
+  const close = () => { root.innerHTML = ""; };
+  document.getElementById("introOverlay").addEventListener("click", (e) => { if (e.target.id === "introOverlay") close(); });
+  document.getElementById("introDismissBtn").addEventListener("click", close);
+  document.getElementById("introDismissBtn").focus();
 }
 
 function wireUploadWidget(scopeEl) {
@@ -3061,6 +3099,7 @@ async function initApp() {
     App.showSunsetOnTrend = !!savedShowSunset;
     App.customerIdColumnName = (await DB.getSetting("customerIdColumnName")) || null;
     App.customerSummaryRows = await DB.getAllCustomerSummary();
+    App.hasSeenIntro = !!(await DB.getSetting("hasSeenIntro"));
     applyStaticText();
     document.getElementById("langToggleBtn").addEventListener("click", () => {
       setLang(App.lang === "en" ? "zh" : "en");
@@ -3068,8 +3107,7 @@ async function initApp() {
     await refreshAllRows();
     await refreshWeatherMap();
     document.getElementById("bootStatus").hidden = true;
-    if (!location.hash) location.hash = "#/dashboard";
-    dispatchRoute();
+    dispatchRoute(); // figures out the right route on its own -- #/home with no data, otherwise the dashboard or whatever hash is already set
     if (App.weatherEnabled) refreshWeatherIfNeeded(); // fire-and-forget; never blocks page load
   } catch (err) {
     // If this device's saved data can't be opened (e.g. another tab of this
