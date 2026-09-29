@@ -210,29 +210,88 @@ function showModal({ title, body, confirmLabel, cancelLabel, onConfirm, danger }
   document.getElementById("modalConfirmBtn").focus();
 }
 
-// ---------- Upload screen ----------
+// ---------- Landing / upload screen ----------
+// Everything on this view is shown before any data has been uploaded --
+// half marketing page, half functional dropzone, all still fully local
+// (no analytics, no images/fonts from a third party beyond the Google Fonts
+// stylesheet already loaded in index.html).
+const LANDING_FEATURES = [
+  { icon: "💬", titleKey: "landingFeatureDashboardTitle", bodyKey: "landingFeatureDashboardBody" },
+  { icon: "🌦️", titleKey: "landingFeatureWeatherTitle", bodyKey: "landingFeatureWeatherBody" },
+  { icon: "🔁", titleKey: "landingFeatureCustomersTitle", bodyKey: "landingFeatureCustomersBody" },
+  { icon: "📈", titleKey: "landingFeatureGrowTitle", bodyKey: "landingFeatureGrowBody" },
+  { icon: "🔒", titleKey: "landingFeaturePrivacyTitle", bodyKey: "landingFeaturePrivacyBody" },
+  { icon: "🌐", titleKey: "landingFeatureBilingualTitle", bodyKey: "landingFeatureBilingualBody" },
+];
+const LANDING_STEPS = [
+  { titleKey: "landingStep1Title", bodyKey: "landingStep1Body" },
+  { titleKey: "landingStep2Title", bodyKey: "landingStep2Body" },
+  { titleKey: "landingStep3Title", bodyKey: "landingStep3Body" },
+];
+
 function renderUploadScreen() {
   const el = document.getElementById("view-upload");
   el.innerHTML = `
-    <div class="upload-hero">
-      <h1>${esc(t("uploadTitle"))}</h1>
-      <p>${esc(t("tagline"))}</p>
-    </div>
-    <div class="dropzone" id="dropzone">
-      <p><strong>${esc(t("uploadDrop"))}</strong></p>
-      <p>${esc(t("uploadOr"))}</p>
-      <div class="upload-actions">
-        <button type="button" class="btn btn-primary" id="chooseFileBtn">${esc(t("uploadChoose"))}</button>
-        <input type="file" accept=".csv,.tsv,.txt,.xlsx,.xls" id="fileInput" class="visually-hidden" aria-label="${esc(t("uploadChoose"))}" />
+    <section class="landing-hero">
+      <h1>${esc(t("landingHeadline"))}</h1>
+      <p class="landing-subhead">${esc(t("landingSubhead"))}</p>
+      <div class="landing-hero-actions">
+        <button type="button" class="btn btn-primary btn-lg" id="heroGetStartedBtn">${esc(t("landingHeroCta"))}</button>
+        <button type="button" class="btn btn-secondary btn-lg" id="heroSampleBtn">${esc(t("landingHeroSecondary"))}</button>
       </div>
-      <p class="upload-help">${esc(t("uploadHelp"))}</p>
-    </div>
-    <div class="upload-secondary">
-      <button type="button" class="btn btn-secondary" id="sampleBtn">${esc(t("uploadSample"))}</button>
-      <button type="button" class="btn btn-secondary" id="sample2Btn">${esc(t("uploadSample2"))}</button>
-    </div>
+      <p class="landing-privacy-line">
+        <svg aria-hidden="true" viewBox="0 0 24 24" width="14" height="14"><path fill="currentColor" d="M12 1a5 5 0 0 0-5 5v3H6a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-9a2 2 0 0 0-2-2h-1V6a5 5 0 0 0-5-5zm-3 8V6a3 3 0 0 1 6 0v3z"/></svg>
+        ${esc(t("privacyNote"))}
+      </p>
+    </section>
+
+    <section class="landing-features">
+      <h2 class="landing-section-title">${esc(t("landingFeaturesTitle"))}</h2>
+      <div class="landing-feature-grid">
+        ${LANDING_FEATURES.map((f) => `
+          <div class="landing-feature-card">
+            <span class="landing-feature-icon" aria-hidden="true">${f.icon}</span>
+            <h3>${esc(t(f.titleKey))}</h3>
+            <p>${esc(t(f.bodyKey))}</p>
+          </div>
+        `).join("")}
+      </div>
+    </section>
+
+    <section class="landing-how">
+      <h2 class="landing-section-title">${esc(t("landingHowTitle"))}</h2>
+      <div class="landing-steps">
+        ${LANDING_STEPS.map((s) => `
+          <div class="landing-step">
+            <h3>${esc(t(s.titleKey))}</h3>
+            <p>${esc(t(s.bodyKey))}</p>
+          </div>
+        `).join("")}
+      </div>
+    </section>
+
+    <section class="landing-upload" id="landingUploadSection">
+      <h2 class="landing-section-title">${esc(t("landingUploadTitle"))}</h2>
+      <div class="dropzone" id="dropzone">
+        <p><strong>${esc(t("uploadDrop"))}</strong></p>
+        <p>${esc(t("uploadOr"))}</p>
+        <div class="upload-actions">
+          <button type="button" class="btn btn-primary" id="chooseFileBtn">${esc(t("uploadChoose"))}</button>
+          <input type="file" accept=".csv,.tsv,.txt,.xlsx,.xls" id="fileInput" class="visually-hidden" aria-label="${esc(t("uploadChoose"))}" />
+        </div>
+        <p class="upload-help">${esc(t("uploadHelp"))}</p>
+      </div>
+      <div class="upload-secondary">
+        <button type="button" class="btn btn-secondary" id="sampleBtn">${esc(t("uploadSample"))}</button>
+        <button type="button" class="btn btn-secondary" id="sample2Btn">${esc(t("uploadSample2"))}</button>
+      </div>
+    </section>
   `;
   wireUploadWidget(el);
+
+  const scrollToUpload = () => document.getElementById("landingUploadSection").scrollIntoView({ behavior: "smooth", block: "start" });
+  document.getElementById("heroGetStartedBtn").addEventListener("click", scrollToUpload);
+  document.getElementById("heroSampleBtn").addEventListener("click", () => loadSampleFile("sample-data.csv"));
 }
 
 function wireUploadWidget(scopeEl) {
@@ -1407,7 +1466,7 @@ App.renderDashboard = function () {
       averageLine: avgOfActive(hourTotals), averageLineLabel: t("legendAverageLine"),
     });
     attachChartLegend("chart-hours", [
-      { color: COLORS.amber, label: t("legendHighlighted") },
+      { color: COLORS.amber, label: t("legendBusiestHours") },
       { color: COLORS.muted, label: t("legendAverageLine") },
     ]);
   }
@@ -1418,7 +1477,7 @@ App.renderDashboard = function () {
     averageLine: avgOfActive(dowTotals), averageLineLabel: t("legendAverageLine"),
   });
   attachChartLegend("chart-days", [
-    { color: COLORS.amber, label: t("legendHighlighted") },
+    { color: COLORS.amber, label: t("legendBusiestDayTotal") },
     { color: COLORS.muted, label: t("legendAverageLine") },
   ]);
   if (showTrend) {
@@ -1605,7 +1664,7 @@ App.renderHoursDetail = function () {
     averageLine: avgOfActive(hourTotals), averageLineLabel: t("legendAverageLine"),
   });
   attachChartLegend("chart-hours-detail", [
-    { color: COLORS.amber, label: t("legendHighlighted") },
+    { color: COLORS.amber, label: t("legendBusiestHours") },
     { color: COLORS.muted, label: t("legendAverageLine") },
   ]);
 
@@ -1674,7 +1733,7 @@ App.renderDaysDetail = function () {
       averageLine: avgOfActive(data), averageLineLabel: t("legendAverageLine"),
     });
     attachChartLegend("chart-days-detail", [
-      { color: COLORS.amber, label: t("legendHighlighted") },
+      { color: COLORS.amber, label: mode === "total" ? t("legendBusiestDayTotal") : t("legendBestDayAverage") },
       { color: COLORS.muted, label: t("legendAverageLine") },
     ]);
   };

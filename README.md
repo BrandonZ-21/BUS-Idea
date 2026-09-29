@@ -173,6 +173,8 @@ Whenever you make changes later: GitHub Desktop will show them under "Changes" �
   - The Order Type Split detail page now has a Doughnut/Bar toggle.
   - Chart cards, table rows, and heatmap cells got real hover states (lift/highlight/outline) so it's clearer what's clickable before you click it.
   - The line chart renderer (`js/charts.js`) gained the same "your overall average" dashed reference line the bar chart already had, so switching Hours/Days to Line view doesn't lose that comparison.
+- **More specific chart legends** — the orange bar on the Hours/Days charts used to just say "Highlighted bar," which didn't explain why that particular bar was highlighted. It now says exactly what it means in context: "Your 2 busiest hours (highest total sales)" on the Hours chart, and on the Days chart either "Busiest day (highest total sales)" or "Best day (highest daily average)" depending on which of the two view modes is active.
+- **A real landing page** — before any data is uploaded, the app now shows a proper landing page (headline, a "what you get" feature grid, a 3-step "how it works" section, then the upload area) instead of jumping straight to a bare dropzone. "Get started" scrolls down to the upload area; "See it with sample data" loads the sample immediately. Fully bilingual, same no-backend/no-tracking rules as the rest of the app — it's just more explanation before the dropzone, not a separate marketing site.
 
 ## What doesn't (yet)
 
