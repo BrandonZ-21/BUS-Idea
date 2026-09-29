@@ -15,6 +15,15 @@ const App = {
   hoursChartType: "bar", // "bar" | "line" -- chart-type toggle on the Hours detail page
   daysChartType: "bar", // "bar" | "line" -- chart-type toggle on the Days detail page
   orderTypesChartType: "doughnut", // "doughnut" | "bar" -- chart-type toggle on the Order Types detail page
+
+  // Dashboard cross-filtering: click a bar on "Sales by Hour of Day" or
+  // "Sales by Day of Week" to filter the REST of the dashboard (KPI cards,
+  // other charts, insights) to that hour/day -- both can be active at once.
+  // Each chart still shows all its own bars (never collapses to one), so you
+  // can keep clicking to change or combine filters; a chip near the top
+  // shows what's active and clears it.
+  dashboardFilterDow: null, // 0-6 or null
+  dashboardFilterHour: null, // 0-23 or null
   ignoreHolidays: true,
   holidaysMap: new Map(), // "YYYY-MM-DD" -> { key, nameKey } (computed US holidays)
   customHolidaysMap: new Map(), // "YYYY-MM-DD" -> { date, name } (owner-entered: Chinese New Year, etc.)
@@ -691,6 +700,19 @@ function weatherCategoryLabel(cat) {
   return t(key);
 }
 
+// Same as weatherCategoryLabel, but appends the actual temperature cutoff
+// ("Warm" / "(≤86°F)") in the owner's chosen display unit -- so the
+// temperature chart's bars mean something concrete instead of a subjective
+// label the owner has to guess the meaning of. Returned as a 2-element array
+// rather than one string: Chart.js renders an array tick label as two
+// stacked lines, which reads far better than a long single-line label like
+// "Warm (≤86°F)" squeezed under a narrow bar.
+function weatherCategoryLabelWithRange(cat) {
+  const name = weatherCategoryLabel(cat);
+  const range = tempBandRangeLabel(cat, App.weatherUnits.temp);
+  return range ? [name, `(${range})`] : name;
+}
+
 // "Rain" reads fine as a noun/chart label but awkward as "Rain days sell...".
 // This gives the adjective form used in sentences like that.
 function weatherCategoryAdjective(cat) {
@@ -724,7 +746,7 @@ function renderWeatherLine() {
 // the dashboard's weather charts. Only categories that actually have at
 // least one day in the current range are included, so a restaurant that
 // never saw snow just won't get a "Snow" bar.
-function salesByWeatherGroup(rows, categoryOrder, categorizeFn) {
+function salesByWeatherGroup(rows, categoryOrder, categorizeFn, labelFn) {
   const dailyTotals = computeDailyTotals(rows);
   const sums = {}, counts = {};
   dailyTotals.forEach((revenue, date) => {
@@ -738,7 +760,7 @@ function salesByWeatherGroup(rows, categoryOrder, categorizeFn) {
   const labels = [], avgs = [], dayCounts = [];
   categoryOrder.forEach((cat) => {
     if (counts[cat] > 0) {
-      labels.push(weatherCategoryLabel(cat));
+      labels.push((labelFn || weatherCategoryLabel)(cat));
       avgs.push(sums[cat] / counts[cat]);
       dayCounts.push(counts[cat]);
     }
@@ -751,7 +773,7 @@ function salesByPrecipCategory(rows) {
 }
 
 function salesByTempBand(rows) {
-  return salesByWeatherGroup(rows, ["cold", "cool", "mild", "warm", "hot"], (w) => tempCategory(w.tempMax));
+  return salesByWeatherGroup(rows, ["cold", "cool", "mild", "warm", "hot"], (w) => tempCategory(w.tempMax), weatherCategoryLabelWithRange);
 }
 
 // Lists any US holidays that fall within the currently selected date range,
@@ -1352,26 +1374,44 @@ App.renderDashboard = function () {
   const rows = getFilteredRows();
   const weeks = maturityWeeks(rows);
   const thin = weeks < 2;
-  const summary = computeSummary(rows);
-  const { totals: hourTotals } = { totals: salesByHour(rows) };
-  const { totals: dowTotals } = salesByDow(rows);
   const hasTime = rows.some((r) => r.time);
   const hasOrderType = rows.some((r) => r.orderType);
-  const byWeek = salesByWeek(rows);
+
+  // Cross-filtering: each chart is filtered by the OTHER active filter
+  // (never its own), so it keeps showing all its own bars to click/change,
+  // while every KPI, other chart, and insight reflects both filters at once.
+  const byDow = (list) => (App.dashboardFilterDow === null ? list : list.filter((r) => rowDayOfWeek(r) === App.dashboardFilterDow));
+  const byHour = (list) => (App.dashboardFilterHour === null ? list : list.filter((r) => rowHour(r) === App.dashboardFilterHour));
+  const hourAxisRows = byDow(rows);
+  const dowAxisRows = byHour(rows);
+  const crossRows = byHour(byDow(rows));
+  const hasActiveFilter = App.dashboardFilterDow !== null || App.dashboardFilterHour !== null;
+
+  const summary = computeSummary(crossRows);
+  const hourTotals = salesByHour(hourAxisRows);
+  const { totals: dowTotals } = salesByDow(dowAxisRows);
+  const hourTotalsForStat = salesByHour(crossRows);
+  const byWeek = salesByWeek(crossRows);
   const showTrend = weeks >= 3 && byWeek.length >= 3;
 
   const bestDowIdx = dowTotals.indexOf(Math.max(...dowTotals));
-  const busiestHourIdx = hourTotals.indexOf(Math.max(...hourTotals));
+  const busiestHourIdx = hourTotalsForStat.some((v) => v > 0) ? hourTotalsForStat.indexOf(Math.max(...hourTotalsForStat)) : 0;
   const top2HourIdx = hourTotals.map((v, i) => [i, v]).sort((a, b) => b[1] - a[1]).slice(0, 2).map((x) => x[0]);
 
-  const { top: topItemsList, rare } = topItems(rows, 5);
-  const orderTypes = orderTypeSplit(rows);
+  const { top: topItemsList, rare } = topItems(crossRows, 5);
+  const orderTypes = orderTypeSplit(crossRows);
   const showWeatherCharts = App.weatherEnabled && App.weatherMap.size > 0;
-  const weatherByPrecip = showWeatherCharts ? salesByPrecipCategory(rows) : null;
-  const weatherByTemp = showWeatherCharts ? salesByTempBand(rows) : null;
+  const weatherByPrecip = showWeatherCharts ? salesByPrecipCategory(crossRows) : null;
+  const weatherByTemp = showWeatherCharts ? salesByTempBand(crossRows) : null;
 
   root.innerHTML = `
     ${renderRangeSelector()}
+    ${hasActiveFilter ? `
+    <div class="filter-chip-row">
+      ${App.dashboardFilterDow !== null ? `<span class="filter-chip">${esc(t("filterChipDay", { day: dayLong(App.dashboardFilterDow) }))}<button type="button" data-clear-filter="dow" aria-label="${esc(t("filterChipRemove"))}">&times;</button></span>` : ""}
+      ${App.dashboardFilterHour !== null ? `<span class="filter-chip">${esc(t("filterChipHour", { hour: formatHourLabel(App.dashboardFilterHour) }))}<button type="button" data-clear-filter="hour" aria-label="${esc(t("filterChipRemove"))}">&times;</button></span>` : ""}
+      <button type="button" class="btn btn-ghost btn-sm" id="clearAllFiltersBtn">${esc(t("filterClearAll"))}</button>
+    </div>` : ""}
     ${renderWeatherLine()}
     ${renderHolidayLine(rows)}
     ${thin ? `<div class="thin-data-banner">${esc(t("thinDataBanner"))}</div>` : ""}
@@ -1458,26 +1498,56 @@ App.renderDashboard = function () {
 
   wireRangeSelector(() => App.renderDashboard());
 
+  document.querySelectorAll("[data-clear-filter]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      if (btn.dataset.clearFilter === "dow") App.dashboardFilterDow = null;
+      else App.dashboardFilterHour = null;
+      App.renderDashboard();
+    });
+  });
+  const clearAllBtn = document.getElementById("clearAllFiltersBtn");
+  if (clearAllBtn) clearAllBtn.addEventListener("click", () => {
+    App.dashboardFilterDow = null;
+    App.dashboardFilterHour = null;
+    App.renderDashboard();
+  });
+
+  // Clicking a bar here filters the rest of the dashboard to that hour/day
+  // (cross-filtering) instead of navigating away -- "See details" still
+  // goes to the full detail page. Clicking the already-selected bar clears it.
+  function barClickToggle(getCurrent, setValue) {
+    return (evt, elements) => {
+      const hit = elements.find((el) => el.datasetIndex === 0);
+      if (!hit) return;
+      setValue(getCurrent() === hit.index ? null : hit.index);
+      App.renderDashboard();
+    };
+  }
+
   if (hasTime) {
     renderBarChart("chart-hours", Array.from({ length: 24 }, (_, i) => formatHourLabel(i)), hourTotals, {
       highlightIndexes: top2HourIdx,
-      onClick: () => { location.hash = "#/hours"; },
+      selectedIndex: App.dashboardFilterHour,
+      onClick: barClickToggle(() => App.dashboardFilterHour, (v) => { App.dashboardFilterHour = v; }),
       xAxisLabel: t("axisHourOfDay"), yAxisLabel: t("axisSales"),
       averageLine: avgOfActive(hourTotals), averageLineLabel: t("legendAverageLine"),
     });
     attachChartLegend("chart-hours", [
       { color: COLORS.amber, label: t("legendBusiestHours") },
+      { color: COLORS.indigo, label: t("legendClickToFilter") },
       { color: COLORS.muted, label: t("legendAverageLine") },
     ]);
   }
   renderBarChart("chart-days", Array.from({ length: 7 }, (_, i) => dayShort(i)), dowTotals, {
     highlightIndexes: [bestDowIdx],
-    onClick: () => { location.hash = "#/days"; },
+    selectedIndex: App.dashboardFilterDow,
+    onClick: barClickToggle(() => App.dashboardFilterDow, (v) => { App.dashboardFilterDow = v; }),
     xAxisLabel: t("axisDayOfWeek"), yAxisLabel: t("axisSales"),
     averageLine: avgOfActive(dowTotals), averageLineLabel: t("legendAverageLine"),
   });
   attachChartLegend("chart-days", [
     { color: COLORS.amber, label: t("legendBusiestDayTotal") },
+    { color: COLORS.indigo, label: t("legendClickToFilter") },
     { color: COLORS.muted, label: t("legendAverageLine") },
   ]);
   if (showTrend) {
@@ -1521,7 +1591,7 @@ App.renderDashboard = function () {
     });
   }
   if (hasTime) {
-    const grid = heatmapData(rows);
+    const grid = heatmapData(crossRows);
     renderHeatmap(document.getElementById("heatmap-dashboard"), grid, {
       dayLabels: Array.from({ length: 7 }, (_, i) => dayShort(i)),
       cellLabel: (dow, h, v) => t("heatmapCellLabel", { day: dayLong(dow), hour: formatHourLabel(h), amount: formatMoney(v) }),
@@ -1530,7 +1600,7 @@ App.renderDashboard = function () {
     });
   }
 
-  const insights = generateInsights(rows);
+  const insights = generateInsights(crossRows);
   renderInsightCards(insights);
 };
 

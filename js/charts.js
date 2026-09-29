@@ -69,10 +69,18 @@ function renderBarChart(canvasId, labels, data, opts) {
   if (!canvas) return null;
   const highlightIdx = new Set(opts.highlightIndexes || []);
   const colors = data.map((_, i) => (highlightIdx.has(i) ? COLORS.amber : COLORS.green));
+  // opts.selectedIndex: draws a violet outline around one bar -- used for
+  // cross-filter charts, to show which mark the owner clicked to filter the
+  // rest of the dashboard, distinct from the amber "highlighted" meaning.
+  const borderColors = data.map((_, i) => (i === opts.selectedIndex ? COLORS.indigo : "transparent"));
+  const borderWidths = data.map((_, i) => (i === opts.selectedIndex ? 3 : 0));
   const datasets = [{
     label: opts.datasetLabel || "",
     data,
     backgroundColor: colors,
+    borderColor: borderColors,
+    borderWidth: borderWidths,
+    borderSkipped: false,
     borderRadius: 4,
     maxBarThickness: opts.horizontal ? 28 : 34,
     order: 2,
@@ -109,6 +117,7 @@ function renderBarChart(canvasId, labels, data, opts) {
         },
       },
       onClick: opts.onClick,
+      onHover: opts.onClick ? (evt, elements) => { evt.native.target.style.cursor = elements.length ? "pointer" : "default"; } : undefined,
       scales: {
         x: {
           grid: { display: !opts.horizontal, color: COLORS.border },

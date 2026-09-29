@@ -252,6 +252,19 @@ main { max-width: 1080px; margin: 0 auto; padding: 28px 20px 60px; }
 
 .full-width { grid-column: 1 / -1; }
 
+/* Dashboard cross-filter chips */
+.filter-chip-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 16px; }
+.filter-chip {
+  display: inline-flex; align-items: center; gap: 6px; background: var(--green-light); color: var(--green);
+  font-size: 0.82rem; font-weight: 600; padding: 5px 6px 5px 12px; border-radius: 999px;
+}
+.filter-chip button {
+  background: transparent; border: none; color: var(--green); font-size: 1rem; line-height: 1;
+  width: 20px; height: 20px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
+}
+.filter-chip button:hover { background: rgba(47, 111, 237, 0.15); }
+.btn-sm { padding: 5px 12px; font-size: 0.82rem; border-radius: 999px; }
+
 .thin-data-banner {
   background: var(--amber-light); border: 1px solid var(--border); border-radius: var(--radius);
   padding: 14px 16px; margin-bottom: 20px; color: var(--muted); font-size: 0.9rem;

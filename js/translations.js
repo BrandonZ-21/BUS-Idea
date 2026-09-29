@@ -403,6 +403,11 @@ const TRANSLATIONS = {
     chartTypeBar: "Bar",
     chartTypeLine: "Line",
     chartTypeDoughnut: "Doughnut",
+    legendClickToFilter: "Click a bar to filter the dashboard",
+    filterChipDay: "Day: {day}",
+    filterChipHour: "Hour: {hour}",
+    filterChipRemove: "Remove this filter",
+    filterClearAll: "Clear all filters",
 
     // Ask a question (Phase 2: rule-based, no AI, no network)
     navAsk: "Ask",
@@ -968,6 +973,11 @@ const TRANSLATIONS = {
     chartTypeBar: "柱状图",
     chartTypeLine: "折线图",
     chartTypeDoughnut: "环形图",
+    legendClickToFilter: "点击柱形以筛选整个仪表盘",
+    filterChipDay: "星期：{day}",
+    filterChipHour: "小时：{hour}",
+    filterChipRemove: "移除此筛选条件",
+    filterClearAll: "清除所有筛选条件",
 
     // Ask a question (Phase 2: rule-based, no AI, no network)
     navAsk: "提问",

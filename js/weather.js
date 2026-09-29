@@ -63,6 +63,25 @@ function formatTemp(c, unit) {
   return unit === "F" ? `${Math.round(cToF(c))}°F` : `${Math.round(c)}°C`;
 }
 
+// A short "up to X°" / "over X°" string describing a temperature band's
+// actual cutoff in the owner's chosen display unit, so "Warm" means
+// something concrete instead of a subjective label the owner has to guess
+// at. cold/cool/mild/warm are each described by their upper cutoff; hot has
+// no upper cutoff, so it's described by the cutoff it's above instead.
+function tempBandRangeLabel(cat, unit) {
+  const upperBoundC = {
+    cold: WEATHER_THRESHOLDS.coldMaxC,
+    cool: WEATHER_THRESHOLDS.coolMaxC,
+    mild: WEATHER_THRESHOLDS.mildMaxC,
+    warm: WEATHER_THRESHOLDS.warmMaxC,
+  };
+  const val = (c) => (unit === "F" ? Math.round(cToF(c)) : Math.round(c));
+  const deg = unit === "F" ? "°F" : "°C";
+  if (cat === "hot") return `>${val(WEATHER_THRESHOLDS.warmMaxC)}${deg}`;
+  if (upperBoundC[cat] === undefined) return "";
+  return `≤${val(upperBoundC[cat])}${deg}`;
+}
+
 function formatPrecip(mm, unit) {
   if (mm == null) return "--";
   return unit === "in" ? `${mmToIn(mm).toFixed(2)} in` : `${mm.toFixed(1)} mm`;
