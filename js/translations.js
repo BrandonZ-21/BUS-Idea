@@ -2,7 +2,7 @@
 // t(key, vars) in app.js looks a string up by key and fills in {placeholders}.
 const TRANSLATIONS = {
   en: {
-    appName: "Cafe Insights",
+    appName: "Counter",
     privateBadge: "Private to you",
     privacyNote: "Your data is saved on this device only and never uploaded.",
     tagline: "Upload your sales export and see your busy hours, best sellers, and slow days in plain English.",
@@ -371,6 +371,10 @@ const TRANSLATIONS = {
     trendLegendMarker: "Larger amber dot = a holiday, note, or notable rain/snow that week",
     heatmapLegendLess: "Less busy",
     heatmapLegendMore: "Busier",
+    chartTypeToggleLabel: "Chart type",
+    chartTypeBar: "Bar",
+    chartTypeLine: "Line",
+    chartTypeDoughnut: "Doughnut",
 
     // Ask a question (Phase 2: rule-based, no AI, no network)
     navAsk: "Ask",
@@ -552,7 +556,7 @@ const TRANSLATIONS = {
   },
 
   zh: {
-    appName: "咖啡馆洞察",
+    appName: "柜台",
     privateBadge: "仅供你个人查看",
     privacyNote: "你的数据仅保存在本设备上，从不上传。",
     tagline: "上传你的销售导出数据，用简单易懂的话看清忙闲时段、热销商品和淡季。",
@@ -904,6 +908,10 @@ const TRANSLATIONS = {
     trendLegendMarker: "较大的橙色圆点 = 当周有节假日、备注，或明显的雨雪天气",
     heatmapLegendLess: "较闲",
     heatmapLegendMore: "较忙",
+    chartTypeToggleLabel: "图表类型",
+    chartTypeBar: "柱状图",
+    chartTypeLine: "折线图",
+    chartTypeDoughnut: "环形图",
 
     // Ask a question (Phase 2: rule-based, no AI, no network)
     navAsk: "提问",

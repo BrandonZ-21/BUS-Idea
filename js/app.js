@@ -12,6 +12,9 @@ const App = {
   itemsSort: "quantity",
   itemsSearch: "",
   hoursScope: "all",
+  hoursChartType: "bar", // "bar" | "line" -- chart-type toggle on the Hours detail page
+  daysChartType: "bar", // "bar" | "line" -- chart-type toggle on the Days detail page
+  orderTypesChartType: "doughnut", // "doughnut" | "bar" -- chart-type toggle on the Order Types detail page
   ignoreHolidays: true,
   holidaysMap: new Map(), // "YYYY-MM-DD" -> { key, nameKey } (computed US holidays)
   customHolidaysMap: new Map(), // "YYYY-MM-DD" -> { date, name } (owner-entered: Chinese New Year, etc.)
@@ -1556,10 +1559,16 @@ App.renderHoursDetail = function () {
     <a class="see-details-link" href="#/dashboard">${esc(t("backToDashboard"))}</a>
     <div class="detail-header"><h1>${esc(t("chartHoursTitle"))}</h1><span class="maturity-note">${esc(maturityLabel(weeks))}</span></div>
 
-    <div class="toggle-group" role="group" aria-label="${esc(t("chartHoursTitle"))}">
-      <button type="button" data-scope="all" class="${scope === "all" ? "active" : ""}">${esc(t("hoursToggleAll"))}</button>
-      <button type="button" data-scope="weekday" class="${scope === "weekday" ? "active" : ""}">${esc(t("hoursToggleWeekday"))}</button>
-      <button type="button" data-scope="weekend" class="${scope === "weekend" ? "active" : ""}">${esc(t("hoursToggleWeekend"))}</button>
+    <div class="toggle-row">
+      <div class="toggle-group" role="group" aria-label="${esc(t("chartHoursTitle"))}">
+        <button type="button" data-scope="all" class="${scope === "all" ? "active" : ""}">${esc(t("hoursToggleAll"))}</button>
+        <button type="button" data-scope="weekday" class="${scope === "weekday" ? "active" : ""}">${esc(t("hoursToggleWeekday"))}</button>
+        <button type="button" data-scope="weekend" class="${scope === "weekend" ? "active" : ""}">${esc(t("hoursToggleWeekend"))}</button>
+      </div>
+      <div class="toggle-group" role="group" aria-label="${esc(t("chartTypeToggleLabel"))}">
+        <button type="button" data-chart-type="bar" class="${App.hoursChartType === "bar" ? "active" : ""}">${esc(t("chartTypeBar"))}</button>
+        <button type="button" data-chart-type="line" class="${App.hoursChartType === "line" ? "active" : ""}">${esc(t("chartTypeLine"))}</button>
+      </div>
     </div>
 
     <div class="card">
@@ -1587,8 +1596,11 @@ App.renderHoursDetail = function () {
     </div>
   `;
 
-  renderBarChart("chart-hours-detail", Array.from({ length: 24 }, (_, i) => formatHourLabel(i)), hourTotals, {
+  const hourLabels = Array.from({ length: 24 }, (_, i) => formatHourLabel(i));
+  const renderFn = App.hoursChartType === "line" ? renderLineChart : renderBarChart;
+  renderFn("chart-hours-detail", hourLabels, hourTotals, {
     highlightIndexes: top2.map((x) => x[0]),
+    markerIndexes: top2.map((x) => x[0]),
     xAxisLabel: t("axisHourOfDay"), yAxisLabel: t("axisSales"),
     averageLine: avgOfActive(hourTotals), averageLineLabel: t("legendAverageLine"),
   });
@@ -1597,8 +1609,11 @@ App.renderHoursDetail = function () {
     { color: COLORS.muted, label: t("legendAverageLine") },
   ]);
 
-  root.querySelectorAll(".toggle-group button").forEach((btn) => {
+  root.querySelectorAll("[data-scope]").forEach((btn) => {
     btn.addEventListener("click", () => { App.hoursScope = btn.dataset.scope; App.renderHoursDetail(); });
+  });
+  root.querySelectorAll("[data-chart-type]").forEach((btn) => {
+    btn.addEventListener("click", () => { App.hoursChartType = btn.dataset.chartType; App.renderHoursDetail(); });
   });
 };
 
@@ -1616,9 +1631,15 @@ App.renderDaysDetail = function () {
     <a class="see-details-link" href="#/dashboard">${esc(t("backToDashboard"))}</a>
     <div class="detail-header"><h1>${esc(t("chartDaysTitle"))}</h1><span class="maturity-note">${esc(maturityLabel(weeks))}</span></div>
 
-    <div class="toggle-group" role="group">
-      <button type="button" data-mode="total" class="active">${esc(t("daysShowTotal"))}</button>
-      <button type="button" data-mode="average">${esc(t("daysShowAverage"))}</button>
+    <div class="toggle-row">
+      <div class="toggle-group" role="group">
+        <button type="button" data-mode="total" class="active">${esc(t("daysShowTotal"))}</button>
+        <button type="button" data-mode="average">${esc(t("daysShowAverage"))}</button>
+      </div>
+      <div class="toggle-group" role="group" aria-label="${esc(t("chartTypeToggleLabel"))}">
+        <button type="button" data-chart-type="bar" class="${App.daysChartType === "bar" ? "active" : ""}">${esc(t("chartTypeBar"))}</button>
+        <button type="button" data-chart-type="line" class="${App.daysChartType === "line" ? "active" : ""}">${esc(t("chartTypeLine"))}</button>
+      </div>
     </div>
 
     <div class="card"><div class="chart-canvas-wrap tall"><canvas id="chart-days-detail"></canvas></div></div>
@@ -1641,10 +1662,14 @@ App.renderDaysDetail = function () {
   `;
 
   let mode = "total";
+  const dayLabels = Array.from({ length: 7 }, (_, i) => dayShort(i));
   const draw = () => {
     const data = mode === "total" ? totals : averages;
-    renderBarChart("chart-days-detail", Array.from({ length: 7 }, (_, i) => dayShort(i)), data, {
-      highlightIndexes: [mode === "total" ? totals.indexOf(Math.max(...totals)) : bestIdx],
+    const highlightIdx = mode === "total" ? totals.indexOf(Math.max(...totals)) : bestIdx;
+    const renderFn = App.daysChartType === "line" ? renderLineChart : renderBarChart;
+    renderFn("chart-days-detail", dayLabels, data, {
+      highlightIndexes: [highlightIdx],
+      markerIndexes: [highlightIdx],
       xAxisLabel: t("axisDayOfWeek"), yAxisLabel: t("axisSales"),
       averageLine: avgOfActive(data), averageLineLabel: t("legendAverageLine"),
     });
@@ -1654,13 +1679,16 @@ App.renderDaysDetail = function () {
     ]);
   };
   draw();
-  root.querySelectorAll(".toggle-group button").forEach((btn) => {
+  root.querySelectorAll("[data-mode]").forEach((btn) => {
     btn.addEventListener("click", () => {
-      root.querySelectorAll(".toggle-group button").forEach((b) => b.classList.remove("active"));
+      root.querySelectorAll("[data-mode]").forEach((b) => b.classList.remove("active"));
       btn.classList.add("active");
       mode = btn.dataset.mode;
       draw();
     });
+  });
+  root.querySelectorAll("[data-chart-type]").forEach((btn) => {
+    btn.addEventListener("click", () => { App.daysChartType = btn.dataset.chartType; App.renderDaysDetail(); });
   });
 };
 
@@ -1827,6 +1855,10 @@ App.renderOrderTypesDetail = function () {
   root.innerHTML = `
     <a class="see-details-link" href="#/dashboard">${esc(t("backToDashboard"))}</a>
     <div class="detail-header"><h1>${esc(t("chartOrderTypeTitle"))}</h1><span class="maturity-note">${esc(maturityLabel(weeks))}</span></div>
+    <div class="toggle-group" role="group" aria-label="${esc(t("chartTypeToggleLabel"))}">
+      <button type="button" data-chart-type="doughnut" class="${App.orderTypesChartType === "doughnut" ? "active" : ""}">${esc(t("chartTypeDoughnut"))}</button>
+      <button type="button" data-chart-type="bar" class="${App.orderTypesChartType === "bar" ? "active" : ""}">${esc(t("chartTypeBar"))}</button>
+    </div>
     <div class="card"><div class="chart-canvas-wrap tall"><canvas id="chart-ordertype-detail"></canvas></div></div>
     <div class="detail-section"><h2>${esc(t("detailWhatShows"))}</h2><p>${esc(t("orderTypesWhatShows"))}</p></div>
     ${topType ? `
@@ -1839,7 +1871,16 @@ App.renderOrderTypesDetail = function () {
       <ul class="try-list"><li>${esc(t("orderTypesTry1"))}</li></ul>
     </div>` : ""}
   `;
-  renderDoughnutChart("chart-ordertype-detail", orderTypes.map((x) => orderTypeLabel(x.type)), orderTypes.map((x) => x.revenue));
+  if (App.orderTypesChartType === "bar") {
+    renderBarChart("chart-ordertype-detail", orderTypes.map((x) => orderTypeLabel(x.type)), orderTypes.map((x) => x.revenue), {
+      horizontal: true, xAxisLabel: t("axisSales"),
+    });
+  } else {
+    renderDoughnutChart("chart-ordertype-detail", orderTypes.map((x) => orderTypeLabel(x.type)), orderTypes.map((x) => x.revenue));
+  }
+  root.querySelectorAll("[data-chart-type]").forEach((btn) => {
+    btn.addEventListener("click", () => { App.orderTypesChartType = btn.dataset.chartType; App.renderOrderTypesDetail(); });
+  });
 };
 
 // ---------- Detail: Heatmap ----------

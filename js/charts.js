@@ -1,12 +1,14 @@
 // Thin wrappers around Chart.js using the app's warm/cafe color palette.
+// Names are historical (this palette used to be a warm cafe green/amber
+// theme); values now match the neutral modern palette in css/style.css.
 const COLORS = {
-  green: "#1F5C4A",
-  lightGreen: "#E7EFE9",
-  amber: "#C8781E",
-  indigo: "#5B4B8A",
-  text: "#1F2421",
-  muted: "#4A524D",
-  border: "#E4DDCF",
+  green: "#2F6FED",
+  lightGreen: "#EAF0FE",
+  amber: "#F59E0B",
+  indigo: "#7C3AED",
+  text: "#14161A",
+  muted: "#667085",
+  border: "#E4E7EC",
 };
 
 Chart.defaults.font.family = "'DM Sans', sans-serif";
@@ -143,23 +145,36 @@ function renderLineChart(canvasId, labels, data, opts) {
   const pointRadii = data.map((_, i) => (markerSet.has(i) || secondarySet.has(i) ? 6 : 4));
   const pointBorderColors = data.map((_, i) => (secondarySet.has(i) ? COLORS.indigo : pointColors[i]));
   const pointBorderWidths = data.map((_, i) => (secondarySet.has(i) ? 3 : 1));
+  const datasets = [{
+    label: opts.datasetLabel || "",
+    data,
+    borderColor: COLORS.green,
+    backgroundColor: COLORS.lightGreen,
+    fill: true,
+    tension: 0.25,
+    pointBackgroundColor: pointColors,
+    pointBorderColor: pointBorderColors,
+    pointBorderWidth: pointBorderWidths,
+    pointRadius: pointRadii,
+    order: 2,
+  }];
+  // Optional dashed reference line, same idea as renderBarChart's averageLine.
+  if (typeof opts.averageLine === "number") {
+    datasets.push({
+      label: opts.averageLineLabel || "",
+      data: labels.map(() => opts.averageLine),
+      borderColor: COLORS.muted,
+      borderWidth: 1.5,
+      borderDash: [6, 4],
+      pointRadius: 0,
+      fill: false,
+      tension: 0,
+      order: 1,
+    });
+  }
   const chart = new Chart(canvas, {
     type: "line",
-    data: {
-      labels,
-      datasets: [{
-        label: opts.datasetLabel || "",
-        data,
-        borderColor: COLORS.green,
-        backgroundColor: COLORS.lightGreen,
-        fill: true,
-        tension: 0.25,
-        pointBackgroundColor: pointColors,
-        pointBorderColor: pointBorderColors,
-        pointBorderWidth: pointBorderWidths,
-        pointRadius: pointRadii,
-      }],
-    },
+    data: { labels, datasets },
     options: {
       responsive: true,
       maintainAspectRatio: false,
@@ -225,7 +240,7 @@ function renderDoughnutChart(canvasId, labels, data, opts) {
   destroyChart(canvasId);
   const canvas = document.getElementById(canvasId);
   if (!canvas) return null;
-  const palette = [COLORS.green, COLORS.amber, "#7BA88F", "#D9A25C", "#4A524D"];
+  const palette = [COLORS.green, COLORS.amber, "#10B981", COLORS.indigo, COLORS.muted];
   const chart = new Chart(canvas, {
     type: "doughnut",
     data: {
@@ -283,8 +298,8 @@ function renderHeatmap(container, grid, opts) {
       const v = grid[dow][h];
       const td = document.createElement("td");
       const intensity = max > 0 ? v / max : 0;
-      td.style.backgroundColor = `rgba(31, 92, 74, ${0.06 + intensity * 0.85})`;
-      td.style.color = intensity > 0.55 ? "#FFFDF8" : COLORS.text;
+      td.style.backgroundColor = `rgba(47, 111, 237, ${0.06 + intensity * 0.85})`;
+      td.style.color = intensity > 0.55 ? "#FFFFFF" : COLORS.text;
       const label = opts.cellLabel ? opts.cellLabel(dow, h, v) : formatMoney(v);
       td.title = label;
       td.setAttribute("aria-label", label);
@@ -306,7 +321,7 @@ function renderHeatmap(container, grid, opts) {
   if (opts.legendLessLabel) {
     const legend = document.createElement("div");
     legend.className = "heatmap-legend";
-    const swatches = [0.06, 0.25, 0.45, 0.65, 0.91].map((a) => `<span style="background:rgba(31,92,74,${a});"></span>`).join("");
+    const swatches = [0.06, 0.25, 0.45, 0.65, 0.91].map((a) => `<span style="background:rgba(47,111,237,${a});"></span>`).join("");
     legend.innerHTML = `<span>${opts.legendLessLabel}</span><span class="heatmap-legend-scale">${swatches}</span><span>${opts.legendMoreLabel}</span>`;
     container.appendChild(legend);
   }
