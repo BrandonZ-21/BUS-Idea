@@ -14,6 +14,7 @@ const ROUTES = {
   "#/notes": "renderNotes",
   "#/ask": "renderAsk",
   "#/customers": "renderCustomers",
+  "#/grow": "renderGrow",
 };
 
 function currentRouteName() {

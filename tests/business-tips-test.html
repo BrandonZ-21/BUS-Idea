@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Business-tips tests</title>
+<style>
+  body { font-family: monospace; padding: 24px; background: #fff; color: #111; }
+  .pass { color: #1F5C4A; }
+  .fail { color: #b3401f; font-weight: bold; }
+  h1 { font-family: sans-serif; }
+  #summary { font-family: sans-serif; font-size: 1.2em; margin-top: 16px; }
+</style>
+</head>
+<body>
+<h1>Business-tips tests</h1>
+<p>Checks business-type detection, the menu-engineering quadrant split (hand-worked), and the curated tip-rule bank in <code>../js/business-tips.js</code>.</p>
+<div id="results"></div>
+<div id="summary"></div>
+
+<script src="../js/business-tips.js"></script>
+<script>
+(() => {
+  const results = [];
+  let pass = 0, fail = 0;
+  function assert(label, condition) {
+    if (condition) pass++; else fail++;
+    results.push({ label, ok: condition });
+  }
+  function assertEqual(label, actual, expected) {
+    assert(`${label} (got ${JSON.stringify(actual)}, expected ${JSON.stringify(expected)})`, actual === expected);
+  }
+  function hasTip(tips, id) { return tips.some((t) => t.id === id); }
+
+  // ---- detectBusinessType ----
+  const cafeRows = ["Latte", "Croissant", "Espresso", "Blueberry Muffin"].map((item) => ({ item }));
+  assertEqual("Cafe items detected as cafe", detectBusinessType(cafeRows), "cafe");
+
+  const bakeryRows = ["Sourdough Bread", "Chocolate Cake", "Cinnamon Roll", "Baguette"].map((item) => ({ item }));
+  assertEqual("Bakery items detected as bakery", detectBusinessType(bakeryRows), "bakery");
+
+  const barRows = ["IPA Draft", "Margarita", "Red Wine", "Mojito"].map((item) => ({ item }));
+  assertEqual("Bar items detected as bar", detectBusinessType(barRows), "bar");
+
+  const restaurantRows = ["Grilled Salmon", "Ribeye Steak", "Caesar Salad", "Burrito Bowl"].map((item) => ({ item }));
+  assertEqual("Restaurant items detected as restaurant", detectBusinessType(restaurantRows), "restaurant");
+
+  const genericRows = ["Widget A", "Widget B", "Thing C"].map((item) => ({ item }));
+  assertEqual("No keyword matches falls back to general", detectBusinessType(genericRows), "general");
+
+  // ---- computeMenuEngineering ----
+  // By hand: quantities [10, 10, 2, 2] -> sorted [2,2,10,10] -> median = (2+10)/2 = 6.
+  //          prices [5, 3, 5, 3] -> sorted [3,3,5,5] -> median = (3+5)/2 = 4.
+  //   A: qty 10 (>=6, popular), price 5 (>=4, pricier) -> star
+  //   B: qty 10 (>=6, popular), price 3 (<4, cheaper)  -> plowhorse
+  //   C: qty 2  (<6, rare),     price 5 (>=4, pricier)  -> puzzle
+  //   D: qty 2  (<6, rare),     price 3 (<4, cheaper)   -> dog
+  const menuRows = [
+    { item: "A", quantity: 10, price: 5 },
+    { item: "B", quantity: 10, price: 3 },
+    { item: "C", quantity: 2, price: 5 },
+    { item: "D", quantity: 2, price: 3 },
+  ];
+  const eng = computeMenuEngineering(menuRows);
+  assertEqual("Median quantity", eng.medianQty, 6);
+  assertEqual("Median price", eng.medianPrice, 4);
+  const byItem = Object.fromEntries(eng.items.map((x) => [x.item, x.quadrant]));
+  assertEqual("Item A classified as star", byItem.A, "star");
+  assertEqual("Item B classified as plowhorse", byItem.B, "plowhorse");
+  assertEqual("Item C classified as puzzle", byItem.C, "puzzle");
+  assertEqual("Item D classified as dog", byItem.D, "dog");
+
+  assertEqual("Fewer than 4 distinct items returns null (not enough for a median split)",
+    computeMenuEngineering([{ item: "A", quantity: 5, price: 5 }, { item: "B", quantity: 5, price: 5 }]), null);
+
+  // ---- generateBusinessTips ----
+  const baseCtx = {
+    businessType: "cafe", weeks: 10, hasCustomerData: false, repeatRate30: null,
+    hasOrderTypeData: false, deliveryPct: null, topItemPct: null, distinctItemCount: 0,
+    rareItemRatio: null, dowGapPct: null, hasWeatherInsight: false, hasDaylightInsight: false,
+    hasHolidayInsight: false, hasPromoNotes: true, // hasPromoNotes:true keeps noPromosLogged out of the "no tips" baseline
+  };
+
+  const lowRepeatTips = generateBusinessTips(Object.assign({}, baseCtx, { hasCustomerData: true, repeatRate30: 20 }));
+  assert("Low repeat rate (20%) triggers loyaltyProgram", hasTip(lowRepeatTips, "loyaltyProgram"));
+  assert("Low repeat rate does NOT trigger strongRepeat", !hasTip(lowRepeatTips, "strongRepeat"));
+
+  const highRepeatTips = generateBusinessTips(Object.assign({}, baseCtx, { hasCustomerData: true, repeatRate30: 70 }));
+  assert("High repeat rate (70%) triggers strongRepeat", hasTip(highRepeatTips, "strongRepeat"));
+  assert("High repeat rate does NOT trigger loyaltyProgram", !hasTip(highRepeatTips, "loyaltyProgram"));
+
+  const barDeliveryTips = generateBusinessTips(Object.assign({}, baseCtx, { businessType: "bar", hasOrderTypeData: true, deliveryPct: 5 }));
+  assert("Bars are excluded from deliveryGap even with low delivery share", !hasTip(barDeliveryTips, "deliveryGap"));
+  assert("Bar type triggers barHappyHour", hasTip(barDeliveryTips, "barHappyHour"));
+
+  const cafeDeliveryTips = generateBusinessTips(Object.assign({}, baseCtx, { hasOrderTypeData: true, deliveryPct: 5 }));
+  assert("Cafe with 5% delivery triggers deliveryGap", hasTip(cafeDeliveryTips, "deliveryGap"));
+
+  const concentrationTips = generateBusinessTips(Object.assign({}, baseCtx, { topItemPct: 30 }));
+  assertEqual("Top item at 30% triggers menuConcentrationRisk with pct=30",
+    concentrationTips.find((t) => t.id === "menuConcentrationRisk").vars.pct, 30);
+
+  const rareItemsTips = generateBusinessTips(Object.assign({}, baseCtx, { distinctItemCount: 10, rareItemRatio: 0.4 }));
+  assertEqual("40% rare items triggers manyRareItems with pct=40",
+    rareItemsTips.find((t) => t.id === "manyRareItems").vars.pct, 40);
+  const fewItemsTips = generateBusinessTips(Object.assign({}, baseCtx, { distinctItemCount: 5, rareItemRatio: 0.8 }));
+  assert("manyRareItems needs >=8 distinct items even if the ratio is high", !hasTip(fewItemsTips, "manyRareItems"));
+
+  const gapTips = generateBusinessTips(Object.assign({}, baseCtx, { dowGapPct: 50 }));
+  assertEqual("50% day-of-week gap triggers weekdayWeekendGap with pct=50",
+    gapTips.find((t) => t.id === "weekdayWeekendGap").vars.pct, 50);
+
+  const factorTips = generateBusinessTips(Object.assign({}, baseCtx, { hasWeatherInsight: true, hasDaylightInsight: true, hasHolidayInsight: true }));
+  assert("Weather insight triggers weatherSensitive", hasTip(factorTips, "weatherSensitive"));
+  assert("Daylight insight triggers daylightSensitive", hasTip(factorTips, "daylightSensitive"));
+  assert("Holiday insight triggers holidayPlanning", hasTip(factorTips, "holidayPlanning"));
+
+  const noPromoTips = generateBusinessTips(Object.assign({}, baseCtx, { hasPromoNotes: false, weeks: 10 }));
+  assert("No promo notes logged after 10 weeks triggers noPromosLogged", hasTip(noPromoTips, "noPromosLogged"));
+  const tooEarlyTips = generateBusinessTips(Object.assign({}, baseCtx, { hasPromoNotes: false, weeks: 3 }));
+  assert("No promo notes but <8 weeks of data does NOT trigger noPromosLogged", !hasTip(tooEarlyTips, "noPromosLogged"));
+
+  const bakeryTips = generateBusinessTips(Object.assign({}, baseCtx, { businessType: "bakery" }));
+  assert("Bakery type triggers bakeryPerishables", hasTip(bakeryTips, "bakeryPerishables"));
+
+  assertEqual("A context with no signals at all produces zero tips", generateBusinessTips(baseCtx).length, 0);
+
+  const el = document.getElementById("results");
+  results.forEach((r) => {
+    const div = document.createElement("div");
+    div.className = r.ok ? "pass" : "fail";
+    div.textContent = (r.ok ? "PASS - " : "FAIL - ") + r.label;
+    el.appendChild(div);
+  });
+  document.getElementById("summary").innerHTML = fail === 0
+    ? `<span class="pass">All ${pass} checks passed.</span>`
+    : `<span class="fail">${fail} of ${pass + fail} checks FAILED.</span>`;
+})();
+</script>
+</body>
+</html>

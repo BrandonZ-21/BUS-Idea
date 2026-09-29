@@ -234,6 +234,20 @@ main { max-width: 1080px; margin: 0 auto; padding: 28px 20px 60px; }
 .insight-why { color: var(--muted); font-size: 0.92rem; margin: 10px 0; }
 .insights-disclaimer { font-size: 0.8rem; color: var(--muted); margin-top: 10px; font-style: italic; }
 
+/* Grow Your Business: menu engineering matrix */
+.menu-eng-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-top: 16px; }
+.menu-eng-quadrant { border: 1px solid var(--border); border-radius: 10px; padding: 14px; border-left-width: 4px; }
+.menu-eng-quadrant h3 { margin: 0 0 4px 0; font-size: 1rem; }
+.menu-eng-item-list { list-style: none; padding: 0; margin: 10px 0 0 0; font-size: 0.88rem; }
+.menu-eng-item-list li { margin-bottom: 5px; }
+.menu-eng-star { border-left-color: var(--green); }
+.menu-eng-plowhorse { border-left-color: var(--amber); }
+.menu-eng-puzzle { border-left-color: #5B4B8A; }
+.menu-eng-dog { border-left-color: var(--muted); }
+@media (max-width: 640px) {
+  .menu-eng-grid { grid-template-columns: 1fr; }
+}
+
 /* Ask a Question */
 #askHistoryList { max-height: 480px; overflow-y: auto; }
 .ask-turn { margin-bottom: 16px; }

@@ -140,6 +140,7 @@ function renderNav() {
     ["#/ask", "navAsk"],
     ["#/notes", "navNotes"],
     ["#/customers", "navCustomers"],
+    ["#/grow", "navGrow"],
     ["#/data", "navData"],
   ];
   document.getElementById("mainNav").innerHTML = items
@@ -2355,6 +2356,159 @@ function wireCustomersPage() {
         await DB.setSetting("customerHashSalt", salt);
         App.renderCustomers();
       },
+    });
+  });
+}
+
+// ---------- Grow Your Business ----------
+// Maps each tip id from js/business-tips.js to the translation keys used to
+// render it. Kept as one table so adding a new tip only means adding a rule
+// in business-tips.js plus one row here plus the translations themselves.
+const BUSINESS_TIP_CONTENT = {
+  loyaltyProgram: { headline: "tipLoyaltyProgramHeadline", why: "tipLoyaltyProgramWhy", action: "tipLoyaltyProgramAction" },
+  strongRepeat: { headline: "tipStrongRepeatHeadline", why: "tipStrongRepeatWhy", action: "tipStrongRepeatAction" },
+  deliveryGap: { headline: "tipDeliveryGapHeadline", why: "tipDeliveryGapWhy", action: "tipDeliveryGapAction" },
+  menuConcentrationRisk: { headline: "tipMenuConcentrationHeadline", why: "tipMenuConcentrationWhy", action: "tipMenuConcentrationAction" },
+  manyRareItems: { headline: "tipManyRareItemsHeadline", why: "tipManyRareItemsWhy", action: "tipManyRareItemsAction" },
+  weekdayWeekendGap: { headline: "tipWeekdayGapHeadline", why: "tipWeekdayGapWhy", action: "tipWeekdayGapAction" },
+  weatherSensitive: { headline: "tipWeatherSensitiveHeadline", why: "tipWeatherSensitiveWhy", action: "tipWeatherSensitiveAction" },
+  daylightSensitive: { headline: "tipDaylightSensitiveHeadline", why: "tipDaylightSensitiveWhy", action: "tipDaylightSensitiveAction" },
+  holidayPlanning: { headline: "tipHolidayPlanningHeadline", why: "tipHolidayPlanningWhy", action: "tipHolidayPlanningAction" },
+  noPromosLogged: { headline: "tipNoPromosHeadline", why: "tipNoPromosWhy", action: "tipNoPromosAction" },
+  barHappyHour: { headline: "tipBarHappyHourHeadline", why: "tipBarHappyHourWhy", action: "tipBarHappyHourAction" },
+  bakeryPerishables: { headline: "tipBakeryPerishablesHeadline", why: "tipBakeryPerishablesWhy", action: "tipBakeryPerishablesAction" },
+};
+
+const MENU_QUADRANT_LABEL_KEYS = { star: "quadrantStar", plowhorse: "quadrantPlowhorse", puzzle: "quadrantPuzzle", dog: "quadrantDog" };
+const MENU_QUADRANT_ORDER = ["star", "plowhorse", "puzzle", "dog"];
+
+App.renderGrow = function () {
+  const root = document.getElementById("view-root");
+  const rows = App.allRows;
+  const summary = computeSummary(rows);
+  const weeks = maturityWeeks(rows);
+
+  const businessType = detectBusinessType(rows);
+
+  // Build the small context object business-tips.js's rules read. Reuses
+  // stats this app already computes elsewhere rather than recalculating a
+  // second definition of "delivery share" or "weather sensitivity."
+  const { totals: dowTotals, averages: dowAverages, dayCounts } = salesByDow(rows);
+  let bestIdx = 0, worstIdx = 0;
+  dowAverages.forEach((v, i) => { if (v > dowAverages[bestIdx]) bestIdx = i; if (v < dowAverages[worstIdx]) worstIdx = i; });
+  const dowGapPct = (bestIdx !== worstIdx && dowAverages[worstIdx] > 0)
+    ? ((dowAverages[bestIdx] - dowAverages[worstIdx]) / dowAverages[worstIdx]) * 100 : null;
+
+  const typeSplit = orderTypeSplit(rows);
+  const hasOrderTypeData = typeSplit.length > 0;
+  const totalTypeRevenue = typeSplit.reduce((s, x) => s + x.revenue, 0);
+  const deliveryRevenue = typeSplit.find((x) => (x.type || "").toLowerCase() === "delivery");
+  const deliveryPct = hasOrderTypeData && totalTypeRevenue > 0 ? ((deliveryRevenue ? deliveryRevenue.revenue : 0) / totalTypeRevenue) * 100 : null;
+
+  const { top, all, rare } = topItems(rows, 1);
+  const topItemPct = summary.totalSales > 0 && top.length ? (top[0].revenue / summary.totalSales) * 100 : null;
+  const distinctItemCount = all.length;
+  const rareItemRatio = distinctItemCount > 0 ? rare.length / distinctItemCount : null;
+
+  let hasPromoNotes = false;
+  App.dayNotesMap.forEach((n) => { if (n.tags && n.tags.includes("promo")) hasPromoNotes = true; });
+
+  const visits = computeCustomerVisits(rows);
+  const hasCustomerData = visits.size >= CUSTOMER_MIN_COUNT;
+  const range = dateRangeOf(rows);
+  const repeatRate30 = hasCustomerData && range ? computeRepeatRate(visits, range.max, 30).pct : null;
+
+  const insightTypes = new Set(generateInsights(rows).map((i) => i.type));
+
+  const ctx = {
+    businessType, weeks, hasCustomerData, repeatRate30,
+    hasOrderTypeData, deliveryPct, topItemPct, distinctItemCount, rareItemRatio, dowGapPct,
+    hasWeatherInsight: insightTypes.has("weather"),
+    hasDaylightInsight: insightTypes.has("daylight"),
+    hasHolidayInsight: insightTypes.has("holidayImpact"),
+    hasPromoNotes,
+  };
+
+  const tips = generateBusinessTips(ctx);
+  const menuEngineering = computeMenuEngineering(rows);
+
+  root.innerHTML = `
+    <h1>${esc(t("growTitle"))}</h1>
+    <p>${esc(t("growIntro"))}</p>
+
+    <div class="card">
+      <h2>${esc(t("growBusinessTypeTitle"))}</h2>
+      <p>${esc(t("growBusinessTypeBody", { type: t("businessType" + businessType.charAt(0).toUpperCase() + businessType.slice(1)) }))}</p>
+    </div>
+
+    ${menuEngineering ? `
+    <div class="card" style="margin-top:20px;">
+      <h2>${esc(t("growMenuEngTitle"))}</h2>
+      <p>${esc(t("growMenuEngIntro"))}</p>
+      <p class="match-note">${esc(t("growMenuEngCaveat"))}</p>
+      <div class="menu-eng-grid">
+        ${MENU_QUADRANT_ORDER.map((q) => {
+          const itemsInQuadrant = menuEngineering.items.filter((x) => x.quadrant === q);
+          return `
+          <div class="menu-eng-quadrant menu-eng-${q}">
+            <h3>${esc(t(MENU_QUADRANT_LABEL_KEYS[q]))}</h3>
+            <p class="match-note">${esc(t(MENU_QUADRANT_LABEL_KEYS[q] + "Desc"))}</p>
+            ${itemsInQuadrant.length ? `<ul class="menu-eng-item-list">${itemsInQuadrant.slice(0, 6).map((x) => `<li>${esc(x.item)} <span class="match-note">(${x.quantity}, ${formatMoney2(x.avgPrice)})</span></li>`).join("")}${itemsInQuadrant.length > 6 ? `<li class="match-note">${esc(t("growMenuEngMore", { count: itemsInQuadrant.length - 6 }))}</li>` : ""}</ul>` : `<p class="match-note">${esc(t("growMenuEngEmpty"))}</p>`}
+          </div>`;
+        }).join("")}
+      </div>
+    </div>` : `<div class="card" style="margin-top:20px;"><p>${esc(t("growMenuEngThinData"))}</p></div>`}
+
+    <div class="card" style="margin-top:20px;">
+      <h2>${esc(t("growTipsTitle"))}</h2>
+      ${tips.length ? `<div id="growTipsList"></div>` : `<p>${esc(t("growNoTips"))}</p>`}
+    </div>
+
+    <p class="insights-disclaimer">${esc(t("growDisclaimer"))}</p>
+  `;
+
+  if (tips.length) {
+    const insightShaped = tips.map((tip) => {
+      const content = BUSINESS_TIP_CONTENT[tip.id];
+      return {
+        headline: t(content.headline, tip.vars),
+        action: t(content.action, tip.vars),
+        why: t(content.why, tip.vars),
+      };
+    });
+    renderInsightCardsInto("growTipsList", insightShaped);
+  }
+};
+
+// Same expandable-card renderer as the dashboard's insights, but targeting
+// an arbitrary container id so the Grow page's tips can reuse it without
+// competing with the dashboard's own #insightsList.
+function renderInsightCardsInto(containerId, insights) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  container.innerHTML = insights.map((ins, i) => `
+    <div class="insight-card">
+      <button type="button" class="insight-toggle" id="${containerId}-toggle-${i}" aria-expanded="false" aria-controls="${containerId}-detail-${i}">
+        <span class="insight-icon" aria-hidden="true">✨</span>
+        <span class="insight-headline-wrap">
+          <span class="insight-headline">${esc(ins.headline)}</span>
+          <span class="insight-action">${esc(ins.action)}</span>
+        </span>
+        <span class="insight-caret" aria-hidden="true">▾</span>
+      </button>
+      <div class="insight-detail" id="${containerId}-detail-${i}" hidden>
+        ${ins.why ? `<p class="insight-why">${esc(ins.why)}</p>` : ""}
+      </div>
+    </div>
+  `).join("");
+
+  insights.forEach((ins, i) => {
+    const btn = document.getElementById(`${containerId}-toggle-${i}`);
+    const detail = document.getElementById(`${containerId}-detail-${i}`);
+    btn.addEventListener("click", () => {
+      const expanded = btn.getAttribute("aria-expanded") === "true";
+      btn.setAttribute("aria-expanded", String(!expanded));
+      detail.hidden = expanded;
     });
   });
 }

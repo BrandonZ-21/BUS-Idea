@@ -33,10 +33,13 @@ js/weather.js           Open-Meteo lookup/fetch, unit conversion, weather catego
 js/ask.js               Rule-based "Ask a question" answer engine (no AI, no network)
 js/daylight.js          Sunrise/sunset calculator (pure math, no external service, no privacy concern)
 js/customers.js         Returning-customer math -- operates only on hashed customer IDs, never raw data
+js/business-tips.js     Business-type detection, the menu engineering matrix, and the curated tip-rule bank
 js/app.js               Main app logic gluing everything together
 tests/holidays-test.html    Open in a browser to run the holiday date-rule checks
 tests/daylight-test.html    Open in a browser to check sunrise/sunset math against published reference times
 tests/customers-test.html   Open in a browser to check the repeat-customer math + hashing on a hand-worked example
+tests/business-tips-test.html   Open in a browser to check business-type detection, the menu-engineering
+                                 quadrant split, and every tip rule (30 checks)
 sample-data.csv         ~4 weeks of realistic sample sales (Aug 3 - Aug 30, 2026)
 sample-data-2.csv       A second sample export with different column names, overlapping
                         the last 5 days of sample-data.csv plus 9 new days — use this to
@@ -52,14 +55,15 @@ mock-data-3-years.csv   3 full years of generated sales data, built to exercise 
 What's baked into it, and how to see each feature:
 - **A `Customer Phone` column** on about a third of rows (the rest are blank, like a real register where not everyone gives a phone number). Upload the file, and when asked to match columns, confirm "Customer Phone" is picked up as the customer identifier. Includes ~15 "regulars" (visit every 5-9 days across all 3 years), ~40 "occasional" customers (active for a stretch, then quiet), and ~12 who stopped visiting 70-200 days before the end date specifically to show up in the Customers page's "may be worth a win-back promo" count. One customer's phone number is formatted differently on different visits (`(555) 123-4567` vs `555-123-4567`) to demonstrate that hashing normalizes formatting. Visit `#/customers` after uploading.
 - **A slow, steady growth trend** (~18% more daily transactions by the end than the start) plus normal day-of-week variation (busiest Saturdays, slowest Mondays) — visible on the dashboard trend chart and `#/trend`.
-- **Noticeably fewer after-5pm transactions in November–February**, to line up with the sunset/daylight insight and the trend chart's sunset toggle — turn on "Show sunset info" on `#/trend` and set a location (any city) on the My Data page to see it.
+- **Noticeably lower daily transaction volume in November–January (and a smaller dip in February)**, to line up with the sunset/daylight insight and the trend chart's sunset toggle — turn on "Show sunset info" on `#/trend` and set a location (any city) on the My Data page to see it.
 - **Four built-in sales bumps** meant to line up with promo entries you add yourself on the Day Notes page (`#/notes`), since promos aren't part of a sales file — add a "Marketing/Promo" note for each date range below and you'll see the bump on the trend chart right where the note marker is:
   - March 4–10, 2024 — Instagram post
   - November 18–24, 2024 — Email discount code
   - June 9–15, 2025 — Flyer + discount
   - November 17–23, 2025 — Black Friday week email promo
 - **Real weather/holiday correlations**, once you turn on weather and set a location — because the dates are real historical dates, Open-Meteo returns real historical weather for them, so the weather-comparison and holiday insights use genuine data rather than anything fabricated.
-- Enough total volume and date range to clear every "thin data" threshold in the app (week-over-week, month-over-month, the 5-distinct-customer minimum for the Customers page, etc.), so nothing shows a "not enough data yet" message.
+- Enough total volume and date range to clear every "thin data" threshold in the app (week-over-week, month-over-month, the 5-distinct-customer minimum for the Customers page, the 4-distinct-item minimum for the Grow page's menu matrix, etc.), so nothing shows a "not enough data yet" message.
+- A cafe-shaped menu, so `#/grow` detects "cafe / coffee shop" and shows the matching tips and menu-engineering matrix automatically — no extra setup needed there.
 
 ## Deploying for free on Cloudflare Pages (recommended)
 
@@ -154,6 +158,13 @@ Whenever you make changes later: GitHub Desktop will show them under "Changes" �
 - **Returning-customer tracking (`#/customers`)** — see the privacy section above for the full explanation. Short version: an optional column (phone/email/loyalty ID/customer name) is auto-detected during upload, hashed with SHA-256 on your device before anything else touches it, and used only for aggregate counts: new vs. returning customers by month (stacked chart), repeat rate at 30/60/90 days, average visits and time between visits for repeat customers, and a count (never a list) of customers who haven't been back in 60+ days. Gracefully explains itself if no such column was found, or if there isn't enough data yet (fewer than 5 distinct customers). The math was hand-verified against a worked 3-customer example in `tests/customers-test.html`, and I directly inspected IndexedDB in a test run to confirm no raw phone number ever gets stored.
 - The saved-data format moved to version 5, adding the customer-hash scrambling code and detected column name to backups; older backups still import cleanly, defaulting these to off/empty.
 
+**Grow Your Business (`#/grow`) — the "why is this different from other POS analytics" feature:**
+- **Business-type detection** — reads your menu item names (no new upload or extra input needed) and classifies you as a cafe/coffee shop, bakery, bar/pub, full-service restaurant, or a general fallback, using keyword matching in `js/business-tips.js`. This shapes which of the tips below apply.
+- **Menu Engineering Matrix** — a real framework taught in restaurant/hospitality-management courses: every item is plotted by popularity (units sold) vs. price into four quadrants (Stars, Plowhorses, Puzzles, Dogs), each with plain-English guidance. *Honest caveat: the real version of this framework uses actual profit margin per item, not price — this app has no ingredient-cost data, so price is used as a proxy and the page says so directly.*
+- **A curated, data-gated tip bank** — about a dozen tips (loyalty programs, channel diversification, menu concentration risk, demand variability, and more), each only shown when your own numbers actually support it (e.g. the loyalty-program tip only appears if your real repeat rate is low), paired with a short explanation of the underlying business concept (customer lifetime value, seasonal demand planning, price discrimination by time of day, etc.) rather than just a bare suggestion. Several tips reuse the dashboard's own weather/daylight/holiday insights rather than recomputing them.
+- **Deliberately not built:** any lookup of real competitor businesses. There's no reliable free data source for "what similar businesses nearby actually do," and guessing would mean stating unverified things about real businesses as fact — which conflicts with the rest of this app's approach of only showing what your own data actually supports. What's here instead is general, well-established small-business knowledge applied to your specific numbers.
+- Tested in `tests/business-tips-test.html`: business-type detection against hand-picked menus for each type, the menu-engineering quadrant split against a hand-worked 4-item example (one item deliberately placed in each quadrant), and the tip-rule bank against synthetic data for both the "triggers" and "correctly does NOT trigger" side of each rule (30 checks total).
+
 ## What doesn't (yet)
 
 - There's no way to edit or delete individual rows once uploaded — only "delete all."
@@ -166,6 +177,8 @@ Whenever you make changes later: GitHub Desktop will show them under "Changes" �
 - Returning-customer matching depends on the same identifier appearing consistently across uploads (the normalization handles formatting differences like "(555) 123-4567" vs "555-123-4567", but a customer who sometimes gives their phone and sometimes their email won't be recognized as the same person).
 - There's no dedicated `#/privacy` page yet — the customer-hashing disclosure, detected column name, and salt-reset button live on the Customers page itself instead, since that's the only feature with this kind of privacy nuance right now.
 - The Marketing/Promo day-note type stores a date range, description, and channel, but there's no "Did it work?" before/after comparison feature yet to actually measure a promo's impact — see the note above.
+- The Menu Engineering Matrix on the Grow page uses price as a stand-in for profit margin (no ingredient-cost data is collected anywhere in the app), so an item that's cheap to make but priced low could land in "Dog" when it's actually a fine earner, and vice versa — the page says this directly rather than presenting it as more precise than it is.
+- Business-type detection on the Grow page is keyword matching against your item names, not a real classification model — an unusual or very generic menu may fall back to "general" and get fewer type-specific tips.
 
 ## Three most useful next improvements
 
