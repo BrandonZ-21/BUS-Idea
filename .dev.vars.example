@@ -1,0 +1,16 @@
+# Copy this file to `.dev.vars` (same folder) and fill in the values there.
+# `.dev.vars` is git-ignored and is only used by `npm run dev` on your computer.
+# For the deployed site, set each one with `npx.cmd wrangler pages secret put NAME`.
+# NEVER put values in this example file -- it is committed to git.
+
+# Square Developer Console -> your app -> Credentials -> SANDBOX tab -> "Sandbox Application ID"
+SQUARE_APPLICATION_ID=
+
+# Same page, SANDBOX tab -> "Sandbox Application secret" (OAuth secret). Never the Production one.
+SQUARE_APPLICATION_SECRET=
+
+# Random 32-byte key, base64. Encrypts Square tokens before they go into D1. See SETUP.md for the command.
+TOKEN_ENCRYPTION_KEY=
+
+# Random 32-byte key, base64. Signs the OAuth `state` value / cookies. See SETUP.md for the command.
+STATE_SIGNING_KEY=

@@ -73,7 +73,7 @@ for ($i = 0; $i -lt $numDays; $i++) {
     $dayRows[$d.ToString("yyyy-MM-dd")] = New-OrdersForDay $d $rand
 }
 
-$root = "C:\Users\bbzha\OneDrive\Documents\BUS-131A\BUS-Idea"
+$root = Join-Path (Split-Path -Parent $PSScriptRoot) "public"
 
 # Sample 1: first 28 days (Aug 3 - Aug 30)
 $path1 = Join-Path $root "sample-data.csv"

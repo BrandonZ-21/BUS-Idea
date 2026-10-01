@@ -1,4 +1,7 @@
-$root = Split-Path -Parent $PSScriptRoot
+# The site lives in public/ (what Cloudflare deploys). tests/ sits outside it so
+# it's never published, but is served here at /tests/ so ../js/... still resolves.
+$repo = Split-Path -Parent $PSScriptRoot
+$root = Join-Path $repo "public"
 $port = 8080
 $listener = New-Object System.Net.HttpListener
 $listener.Prefixes.Add("http://localhost:$port/")
@@ -18,7 +21,8 @@ while ($listener.IsListening) {
   try {
     $path = [System.Uri]::UnescapeDataString($req.Url.AbsolutePath)
     if ($path -eq "/") { $path = "/index.html" }
-    $filePath = Join-Path $root ($path.TrimStart("/"))
+    $base = if ($path.StartsWith("/tests/")) { $repo } else { $root }
+    $filePath = Join-Path $base ($path.TrimStart("/"))
     if (Test-Path $filePath -PathType Leaf) {
       $ext = [System.IO.Path]::GetExtension($filePath)
       $contentType = $mime[$ext]

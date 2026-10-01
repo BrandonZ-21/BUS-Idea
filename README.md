@@ -12,14 +12,29 @@ A single-page web app for small restaurant/cafe/bakery/bar owners. Upload a sale
 
 No build step, no server, no installs required.
 
-1. Open the `BUS-Idea` folder in File Explorer.
+1. Open the `BUS-Idea\public` folder in File Explorer.
 2. Double-click `index.html`. It opens in your default browser and works immediately.
+
+**Square integration (in progress, Sandbox only):** the in-progress Square connection needs the backend in `functions/`, so it only runs through `npm run dev` (Cloudflare's local server at http://localhost:8788). One-time setup steps are in [SETUP.md](SETUP.md). The upload-a-file app above still needs no installs.
 
 That's it. (Some browsers restrict certain features when opening files directly with `file://` — if anything looks off, the simplest fix is to serve the folder locally instead, e.g. with `npx serve` or the free Cloudflare/GitHub Pages hosting below.)
 
 ## What's in the project
 
+Everything Cloudflare publishes is in `public/`. Backend, database and test files sit outside it so they are never served.
+
 ```
+public/                The website (Cloudflare Pages "build output directory")
+  index.html, css/, js/, sample CSVs -- listed below
+functions/api/square/  Pages Functions for the Square connection (placeholders: connect, callback,
+                       sync, disconnect, status) -- served at /api/square/...
+migrations/            D1 database tables (connections, sessions)
+wrangler.jsonc         Cloudflare config: project name, output dir, D1 binding (no secrets)
+.dev.vars.example      Names of the secret settings; copy to .dev.vars (git-ignored) and fill in
+SETUP.md               Step-by-step things you must do yourself for the Square integration
+package.json           Dev tools only (Wrangler) -- `npm run dev`, `npm run db:migrate:local`
+
+Inside public/:
 index.html            The app shell (header, nav, containers)
 css/style.css          All styling
 js/translations.js     Every piece of English/Chinese text used by the app
@@ -40,6 +55,9 @@ js/customer-summary.js  Parses an already-aggregated monthly new/returning custo
                         data shape than a per-order file -- no hashing involved, since it's already just counts)
 js/business-tips.js     Business-type detection, the menu engineering matrix, and the curated tip-rule bank
 js/app.js               Main app logic gluing everything together
+
+Outside public/ (never deployed):
+scripts/serve.ps1           Tiny local server on :8080 -- serves public/ plus /tests/
 tests/holidays-test.html    Open in a browser to run the holiday date-rule checks
 tests/daylight-test.html    Open in a browser to check sunrise/sunset math against published reference times
 tests/customers-test.html   Open in a browser to check the repeat-customer math + hashing on a hand-worked example
@@ -86,7 +104,7 @@ You'll first need the project in a GitHub repository (see the GitHub Desktop ste
 4. On the build settings screen:
    - **Framework preset:** None
    - **Build command:** (leave blank)
-   - **Build output directory:** `/` (the repo root, since `index.html` lives there)
+   - **Build output directory:** `public` (only that folder is published; `functions/` is picked up automatically as the backend)
 5. Click **Save and Deploy**. Cloudflare will give you a free `*.pages.dev` URL in about a minute.
 6. Any time you push new commits to GitHub, Cloudflare automatically redeploys.
 

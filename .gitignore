@@ -1,3 +1,21 @@
 # Real register exports contain customer names, card digits and staff names.
-# Keep them out of git -- Cloudflare Pages publishes everything in the repo.
+# Keep them out of git -- Cloudflare Pages publishes everything in public/.
 tests/private/
+
+# Local secrets (Square app secret, encryption/signing keys). Only the
+# names-only example file is committed.
+.dev.vars
+.dev.vars.*
+!.dev.vars.example
+.env
+.env*
+
+# Wrangler's local state: local D1 database copy, build temp files, logs.
+.wrangler/
+
+# Installed packages -- recreated with `npm install`.
+node_modules/
+
+# Keys/certs, just in case one is ever dropped in the folder.
+*.pem
+*.key

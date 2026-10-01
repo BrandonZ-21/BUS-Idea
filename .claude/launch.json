@@ -6,6 +6,12 @@
       "runtimeExecutable": "powershell",
       "runtimeArgs": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "scripts/serve.ps1"],
       "port": 8080
+    },
+    {
+      "name": "pages-dev",
+      "runtimeExecutable": "C:\\Program Files\\nodejs\\node.exe",
+      "runtimeArgs": ["node_modules/wrangler/bin/wrangler.js", "pages", "dev", "--port", "8788"],
+      "port": 8788
     }
   ]
 }

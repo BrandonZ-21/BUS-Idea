@@ -1,0 +1,19 @@
+{
+  "name": "bus-idea",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Counter: sales insights for small restaurants/cafes. Static site in public/, Cloudflare Pages Functions in functions/.",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler pages dev",
+    "db:migrate:local": "wrangler d1 migrations apply counter-db --local",
+    "db:migrate:remote": "wrangler d1 migrations apply counter-db --remote"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/BrandonZ-21/BUS-Idea.git"
+  },
+  "devDependencies": {
+    "wrangler": "^4.146.0"
+  }
+}
