@@ -1,8 +1,8 @@
 {
-  "name": "bus-idea",
+  "name": "tally",
   "version": "1.0.0",
   "private": true,
-  "description": "Counter: sales insights for small restaurants/cafes. Static site in public/, Cloudflare Pages Functions in functions/.",
+  "description": "Tally: sales insights for small restaurants/cafes. Static site in public/, Cloudflare Pages Functions in functions/.",
   "type": "module",
   "scripts": {
     "dev": "wrangler pages dev",

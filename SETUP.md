@@ -33,7 +33,7 @@ Paste each output after the `=` on its line in `.dev.vars`, save, then clear the
 ## 3. Square Developer Console: app + credentials
 
 1. Go to <https://developer.squareup.com/apps> and sign in / sign up (free) with **your own** email.
-2. Create an application (any name, e.g. "Counter dev") or open your existing one.
+2. Create an application (any name, e.g. "Tally dev") or open your existing one.
 3. Switch the toggle at the top to **Sandbox**.
 4. **Credentials** page → copy the *Sandbox Application ID* into `SQUARE_APPLICATION_ID` and the
    *Sandbox Application secret* into `SQUARE_APPLICATION_SECRET` in `.dev.vars`. Save.
@@ -78,7 +78,7 @@ answers `not_implemented` until the build step. Press `Ctrl+C` to stop.
 
 1. **Create the Pages project** (none exists yet for this app): Cloudflare dashboard →
    Workers & Pages → Create → Pages → Connect to Git → `BUS-Idea`. Build command: *blank*.
-   **Build output directory: `public`**. Name it `bus-idea` to match `wrangler.jsonc`
+   **Build output directory: `public`**. Name it `tally` to match `wrangler.jsonc`
    (if the name's taken, use the name Cloudflare gives you and update `"name"` in `wrangler.jsonc`).
    Your URL will be `https://<that-name>.pages.dev`.
 2. **Create the tables in the cloud database** (asks to confirm):
@@ -87,10 +87,10 @@ answers `not_implemented` until the build step. Press `Ctrl+C` to stop.
    ```
 3. **Set each secret** — each command asks you to type/paste the value at a hidden prompt:
    ```powershell
-   npx.cmd wrangler pages secret put SQUARE_APPLICATION_ID --project-name bus-idea
-   npx.cmd wrangler pages secret put SQUARE_APPLICATION_SECRET --project-name bus-idea
-   npx.cmd wrangler pages secret put TOKEN_ENCRYPTION_KEY --project-name bus-idea
-   npx.cmd wrangler pages secret put STATE_SIGNING_KEY --project-name bus-idea
+   npx.cmd wrangler pages secret put SQUARE_APPLICATION_ID --project-name tally
+   npx.cmd wrangler pages secret put SQUARE_APPLICATION_SECRET --project-name tally
+   npx.cmd wrangler pages secret put TOKEN_ENCRYPTION_KEY --project-name tally
+   npx.cmd wrangler pages secret put STATE_SIGNING_KEY --project-name tally
    ```
    Use **new** random keys for the deployed site (run step 2's command again) rather than reusing
    your local ones.

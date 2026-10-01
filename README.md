@@ -1,6 +1,6 @@
-# Counter
+# Tally
 
-A single-page web app for small restaurant/cafe/bakery/bar owners. Upload a sales export (CSV, Excel, or tab-delimited) and instantly see charts and plain-English tips about busy hours, best sellers, and slow days. (Renamed from "Cafe Insights" once the app grew past cafes specifically — see the Grow page below.)
+A single-page web app for small restaurant/cafe/bakery/bar owners. Upload a sales export (CSV, Excel, or tab-delimited) and instantly see charts and plain-English tips about busy hours, best sellers, and slow days. (Formerly "Cafe Insights", then "Counter".)
 
 **Privacy:** Everything runs in your browser. Your file is read on your device, saved only in your browser's local IndexedDB storage, and never uploaded anywhere. There is no backend, no accounts, and no analytics.
 
@@ -122,7 +122,7 @@ Since this machine doesn't have the git command-line tool installed, use the Git
 
 1. Open **GitHub Desktop**.
 2. **File → Add local repository...** → browse to and select this `BUS-Idea` folder → click **Add repository**. GitHub Desktop will offer to initialize it as a git repository if it isn't one yet — say yes.
-3. You'll see all the project files listed as changes. Write a summary like "Initial commit: Counter app" in the box at the bottom left, then click **Commit to main**.
+3. You'll see all the project files listed as changes. Write a summary like "Initial commit: Tally app" in the box at the bottom left, then click **Commit to main**.
 4. Click **Publish repository** in the top bar. Choose a name (e.g. `cafe-insights` or `BUS-Idea`), decide public/private, and click **Publish Repository**.
 5. Your code is now on GitHub — use the Cloudflare Pages or GitHub Pages steps above to deploy it.
 
@@ -195,7 +195,7 @@ Whenever you make changes later: GitHub Desktop will show them under "Changes" �
 - Tested in `tests/business-tips-test.html`: business-type detection against hand-picked menus for each type, the menu-engineering quadrant split against a hand-worked 4-item example (one item deliberately placed in each quadrant), and the tip-rule bank against synthetic data for both the "triggers" and "correctly does NOT trigger" side of each rule (30 checks total).
 
 **Rename, redesign, and more interactive charts (latest round):**
-- **Renamed from "Cafe Insights" to "Counter"** — the internal IndexedDB storage key (`cafeInsightsDB`) was deliberately left unchanged, since it's an invisible implementation detail and renaming it would have silently orphaned anyone's already-saved local data.
+- **Renamed from "Cafe Insights" to "Counter"** (and later to **"Tally"**) — the internal IndexedDB storage key (`cafeInsightsDB`) was deliberately left unchanged, since it's an invisible implementation detail and renaming it would have silently orphaned anyone's already-saved local data.
 - **Visual redesign** — moved from the original warm cafe green/amber/serif look to a flatter, neutral, modern palette (blue primary accent, amber/violet secondary accents, all sans-serif), with lighter shadows instead of heavy borders, a translucent sticky header, and pill-shaped nav/buttons. The CSS variable *names* (`--green`, `--amber`) are unchanged on purpose (dozens of call sites reference them) — only their color *values* changed, which is noted directly in the CSS.
 - **More chart types and more interactivity:**
   - The Hours and Days detail pages now have a Bar/Line toggle, so you can see the same data as either a bar chart or a smooth trend line.

@@ -2,7 +2,7 @@
 // t(key, vars) in app.js looks a string up by key and fills in {placeholders}.
 const TRANSLATIONS = {
   en: {
-    appName: "Counter",
+    appName: "Tally",
     privateBadge: "Private to you",
     privacyNote: "Your data is saved on this device only and never uploaded.",
     tagline: "Upload your sales export and see your busy hours, best sellers, and slow days in plain English.",
@@ -647,7 +647,7 @@ const TRANSLATIONS = {
   },
 
   zh: {
-    appName: "柜台",
+    appName: "Tally",
     privateBadge: "仅供你个人查看",
     privacyNote: "你的数据仅保存在本设备上，从不上传。",
     tagline: "上传你的销售导出数据，用简单易懂的话看清忙闲时段、热销商品和淡季。",

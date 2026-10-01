@@ -228,7 +228,7 @@ function showModal({ title, body, confirmLabel, cancelLabel, onConfirm, danger }
 
 // ---------- Home / landing page (#/home) ----------
 // Half marketing page, half functional dropzone -- reachable at any time,
-// whether or not you have data saved, via the "Counter" wordmark in the
+// whether or not you have data saved, via the "Tally" wordmark in the
 // header or the #/home route directly. All still fully local (no analytics,
 // no images/fonts from a third party beyond the Google Fonts stylesheet
 // already loaded in index.html).
