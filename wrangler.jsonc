@@ -4,7 +4,7 @@
 // No secrets in here -- they go in .dev.vars (local) or `wrangler pages secret put` (deployed).
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
-  "name": "tally",
+  "name": "bus-idea",                    // must match the Pages project name (bus-idea.pages.dev)
   "pages_build_output_dir": "./public",
   "compatibility_date": "2026-09-30",
 

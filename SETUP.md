@@ -52,7 +52,7 @@ Square's Sandbox allows `http://localhost` for testing
 deployed `https://…pages.dev` URL from step 7.
 
 Later, to test the *deployed* site in Sandbox, change it to
-`https://<your-project>.pages.dev/api/square/callback` (see step 7 for the real name).
+`https://bus-idea.pages.dev/api/square/callback`.
 
 ## 5. Sandbox test seller account
 
@@ -76,21 +76,18 @@ answers `not_implemented` until the build step. Press `Ctrl+C` to stop.
 
 ## 7. Before any real deploy
 
-1. **Create the Pages project** (none exists yet for this app): Cloudflare dashboard →
-   Workers & Pages → Create → Pages → Connect to Git → `BUS-Idea`. Build command: *blank*.
-   **Build output directory: `public`**. Name it `tally` to match `wrangler.jsonc`
-   (if the name's taken, use the name Cloudflare gives you and update `"name"` in `wrangler.jsonc`).
-   Your URL will be `https://<that-name>.pages.dev`.
+1. ✅ **Pages project created:** `bus-idea` → <https://bus-idea.pages.dev> (Git-connected,
+   output directory `public`). Must stay a **Pages** project — not a Worker.
 2. **Create the tables in the cloud database** (asks to confirm):
    ```powershell
    npm run db:migrate:remote
    ```
 3. **Set each secret** — each command asks you to type/paste the value at a hidden prompt:
    ```powershell
-   npx.cmd wrangler pages secret put SQUARE_APPLICATION_ID --project-name tally
-   npx.cmd wrangler pages secret put SQUARE_APPLICATION_SECRET --project-name tally
-   npx.cmd wrangler pages secret put TOKEN_ENCRYPTION_KEY --project-name tally
-   npx.cmd wrangler pages secret put STATE_SIGNING_KEY --project-name tally
+   npx.cmd wrangler pages secret put SQUARE_APPLICATION_ID --project-name bus-idea
+   npx.cmd wrangler pages secret put SQUARE_APPLICATION_SECRET --project-name bus-idea
+   npx.cmd wrangler pages secret put TOKEN_ENCRYPTION_KEY --project-name bus-idea
+   npx.cmd wrangler pages secret put STATE_SIGNING_KEY --project-name bus-idea
    ```
    Use **new** random keys for the deployed site (run step 2's command again) rather than reusing
    your local ones.
