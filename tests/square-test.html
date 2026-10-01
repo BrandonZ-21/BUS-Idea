@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Square export tests</title>
+<style>
+  body { font-family: monospace; padding: 24px; background: #fff; color: #111; }
+  .pass { color: #1F5C4A; }
+  .fail { color: #b3401f; font-weight: bold; }
+  .info { color: #555; }
+  h1, h2 { font-family: sans-serif; }
+  table { border-collapse: collapse; margin-top: 8px; }
+  td, th { border: 1px solid #ddd; padding: 4px 10px; text-align: left; }
+  #summary { font-family: sans-serif; font-size: 1.2em; margin-top: 16px; }
+</style>
+</head>
+<body>
+<h1>Square export tests</h1>
+<p>Part 1 uses small hand-made strings and always runs. Part 2 runs the real upload pipeline (<code>stripSensitiveColumns → guessColumns → buildRows</code>, then the dashboard filters and <code>js/square-items.js</code>) on <code>tests/private/sample-transactions.csv</code>, which is git-ignored because it's a real export. Serve the folder (e.g. <code>scripts/serve.ps1</code>) and open <code>/tests/square-test.html</code>.</p>
+<div id="results"></div>
+<h2>Sample file: expected vs actual</h2>
+<table id="compare"><thead><tr><th>Check</th><th>Expected</th><th>Actual</th><th></th></tr></thead><tbody></tbody></table>
+<div id="summary"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script src="../js/parser.js"></script>
+<script src="../js/square-items.js"></script>
+<script src="../js/stats.js"></script>
+<script>
+(async () => {
+  const out = document.getElementById("results");
+  let pass = 0, fail = 0;
+  function line(cls, text) { const p = document.createElement("div"); p.className = cls; p.textContent = text; out.appendChild(p); }
+  function assert(label, ok) { ok ? pass++ : fail++; line(ok ? "pass" : "fail", (ok ? "PASS " : "FAIL ") + label); }
+  function assertEqual(label, actual, expected, tol) {
+    const ok = typeof expected === "number" ? Math.abs(actual - expected) <= (tol || 0) : actual === expected;
+    assert(`${label} (got ${actual}, expected ${expected})`, ok);
+  }
+  function compare(label, expected, actual, ok) {
+    ok ? pass++ : fail++;
+    const tr = document.createElement("tr");
+    [label, expected, actual, ok ? "✓" : "✗"].forEach((v) => { const td = document.createElement("td"); td.textContent = v; tr.appendChild(td); });
+    tr.className = ok ? "pass" : "fail";
+    document.querySelector("#compare tbody").appendChild(tr);
+  }
+  const cents = (n) => Math.round(n * 100);
+  const money = (n) => "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const sumRevenue = (rows) => rows.reduce((s, r) => s + cents(rowRevenue(r)), 0) / 100;
+
+  // ---------- Part 1: unit checks ----------
+  line("info", "— Part 1: unit checks —");
+  assertEqual("parsePrice $3.50", parsePrice("$3.50"), 3.5);
+  assertEqual("parsePrice -$25.88", parsePrice("-$25.88"), -25.88);
+  assertEqual("parsePrice $1,935.45", parsePrice("$1,935.45"), 1935.45);
+  assertEqual("parsePrice ($4.00)", parsePrice("($4.00)"), -4);
+  assertEqual("guessColumns: Discounts is not Quantity", guessColumns(["Date", "Time", "Gross Sales", "Discounts", "Description"]).guesses.quantity, null);
+  assertEqual("guessColumns: Item Count still is Quantity", guessColumns(["Date", "Item Count", "Price", "Item"]).guesses.quantity, "Item Count");
+
+  const segs = splitDescription("2 x Gatorade (Desk) (Cool Blue), Gatorade (Desk) (Fruit Punch)");
+  assertEqual("split on commas outside parens", segs.length, 2);
+  const s1 = parseSegment(segs[0]);
+  assert("parseSegment qty/name/channel/variation", s1.qty === 2 && s1.name === "Gatorade" && s1.channel === "Desk" && s1.variation === "Cool Blue");
+  const s2 = parseSegment("Chuck-A-Duck (1 duck) (Regular)");
+  assert("a non-channel group stays part of the name", s2.name === "Chuck-A-Duck (1 duck)" && s2.channel === null && s2.variation === "Regular");
+  assertEqual("comma inside parens is not a split", splitDescription("Snack (Salt, Vinegar), Water (Regular)").length, 2);
+
+  assertEqual("mask payment-link names", maskPersonalInfo("BWB Italy Trip 2027 - Traveler Name: Jane Q. Doe| Traveler Name: John Roe"), "BWB Italy Trip 2027");
+  assertEqual("mask team name", maskPersonalInfo("Flag Football Fees 2026 - Team Name: The Ducks"), "Flag Football Fees 2026");
+  assertEqual("mask custom-amount note only", maskPersonalInfo("Custom Amount - Pat Smith- MPR, Chips (Regular)"), "Custom Amount, Chips (Regular)");
+  assertEqual("mask email + phone", maskPersonalInfo("Deposit pat@example.com 555-123-4567"), "Deposit [email] [phone]");
+  assertEqual("leave normal items alone", maskPersonalInfo("2 x Soda (Desk) (Dr. Pepper)"), "2 x Soda (Desk) (Dr. Pepper)");
+
+  // Mixed receipt: Water is $2 alone that day, Chips $1.50 alone -> receipt of $3.50 splits exactly.
+  const mini = [
+    { date: "2026-05-01", item: "Water (Regular)", price: 2, quantity: 1, packed: true, kind: "product" },
+    { date: "2026-05-01", item: "Chips (Regular)", price: 1.5, quantity: 1, packed: true, kind: "product" },
+    { date: "2026-05-01", item: "Water (Regular), Chips (Regular)", price: 3.5, quantity: 1, packed: true, kind: "product" },
+    { date: "2026-05-01", item: "2 x Water (Regular), Mystery (Regular)", price: 7, quantity: 1, packed: true, kind: "product" },
+    { date: "2026-05-02", item: "Water (Regular)", price: -2, quantity: 1, packed: true, kind: "product" },
+  ];
+  const miniItems = explodeTransactions(mini);
+  const mixed = miniItems.filter((it) => it.receipt === mini[2]);
+  assert("mixed receipt priced from same-day singles", mixed[0].lineTotal === 2 && mixed[1].lineTotal === 1.5 && mixed[0].priceSource === "matched");
+  const mystery = miniItems.find((it) => it.name === "Mystery");
+  assert("a lone unpriced item gets the exact remainder", mystery.lineTotal === 3 && mystery.priceSource === "remainder" && !ESTIMATED_PRICE_SOURCES.has("remainder"));
+  const custom = explodeTransactions(mini.slice(0, 1).concat([{ date: "2026-05-01", item: "Custom Amount, Water (Regular)", price: 8, quantity: 1, packed: true, kind: "product" }]));
+  assert("a Custom Amount absorbs the gap, Water keeps its $2", custom[1].lineTotal === 6 && custom[2].lineTotal === 2);
+  const twoUnknown = explodeTransactions([{ date: "2026-05-01", item: "Foo (Regular), 2 x Bar (Regular)", price: 9, quantity: 1, packed: true, kind: "product" }]);
+  assert("unpriced items share by quantity and are marked estimated", twoUnknown[0].lineTotal === 3 && twoUnknown[1].lineTotal === 6 && twoUnknown[0].priceSource === "split");
+  const refund = miniItems.find((it) => it.receipt === mini[4]);
+  assert("refund line has negative qty and amount", refund.qty === -1 && refund.lineTotal === -2);
+  assertEqual("summarize nets refunds", summarize(miniItems).find((g) => g.key === "Water").units, 3);
+
+  assertEqual("weekdayOccurrences over 8 weeks = 8 of each", weekdayOccurrences({ min: "2026-08-07", max: "2026-10-01" }).join(","), "8,8,8,8,8,8,8");
+  assertEqual("rangeBounds year", rangeBounds([{ date: "2025-12-30" }, { date: "2026-03-01" }], "year").min, "2026-01-01");
+
+  // ---------- Part 2: the real sample export ----------
+  let text;
+  try {
+    const res = await fetch("private/sample-transactions.csv");
+    if (!res.ok) throw new Error(res.status);
+    text = await res.text();
+  } catch (e) {
+    line("info", "Part 2 skipped: tests/private/sample-transactions.csv not found.");
+    document.getElementById("summary").textContent = `${pass} passed, ${fail} failed`;
+    return;
+  }
+  line("info", "— Part 2: sample export (results in the table below) —");
+  const parsed = parseCsv(text);
+  const rawHeaderCount = parsed.meta.fields.length;
+  const { headers, dataRows, square } = stripSensitiveColumns(parsed.meta.fields, parsed.data);
+  const { guesses } = guessColumns(headers);
+  const { rows, badCount } = await buildRows(dataRows, guesses, null, { square });
+
+  compare("Columns in file", "55", String(rawHeaderCount), rawHeaderCount === 55);
+  compare("Detected as Square export", "yes", square ? "yes" : "no", square);
+  const sensitive = ["PAN Suffix", "Staff Name", "Staff ID", "Customer ID", "Customer Name", "Customer Reference ID"];
+  const leaked = sensitive.filter((h) => headers.includes(h) || dataRows.some((r) => h in r));
+  compare("Sensitive columns removed at ingest", "none left", leaked.length ? leaked.join(", ") : "none left", !leaked.length);
+  compare("Column guesses (item / price / qty / order id / customer)", "Description / Gross Sales / – / Transaction ID / –",
+    `${guesses.item} / ${guesses.price} / ${guesses.quantity || "–"} / ${guesses.orderId} / ${guesses.customerId || "–"}`,
+    guesses.item === "Description" && guesses.price === "Gross Sales" && !guesses.quantity && guesses.orderId === "Transaction ID" && !guesses.customerId);
+  compare("Rows kept (none dropped)", "5,547 (0 bad)", `${rows.length.toLocaleString()} (${badCount} bad)`, rows.length === 5547 && badCount === 0);
+  compare("Unique Transaction IDs", "5,547", new Set(rows.map((r) => r.orderId)).size.toLocaleString(), new Set(rows.map((r) => r.orderId)).size === 5547);
+
+  const allSummary = computeSummary(rows);
+  compare("All time: sales / orders", "$46,603.18 / 5,547", `${money(sumRevenue(rows))} / ${allSummary.orderCount.toLocaleString()}`, cents(sumRevenue(rows)) === 4660318 && allSummary.orderCount === 5547);
+  const yearRows = filterByRange(rows, "year");
+  compare("This year: sales / orders", "$46,603.18 / 5,547", `${money(sumRevenue(yearRows))} / ${computeSummary(yearRows).orderCount.toLocaleString()}`, cents(sumRevenue(yearRows)) === 4660318);
+  const refunds = rows.filter((r) => r.price < 0);
+  compare("Refund rows kept (negative)", "16 / -$281.38", `${refunds.length} / ${money(sumRevenue(refunds))}`, refunds.length === 16 && cents(sumRevenue(refunds)) === -28138);
+  compare("Sales before refunds", "$46,884.56", money(sumRevenue(rows.filter((r) => r.price > 0))), cents(sumRevenue(rows.filter((r) => r.price > 0))) === 4688456);
+
+  const eightWeeks = filterByRange(rows, "8weeks");
+  const bounds = rangeBounds(rows, "8weeks");
+  compare("Last 8 weeks starts", "2026-08-07", bounds.min, bounds.min === "2026-08-07");
+  compare("Last 8 weeks: sales / orders (all rows)", "$10,002.43 / 968", `${money(sumRevenue(eightWeeks))} / ${computeSummary(eightWeeks).orderCount}`, cents(sumRevenue(eightWeeks)) === 1000243 && computeSummary(eightWeeks).orderCount === 968);
+
+  const oneOff = findOneOffRows(rows);
+  const oneOff8 = eightWeeks.filter((r) => oneOff.has(r));
+  compare("One-offs in last 8 weeks", "11 rows / $5,200.88 (all payment links)", `${oneOff8.length} rows / ${money(sumRevenue(oneOff8))} (${oneOff8.filter((r) => r.kind === "payment_link").length} payment links)`, oneOff8.length === 11 && cents(sumRevenue(oneOff8)) === 520088);
+  const clean8 = eightWeeks.filter((r) => !oneOff.has(r));
+  const clean8Summary = computeSummary(clean8);
+  compare("Last 8 weeks excluding one-offs: sales / orders", "~$4,802 / ~957", `${money(sumRevenue(clean8))} / ${clean8Summary.orderCount}`, Math.abs(sumRevenue(clean8) - 4802) < 2 && clean8Summary.orderCount === 957);
+  compare("Average order (excl. one-offs)", "≈ $5.02", money(clean8Summary.avgOrder), Math.abs(clean8Summary.avgOrder - 5.02) < 0.005);
+  const allOneOffs = Array.from(oneOff);
+  const bigTickets = allOneOffs.filter((r) => r.kind !== "payment_link");
+  compare("All-time one-offs (info)", "15 payment links + any outlier tickets",
+    `${allOneOffs.length - bigTickets.length} payment links (${money(sumRevenue(allOneOffs.filter((r) => r.kind === "payment_link")))}) + ${bigTickets.length} outlier tickets (${bigTickets.map((r) => money(rowRevenue(r))).join(", ")})`,
+    allOneOffs.length - bigTickets.length === 15);
+  const regularBig = rows.filter((r) => r.kind === "product" && rowRevenue(r) >= 35 && oneOff.has(r));
+  compare("Regular big orders (e.g. 6 track passes) not flagged", "0 flagged", `${regularBig.length} flagged`, regularBig.length === 0);
+
+  const hour = (list) => { const h = salesByHour(list); return h.indexOf(Math.max(...h)); };
+  compare("Busiest hour, 8 wks: with one-offs → without", "1pm → (not 1pm)", `${hour(eightWeeks)}:00 → ${hour(clean8)}:00`, hour(eightWeeks) === 13 && hour(clean8) !== 13);
+  const h8 = salesByHour(clean8);
+  const h8all = salesByHour(eightWeeks);
+  compare("9pm sales, 8 wks: with → without (drops by the $517.50 trip payment)", "spike gone", `${money(h8all[21])} → ${money(h8[21])}`, cents(h8all[21] - h8[21]) === 51750);
+  const open = h8.slice(10, 22);
+  compare("Hourly sales 10am–9pm, 8 wks excl. one-offs", "roughly flat", `${money(Math.min(...open))}–${money(Math.max(...open))} per hour-slot`, Math.max(...open) < 2 * Math.min(...open));
+  const occ = weekdayOccurrences(bounds);
+  const dow = salesByDow(clean8, occ);
+  const weekdayTotals = dow.totals.slice(1, 6);
+  compare("Saturday total vs weekday totals (excl. one-offs)", "Sat ≈ $1,050; Mon–Fri ≈ $580–735",
+    `Sat ${money(dow.totals[6])}; Mon–Fri ${money(Math.min(...weekdayTotals))}–${money(Math.max(...weekdayTotals))}`,
+    Math.abs(dow.totals[6] - 1050) < 25 && Math.min(...weekdayTotals) > 560 && Math.max(...weekdayTotals) < 750);
+  compare("Average per Saturday (8 Saturdays)", "≈ $131", `${money(dow.averages[6])} (÷${occ[6]})`, occ[6] === 8 && Math.abs(dow.averages[6] - dow.totals[6] / 8) < 0.01);
+
+  const items = explodeTransactions(rows);
+  const itemTotal = items.reduce((s, it) => s + cents(it.lineTotal), 0) / 100;
+  compare("Item rows / item revenue", "6,357 / $46,603.18", `${items.length.toLocaleString()} / ${money(itemTotal)}`, items.length === 6357 && cents(itemTotal) === 4660318);
+  const perReceipt = new Map();
+  items.forEach((it) => perReceipt.set(it.receipt, (perReceipt.get(it.receipt) || 0) + cents(it.lineTotal)));
+  const offReceipts = rows.filter((r) => perReceipt.get(r) !== cents(rowRevenue(r))).length;
+  compare("Receipts whose items don't add up to Gross Sales", "0", String(offReceipts), offReceipts === 0);
+  const bySource = {};
+  items.forEach((it) => { bySource[it.priceSource] = (bySource[it.priceSource] || 0) + 1; });
+  const estimated = items.filter((it) => ESTIMATED_PRICE_SOURCES.has(it.priceSource)).length;
+  compare("Estimated-price item rows", "0", `${estimated} (${Object.entries(bySource).map(([k, v]) => `${k} ${v}`).join(", ")})`, estimated === 0);
+  const byName = summarize(items);
+  const check = (name, units, revenue) => {
+    const g = byName.find((x) => x.key === name) || { units: 0, revenue: 0 };
+    compare(`${name}: units / revenue`, `${units.toLocaleString()} / ${money(revenue)}`, `${g.units.toLocaleString()} / ${money(g.revenue)}`, g.units === units && cents(g.revenue) === cents(revenue));
+  };
+  check("Gosman Guest Pass", 542, 8130);
+  check("UAA Indoor Track - Single Day Pass", 246, 3690);
+  // Gatorade: the expected 1,488 is the Desk + Concession Stand lines; two more
+  // "Gatorade (Regular)" receipts have no channel. Item revenue on a mixed
+  // receipt whose reference prices don't add up to its total isn't uniquely
+  // defined, so revenue is checked to within $10 rather than to the cent.
+  const gat = summarize(items.filter((it) => it.name === "Gatorade"), (it) => (it.channel ? "with channel" : "no channel"));
+  const gatCh = gat.find((g) => g.key === "with channel"), gatNone = gat.find((g) => g.key === "no channel") || { units: 0, revenue: 0 };
+  compare("Gatorade (Desk + Concession Stand): units / revenue", "1,488 / $5,105.00", `${gatCh.units.toLocaleString()} / ${money(gatCh.revenue)}`, gatCh.units === 1488 && Math.abs(gatCh.revenue - 5105) < 10);
+  compare("Gatorade with no channel, \"Gatorade (Regular)\" (info)", "—", `${gatNone.units} / ${money(gatNone.revenue)}`, true);
+  const channels = summarize(items.filter((it) => it.channel), (it) => it.channel);
+  compare("Channels found", "Desk, Concession Stand", channels.map((c) => `${c.key} (${c.units} units)`).join(", "), channels.length === 2);
+
+  const leakedNames = rows.filter((r) => /name\s*:/i.test(r.item)).length;
+  compare("Item names containing 'Name:' after ingest", "0", String(leakedNames), leakedNames === 0);
+  const paymentLinkNames = Array.from(new Set(rows.filter((r) => r.kind === "payment_link").map((r) => r.item)));
+  compare("Payment-link item names (masked)", "no personal names", paymentLinkNames.join(" | "), true);
+
+  document.getElementById("summary").textContent = `${pass} passed, ${fail} failed`;
+  document.getElementById("summary").className = fail ? "fail" : "pass";
+})();
+</script>
+</body>
+</html>

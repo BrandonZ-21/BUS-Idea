@@ -25,8 +25,62 @@ const FIELD_KEYWORDS = {
   ],
 };
 
+// Header substrings that disqualify a column from a field even when one of
+// its keywords matches -- e.g. "count" (quantity) is inside "Discounts".
+const FIELD_EXCLUDE = {
+  quantity: ["discount", "account"],
+};
+
 function normalizeHeader(h) {
   return String(h || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+// ---------- Square "Transactions" export + privacy scrubbing ----------
+// A Square export has one row per receipt, with every item on the receipt
+// packed into "Description" (see js/square-items.js), plus several columns
+// we never need and shouldn't hold onto: card digits, staff, customers.
+function isSquareExport(headers) {
+  const n = new Set(headers.map(normalizeHeader));
+  return ["transactionid", "grosssales", "description", "source"].every((h) => n.has(h));
+}
+
+// Dropped from every upload: card digits and staff names are never useful here.
+const ALWAYS_DROP_COLUMNS = ["pansuffix", "cardlast4", "last4", "cardnumber", "staffname", "staffid", "employee", "employeename", "cashier", "servername"];
+// Also dropped from Square exports, which identify customers directly (the
+// hashed repeat-customer feature is for other registers' phone/email columns).
+const SQUARE_DROP_COLUMNS = ["customerid", "customername", "customerreferenceid", "details", "tendernote", "fulfillmentnote", "cardbrand"];
+
+// Removes sensitive columns from freshly parsed rows before anything else
+// reads them. Returns { headers, dataRows, square }.
+function stripSensitiveColumns(headers, dataRows) {
+  const square = isSquareExport(headers);
+  const drop = new Set(square ? ALWAYS_DROP_COLUMNS.concat(SQUARE_DROP_COLUMNS) : ALWAYS_DROP_COLUMNS);
+  const dropped = headers.filter((h) => drop.has(normalizeHeader(h)));
+  if (!dropped.length) return { headers, dataRows, square };
+  dataRows.forEach((r) => dropped.forEach((h) => { delete r[h]; }));
+  return { headers: headers.filter((h) => !dropped.includes(h)), dataRows, square };
+}
+
+// Masks personal details that registers put into free-text item names:
+// "BWB Italy Trip 2027 - Traveler Name: Jane Doe" -> "BWB Italy Trip 2027",
+// Square "Custom Amount - <typed note>" -> "Custom Amount", plus any email
+// address or phone number.
+function maskPersonalInfo(text) {
+  return String(text || "")
+    .replace(/\s*(?:[-|,;:]\s*)?(?:[A-Za-z]+\s+)?name\s*:[^|]*/gi, "")
+    .replace(/(Custom Amount)\s*-[^,]*/gi, "$1")
+    .replace(/[\w.+-]+@[\w-]+\.[\w.]+/g, "[email]")
+    .replace(/\(?\b\d{3}\)?[\s.-]\d{3}[\s.-]\d{4}\b/g, "[phone]")
+    .replace(/[\s|,;-]+$/, "")
+    .trim();
+}
+
+// "product" (normal register sale), "custom" (a keyed-in Custom Amount), or
+// "payment_link" (a one-off payment like a trip deposit or a rental).
+function classifyKind(item, source) {
+  if (/payment link/i.test(source || "")) return "payment_link";
+  if (String(item || "").split(",").every((s) => /^\s*(\d+\s*x\s+)?custom amount\s*$/i.test(s))) return "custom";
+  return "product";
 }
 
 // Returns { guesses: {field: originalHeaderOrNull}, hasDatetimeColumn: bool }
@@ -43,13 +97,14 @@ function guessColumns(headers) {
   });
 
   function findFirst(field) {
+    const excluded = (n) => (FIELD_EXCLUDE[field] || []).some((x) => n.includes(x));
     for (let i = 0; i < headers.length; i++) {
       const n = normalized[i];
-      if (FIELD_KEYWORDS[field].some((k) => n === k)) return headers[i];
+      if (!excluded(n) && FIELD_KEYWORDS[field].some((k) => n === k)) return headers[i];
     }
     for (let i = 0; i < headers.length; i++) {
       const n = normalized[i];
-      if (FIELD_KEYWORDS[field].some((k) => n.includes(k))) return headers[i];
+      if (!excluded(n) && FIELD_KEYWORDS[field].some((k) => n.includes(k))) return headers[i];
     }
     return null;
   }
@@ -187,7 +242,10 @@ async function hashCustomerId(rawValue, saltHex) {
 
 // mapping: { date, time, item, quantity, price, orderType, orderId, customerId } -> original header names or null
 // customerSalt: only needed/used when mapping.customerId is set.
-async function buildRows(dataRows, mapping, customerSalt) {
+// format.square: the file is a Square Transactions export (see isSquareExport),
+// so each row is a whole receipt with its items packed into one string.
+async function buildRows(dataRows, mapping, customerSalt, format) {
+  const square = !!(format && format.square);
   const rows = [];
   let badCount = 0;
   for (const raw of dataRows) {
@@ -195,7 +253,9 @@ async function buildRows(dataRows, mapping, customerSalt) {
     const timeRawVal = mapping.time ? raw[mapping.time] : null;
     const { date, time: timeFromDate } = parseDateString(dateRawVal);
     const time = timeFromDate || parseTimeString(timeRawVal);
-    const item = mapping.item ? String(raw[mapping.item] || "").trim() : "";
+    const rawItem = mapping.item ? String(raw[mapping.item] || "").trim() : "";
+    // A description that was nothing but a name masks to "", so keep the row as "Payment".
+    const item = rawItem ? maskPersonalInfo(rawItem) || "Payment" : "";
     const price = mapping.price ? parsePrice(raw[mapping.price]) : null;
     const quantity = mapping.quantity ? parseQuantity(raw[mapping.quantity]) : 1;
     const orderType = mapping.orderType ? String(raw[mapping.orderType] || "").trim() : null;
@@ -206,6 +266,8 @@ async function buildRows(dataRows, mapping, customerSalt) {
       continue;
     }
     const row = { date, time: time || null, item, quantity, price, orderType: orderType || null, orderId: orderId || null };
+    row.kind = classifyKind(item, raw.Source);
+    if (square) row.packed = true;
     if (mapping.customerId && customerSalt) {
       const rawCustomerVal = raw[mapping.customerId]; // never touches `row` -- only feeds the hash below
       if (rawCustomerVal) {

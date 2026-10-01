@@ -24,8 +24,11 @@ index.html            The app shell (header, nav, containers)
 css/style.css          All styling
 js/translations.js     Every piece of English/Chinese text used by the app
 js/db.js               IndexedDB wrapper (local storage only, never network)
-js/parser.js            Column auto-detection + row cleanup (CSV/Excel/tab-delimited)
-js/stats.js             Calculations: totals, by-hour, by-day, trends, gaps
+js/parser.js            Column auto-detection + row cleanup (CSV/Excel/tab-delimited), sensitive-column
+                        stripping and name masking, Square export detection
+js/square-items.js      Splits Square receipts ("2 x Gatorade (Desk) (Cool Blue), ...") into item rows and
+                        works out each item's share of the receipt (adds back up to the cent)
+js/stats.js             Calculations: totals, by-hour, by-day, trends, gaps, one-off payment detection
 js/charts.js            Chart.js chart helpers + the heatmap grid
 js/router.js            Simple #/hash router for the detail pages
 js/holidays.js          US holiday date calculator (no external service)
@@ -44,6 +47,10 @@ tests/business-tips-test.html   Open in a browser to check business-type detecti
                                  quadrant split, and every tip rule (30 checks)
 tests/customer-summary-test.html   Open in a browser to check monthly-report parsing, column auto-detection,
                                     and de-duplication of a re-stated month (30 checks)
+tests/square-test.html      Square export checks: money parsing, item splitting/pricing, masking (always run),
+                            plus an expected-vs-actual table for a real export placed at
+                            tests/private/sample-transactions.csv (git-ignored -- real exports contain names).
+                            Needs a local server (scripts/serve.ps1), then open /tests/square-test.html.
 sample-data.csv         ~4 weeks of realistic sample sales (Aug 3 - Aug 30, 2026)
 sample-data-2.csv       A second sample export with different column names, overlapping
                         the last 5 days of sample-data.csv plus 9 new days — use this to
@@ -113,7 +120,7 @@ Whenever you make changes later: GitHub Desktop will show them under "Changes" �
 - Data is saved in IndexedDB and persists across refreshes. New uploads are merged into existing data, with duplicate rows automatically skipped (based on date + time + item + quantity + price, plus order ID when available) and a summary of how many rows were added vs. skipped.
 - Remembered column mappings, so re-uploading the same register's export format doesn't require re-matching columns.
 - A "My Data" page showing total rows saved, date range, last upload date, gaps in your data, and backup export/import plus a "delete all" option.
-- A date range selector (last 4 weeks / last 8 weeks / all time) that filters the whole dashboard.
+- A date range selector (last 4 weeks / last 8 weeks / this year / all time) that filters the whole dashboard.
 - The dashboard gets more detailed as data grows: a note on thin data (<2 weeks), week-over-week comparisons at 2+ weeks, and month-over-month/stronger trend insights at 8+ weeks.
 - Every chart is clickable (and keyboard-reachable via a real "See details" link) and opens a full detail page at its own bookmarkable URL (`#/hours`, `#/days`, `#/items`, `#/trend`, `#/order-types`, `#/heatmap`), each with a plain-English explanation, specific findings from the owner's own data, practical suggestions, extra detail (weekday/weekend toggle, search/sort, hover values), and a working browser Back button.
 - Accepts Excel (`.xlsx`/`.xls`) and tab-delimited files in addition to CSV, parsed entirely in the browser via SheetJS.
@@ -191,6 +198,14 @@ Whenever you make changes later: GitHub Desktop will show them under "Changes" �
 - **A second way to track returning customers, for a genuinely different file shape** — some registers can only export an already-aggregated *monthly* report (total new/returning customers per month) rather than a per-order file with a customer identifier column. That's not a formatting quirk the main upload can be made to handle; it's structurally different data (no per-row date, item, or price at all). Rather than force it through the same pipeline, it now has its own home: an "Import a monthly customer report" button on the Customers page (`js/customer-summary.js`), which auto-detects Month/New/Returning-style columns, stores the counts in their own IndexedDB store (no hashing needed or possible — a report like this never contains a raw identifier to begin with), and shows its own "Customer Growth Report" chart and totals, clearly separate from the hashed per-transaction analysis above it.
 - The saved-data format moved to version 6 (backup JSON) / IndexedDB version 5 to add this store; older backups still import cleanly, defaulting it to empty.
 - Tested against two real sample files: a per-order sales export with a "Customer Contact" column that mixes phone numbers, emails, and blanks (128k rows, auto-detected correctly, hashed and rendered without errors), and a genuinely separate monthly new/returning customer summary (imported cleanly into its own chart, matching the transaction file's own customer count almost exactly as a sanity check). See `tests/customer-summary-test.html` for the unit-level checks (month parsing in several formats, column auto-detection, and de-duplicating a re-stated month).
+
+**Square exports, one-off payments, and an item-level view (latest round):**
+- **Square "Transactions" exports are recognized automatically.** Card digits (PAN Suffix), staff names/IDs, and customer ID/name columns are deleted from the parsed file before the column-matching screen or anything else reads it. Names typed into payment descriptions (e.g. a payment link's "Traveler Name: …"), Square "Custom Amount - <note>" notes, emails and phone numbers are masked before saving, and rows saved before this change are masked in place the next time the app loads.
+- **"Exclude one-off payments" (on by default)**, next to the date range on the dashboard and Items page, applies to every KPI, chart, insight and detail page. A one-off is a payment-link sale (trip deposits, rentals) or an unusually large ticket: over 10× the median ticket *and* over 3× the 99th-percentile ticket (the second rule stops a group buying 6 day passes from being flagged). A note under the selector says how many were hidden and their total.
+- **"This year"** added to the Show: dropdown (the calendar year of your latest sale).
+- **Hour and day-of-week charts now show the average per day** (e.g. average sales per Saturday = Saturday total ÷ number of Saturdays in the range, closed days skipped), so a weekday that appears more often in the window isn't over-represented. Totals are in the tooltips; the Days detail page still has a "Total sales" toggle.
+- **Items page (`#/items`, now in the nav):** top items by revenue and by units, grouping by item / flavor-variation / channel (e.g. Desk vs Concession Stand), a channel filter, and click-to-expand flavors under each item. Square receipts only have a receipt total, so each item's share is priced from single-item sales of the same item (same day when possible); an "est." badge marks the rare item whose price had to be estimated. The dashboard's Top Sellers, the Grow page and Ask use the same item rows.
+- Fixed a column-guess bug: "Discounts" was being auto-picked as the Quantity column (it contains "count"), which would have multiplied revenue for any shop that gives discounts.
 
 ## What doesn't (yet)
 

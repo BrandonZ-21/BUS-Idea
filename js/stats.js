@@ -39,16 +39,71 @@ function weeksCovered(rows) {
   return days / 7;
 }
 
-function filterByRange(rows, mode) {
+function shiftDate(dateStr, days) {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const dt = new Date(y, m - 1, d + days);
+  return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")}`;
+}
+
+// The first and last date covered by a range-selector mode ("4weeks",
+// "8weeks", "year" = the calendar year of the latest sale, "all"), measured
+// back from the most recent date in the data and never before the first sale.
+function rangeBounds(rows, mode) {
   const range = dateRangeOf(rows);
-  if (!range || mode === "all") return rows;
-  const [y, m, d] = range.max.split("-").map(Number);
-  const maxDate = new Date(y, m - 1, d);
-  const weeks = mode === "4weeks" ? 4 : 8;
-  const cutoff = new Date(maxDate);
-  cutoff.setDate(cutoff.getDate() - weeks * 7 + 1);
-  const cutoffStr = `${cutoff.getFullYear()}-${String(cutoff.getMonth() + 1).padStart(2, "0")}-${String(cutoff.getDate()).padStart(2, "0")}`;
-  return rows.filter((r) => r.date >= cutoffStr);
+  if (!range || mode === "all") return range;
+  let min = mode === "year" ? `${range.max.slice(0, 4)}-01-01` : shiftDate(range.max, -(mode === "4weeks" ? 4 : 8) * 7 + 1);
+  if (min < range.min) min = range.min;
+  return { min, max: range.max };
+}
+
+function filterByRange(rows, mode) {
+  const bounds = rangeBounds(rows, mode);
+  if (!bounds || mode === "all") return rows;
+  return rows.filter((r) => r.date >= bounds.min);
+}
+
+// How many of each weekday (0 = Sunday) fall between two dates, inclusive,
+// skipping any date in skipDates (e.g. days tagged "closed").
+function weekdayOccurrences(bounds, skipDates) {
+  const counts = new Array(7).fill(0);
+  if (!bounds) return counts;
+  for (let d = bounds.min; d <= bounds.max; d = shiftDate(d, 1)) {
+    if (skipDates && skipDates.has(d)) continue;
+    counts[rowDayOfWeek({ date: d })]++;
+  }
+  return counts;
+}
+
+// ---------- One-off payments ----------
+// Payment links (trip deposits, facility rentals...) and unusually large
+// tickets aren't part of normal day-to-day selling, and a handful of them
+// can swamp a busiest-hour or best-day chart. A ticket counts as unusually
+// large when it's over 10x the median ticket AND over 3x the 99th
+// percentile -- the second guard keeps legitimate big-but-regular orders
+// (a group buying 6 day passes) from being flagged at a low-priced shop.
+const ONE_OFF_MEDIAN_MULTIPLE = 10;
+const ONE_OFF_P99_MULTIPLE = 3;
+const ONE_OFF_MIN_TICKETS = 30; // too few tickets to say what "unusual" is
+
+// Returns the Set of row objects that belong to one-off payments.
+function findOneOffRows(rows) {
+  const oneOff = new Set(rows.filter((r) => r.kind === "payment_link"));
+  const tickets = new Map();
+  rows.forEach((r, i) => {
+    if (oneOff.has(r)) return;
+    const key = r.orderId || (r.time ? `${r.date}|${r.time}` : `row${i}`);
+    const ticket = tickets.get(key) || { total: 0, rows: [] };
+    ticket.total += rowRevenue(r);
+    ticket.rows.push(r);
+    tickets.set(key, ticket);
+  });
+  const totals = Array.from(tickets.values()).map((tk) => tk.total).filter((v) => v > 0).sort((a, b) => a - b);
+  if (totals.length >= ONE_OFF_MIN_TICKETS) {
+    const pct = (p) => totals[Math.min(totals.length - 1, Math.floor(p * totals.length))];
+    const threshold = Math.max(ONE_OFF_MEDIAN_MULTIPLE * pct(0.5), ONE_OFF_P99_MULTIPLE * pct(0.99));
+    tickets.forEach((tk) => { if (tk.total > threshold) tk.rows.forEach((r) => oneOff.add(r)); });
+  }
+  return oneOff;
 }
 
 function computeSummary(rows) {
@@ -81,16 +136,19 @@ function salesByHour(rows) {
   return buckets;
 }
 
-function salesByDow(rows) {
+// occurrences (optional, from weekdayOccurrences): average over every
+// calendar Monday/Tuesday/... in the range, including ones with no sales.
+// Without it, the average is over days that had at least one sale.
+function salesByDow(rows, occurrences) {
   const totals = new Array(7).fill(0);
-  const counts = new Array(7).fill(0); // number of distinct calendar days seen for that dow
+  const counts = new Array(7).fill(0); // number of days averaged over for that dow
   const seenDates = new Array(7).fill(null).map(() => new Set());
   rows.forEach((r) => {
     const dow = rowDayOfWeek(r);
     totals[dow] += rowRevenue(r);
     seenDates[dow].add(r.date);
   });
-  for (let i = 0; i < 7; i++) counts[i] = seenDates[i].size || 1;
+  for (let i = 0; i < 7; i++) counts[i] = (occurrences ? occurrences[i] : seenDates[i].size) || 1;
   const averages = totals.map((t, i) => t / counts[i]);
   return { totals, averages, dayCounts: counts };
 }
@@ -122,13 +180,15 @@ function salesByWeek(rows) {
   });
 }
 
+// Per item name. Square receipts are split into their items first (see
+// js/square-items.js); other files already have one row per item.
 function topItems(rows, n) {
   const map = new Map();
-  rows.forEach((r) => {
-    const cur = map.get(r.item) || { item: r.item, quantity: 0, revenue: 0 };
-    cur.quantity += r.quantity;
-    cur.revenue += rowRevenue(r);
-    map.set(r.item, cur);
+  itemRowsFor(rows).forEach((it) => {
+    const cur = map.get(it.name) || { item: it.name, quantity: 0, revenue: 0 };
+    cur.quantity += it.qty;
+    cur.revenue += it.lineTotal;
+    map.set(it.name, cur);
   });
   const all = Array.from(map.values()).sort((a, b) => b.quantity - a.quantity);
   return { top: all.slice(0, n), all, rare: all.filter((x) => x.quantity <= 3) };

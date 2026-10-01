@@ -109,6 +109,19 @@ const DB = {
     });
   },
 
+  // Overwrites already-saved rows in place (matched by their `id`).
+  async putRows(rows) {
+    if (!rows.length) return;
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_SALES, "readwrite");
+      const store = tx.objectStore(STORE_SALES);
+      rows.forEach((r) => store.put(r));
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  },
+
   async clearAll() {
     const db = await openDB();
     return new Promise((resolve, reject) => {

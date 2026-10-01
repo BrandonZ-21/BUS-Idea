@@ -7,6 +7,11 @@ const App = {
   lang: "en",
   allRows: [],
   rangeMode: "all",
+  excludeOneOffs: true, // hide payment links + unusually large tickets everywhere (see getFilteredRows)
+  oneOffRows: new Set(), // computed by findOneOffRows on every reload
+  itemsGroup: "item", // Items page: "item" | "variation" | "channel"
+  itemsChannel: "", // Items page channel filter ("" = all)
+  itemsExpanded: null, // Items page: the item whose flavors/variations are shown
   pendingParse: null, // { headers, dataRows, guesses, signature, remembered }
   matchReturnHash: "#/dashboard",
   itemsSort: "quantity",
@@ -152,6 +157,7 @@ App.updateActiveNav = function (route) {
 function renderNav() {
   const items = [
     ["#/dashboard", "navDashboard"],
+    ["#/items", "navItems"],
     ["#/ask", "navAsk"],
     ["#/notes", "navNotes"],
     ["#/customers", "navCustomers"],
@@ -431,10 +437,12 @@ function onParsed(results) {
     showError(t("errorParse"));
     return;
   }
-  const data = results.data || [];
-  if (!data.length) { showError(t("errorEmpty")); return; }
-  const headers = results.meta && results.meta.fields ? results.meta.fields : Object.keys(data[0]);
-  if (!headers.length) { showError(t("errorParse")); return; }
+  if (!results.data || !results.data.length) { showError(t("errorEmpty")); return; }
+  const parsedHeaders = results.meta && results.meta.fields ? results.meta.fields : Object.keys(results.data[0]);
+  if (!parsedHeaders.length) { showError(t("errorParse")); return; }
+  // Card digits, staff names (and, for Square, customer columns) are removed
+  // here, before the column-matching screen or anything else can see them.
+  const { headers, dataRows: data, square } = stripSensitiveColumns(parsedHeaders, results.data);
 
   const { guesses } = guessColumns(headers);
   const signature = formatSignature(headers);
@@ -446,6 +454,7 @@ function onParsed(results) {
       guesses: remembered || guesses,
       signature,
       remembered: !!remembered,
+      square,
     };
     renderMatchScreen();
   });
@@ -481,6 +490,7 @@ function renderMatchScreen() {
     <p>${esc(t("matchIntro"))}</p>
     ${looksLikeNotPerOrder ? `<div class="thin-data-banner">${esc(t("matchNotPerOrderWarning"))}</div>` : ""}
     ${p.remembered ? `<div class="match-remembered-note">${esc(t("matchRemembered"))}</div>` : ""}
+    ${p.square ? `<div class="match-remembered-note">${esc(t("matchSquareDetected"))}</div>` : ""}
     <form id="matchForm">
       <div class="match-grid">
         ${MATCH_FIELDS.map(([field, labelKey]) => `
@@ -548,7 +558,7 @@ async function confirmMatch() {
   }
   try {
     const customerSalt = mapping.customerId ? await getOrCreateCustomerSalt() : null;
-    const { rows, badCount } = await buildRows(p.dataRows, mapping, customerSalt);
+    const { rows, badCount } = await buildRows(p.dataRows, mapping, customerSalt, { square: p.square });
     if (!rows.length) {
       showError(explainWhyNoValidRows(p.dataRows, mapping));
       return;
@@ -577,24 +587,30 @@ async function confirmMatch() {
 // ---------- Merge / dedupe ----------
 async function mergeNewRows(newRows) {
   const existing = App.allRows.length ? App.allRows : await DB.getAllRows();
-  const savedCounts = new Map();
+  const savedByFp = new Map();
   existing.forEach((r) => {
     const fp = r.fingerprint || fingerprintRow(r);
-    savedCounts.set(fp, (savedCounts.get(fp) || 0) + 1);
+    if (!savedByFp.has(fp)) savedByFp.set(fp, []);
+    savedByFp.get(fp).push(r);
   });
   const importCounts = new Map();
   const toInsert = [];
+  const toUpgrade = [];
   newRows.forEach((row) => {
     const fp = fingerprintRow(row);
     const occ = importCounts.get(fp) || 0;
-    const savedCount = savedCounts.get(fp) || 0;
-    if (occ >= savedCount) {
+    const saved = savedByFp.get(fp) || [];
+    if (occ >= saved.length) {
       toInsert.push(Object.assign({}, row, { fingerprint: fp, importedAt: Date.now() }));
+    } else if (saved[occ].kind === undefined) {
+      // Saved before rows had a kind -- re-uploading the same file fills it in.
+      toUpgrade.push(Object.assign(saved[occ], { kind: row.kind, packed: row.packed }));
     }
     importCounts.set(fp, occ + 1);
   });
   const added = toInsert.length;
   const skipped = newRows.length - added;
+  if (toUpgrade.length) await DB.putRows(toUpgrade);
   if (added > 0) {
     await DB.addRows(toInsert);
     await DB.setSetting("lastUpload", Date.now());
@@ -611,9 +627,27 @@ async function mergeNewRows(newRows) {
 
 async function refreshAllRows() {
   App.allRows = await DB.getAllRows();
+  await scrubSavedRows(App.allRows);
+  indexItems(App.allRows);
+  App.oneOffRows = findOneOffRows(App.allRows);
   App.holidaysMap = holidaysForRows(App.allRows);
   await refreshDayNotes();
   await refreshCustomHolidays();
+}
+
+// Rows saved before names were masked at upload (e.g. a payment link's
+// "Traveler Name: ...") get masked in place, once, so the saved copy keeps
+// the "Private to you" promise too. The fingerprint is recomputed so a later
+// re-upload of the same file still recognizes them as duplicates.
+async function scrubSavedRows(rows) {
+  const changed = rows.filter((r) => {
+    const masked = maskPersonalInfo(r.item) || "Payment";
+    if (masked === r.item) return false;
+    r.item = masked;
+    r.fingerprint = fingerprintRow(r);
+    return true;
+  });
+  if (changed.length) await DB.putRows(changed);
 }
 
 async function refreshDayNotes() {
@@ -638,11 +672,24 @@ function weatherAt(dateStr) {
 // ---------- Date range filter ----------
 // Applies the date-range selector AND drops rows on dates tagged "closed" in
 // Day Notes, since a closed day shouldn't count toward any average.
+// With "Exclude one-off payments" on (the default), payment links and
+// unusually large tickets (see findOneOffRows) are left out too, so every
+// KPI, chart, insight and detail page reflects normal day-to-day selling.
 function getFilteredRows() {
   const ranged = filterByRange(App.allRows, App.rangeMode);
   const closed = closedDates();
-  if (closed.size === 0) return ranged;
-  return ranged.filter((r) => !closed.has(r.date));
+  return ranged.filter((r) => !closed.has(r.date) && !(App.excludeOneOffs && App.oneOffRows.has(r)));
+}
+
+// One-off payments inside the selected range (whether or not they're hidden).
+function oneOffRowsInRange() {
+  return filterByRange(App.allRows, App.rangeMode).filter((r) => App.oneOffRows.has(r));
+}
+
+// Calendar days in the selected range per weekday (closed days skipped) --
+// the denominator for "average sales per Saturday" style charts.
+function rangeWeekdayOccurrences() {
+  return weekdayOccurrences(rangeBounds(App.allRows, App.rangeMode), closedDates());
 }
 
 function maturityWeeks(rows) {
@@ -655,21 +702,35 @@ function maturityLabel(weeks) {
 }
 
 function renderRangeSelector() {
+  const oneOffs = oneOffRowsInRange();
+  const oneOffTotal = oneOffs.reduce((s, r) => s + rowRevenue(r), 0);
   return `
     <div class="date-range-row">
       <label for="rangeSelect">${esc(t("rangeLabel"))}</label>
       <select id="rangeSelect">
         <option value="4weeks" ${App.rangeMode === "4weeks" ? "selected" : ""}>${esc(t("range4weeks"))}</option>
         <option value="8weeks" ${App.rangeMode === "8weeks" ? "selected" : ""}>${esc(t("range8weeks"))}</option>
+        <option value="year" ${App.rangeMode === "year" ? "selected" : ""}>${esc(t("rangeThisYear"))}</option>
         <option value="all" ${App.rangeMode === "all" ? "selected" : ""}>${esc(t("rangeAll"))}</option>
       </select>
-    </div>`;
+      <label class="one-off-toggle">
+        <input type="checkbox" id="excludeOneOffsToggle" ${App.excludeOneOffs ? "checked" : ""} />
+        ${esc(t("excludeOneOffsLabel"))}
+      </label>
+    </div>
+    ${oneOffs.length ? `<p class="chart-meta">${esc(t(App.excludeOneOffs ? "excludeOneOffsHiddenNote" : "excludeOneOffsShownNote", { count: oneOffs.length, amount: formatMoney(oneOffTotal) }))}</p>` : ""}`;
 }
 
 function wireRangeSelector(onChange) {
   const sel = document.getElementById("rangeSelect");
   if (sel) sel.addEventListener("change", (e) => {
     App.rangeMode = e.target.value;
+    onChange();
+  });
+  const toggle = document.getElementById("excludeOneOffsToggle");
+  if (toggle) toggle.addEventListener("change", async (e) => {
+    App.excludeOneOffs = e.target.checked;
+    await DB.setSetting("excludeOneOffs", App.excludeOneOffs);
     onChange();
   });
 }
@@ -1447,13 +1508,19 @@ App.renderDashboard = function () {
   const hasActiveFilter = App.dashboardFilterDow !== null || App.dashboardFilterHour !== null;
 
   const summary = computeSummary(crossRows);
+  // Hour/day charts show the average per calendar day (per Saturday, etc.)
+  // in the range, so a weekday that happens to occur more often in the
+  // window isn't over-represented. Totals stay in the tooltips.
+  const occurrences = rangeWeekdayOccurrences();
+  const hourDays = App.dashboardFilterDow === null ? occurrences.reduce((s, c) => s + c, 0) : occurrences[App.dashboardFilterDow];
   const hourTotals = salesByHour(hourAxisRows);
-  const { totals: dowTotals } = salesByDow(dowAxisRows);
+  const hourAvgs = hourTotals.map((v) => (hourDays ? v / hourDays : 0));
+  const { totals: dowTotals, averages: dowAvgs, dayCounts: dowDayCounts } = salesByDow(dowAxisRows, occurrences);
   const hourTotalsForStat = salesByHour(crossRows);
   const byWeek = salesByWeek(crossRows);
   const showTrend = weeks >= 3 && byWeek.length >= 3;
 
-  const bestDowIdx = dowTotals.indexOf(Math.max(...dowTotals));
+  const bestDowIdx = dowAvgs.indexOf(Math.max(...dowAvgs));
   const busiestHourIdx = hourTotalsForStat.some((v) => v > 0) ? hourTotalsForStat.indexOf(Math.max(...hourTotalsForStat)) : 0;
   const top2HourIdx = hourTotals.map((v, i) => [i, v]).sort((a, b) => b[1] - a[1]).slice(0, 2).map((x) => x[0]);
 
@@ -1485,14 +1552,14 @@ App.renderDashboard = function () {
       ${hasTime ? `
       <div class="card chart-card">
         <h3>${esc(t("chartHoursTitle"))}</h3>
-        <div class="chart-meta">${esc(maturityLabel(weeks))}</div>
+        <div class="chart-meta">${esc(maturityLabel(weeks))} &middot; ${esc(t("chartAvgPerDayNote"))}</div>
         <div class="chart-canvas-wrap"><canvas id="chart-hours" aria-label="${esc(t("chartHoursTitle"))}" role="img"></canvas></div>
         <a class="see-details-link" href="#/hours">${esc(t("seeDetails"))}</a>
       </div>` : ""}
 
       <div class="card chart-card">
         <h3>${esc(t("chartDaysTitle"))}</h3>
-        <div class="chart-meta">${esc(maturityLabel(weeks))}</div>
+        <div class="chart-meta">${esc(maturityLabel(weeks))} &middot; ${esc(t("chartAvgPerDayNote"))}</div>
         <div class="chart-canvas-wrap"><canvas id="chart-days" aria-label="${esc(t("chartDaysTitle"))}" role="img"></canvas></div>
         <a class="see-details-link" href="#/days">${esc(t("seeDetails"))}</a>
       </div>
@@ -1584,28 +1651,30 @@ App.renderDashboard = function () {
   }
 
   if (hasTime) {
-    renderBarChart("chart-hours", Array.from({ length: 24 }, (_, i) => formatHourLabel(i)), hourTotals, {
+    renderBarChart("chart-hours", Array.from({ length: 24 }, (_, i) => formatHourLabel(i)), hourAvgs, {
       highlightIndexes: top2HourIdx,
       selectedIndex: App.dashboardFilterHour,
       onClick: barClickToggle(() => App.dashboardFilterHour, (v) => { App.dashboardFilterHour = v; }),
-      xAxisLabel: t("axisHourOfDay"), yAxisLabel: t("axisSales"),
-      averageLine: avgOfActive(hourTotals), averageLineLabel: t("legendAverageLine"),
+      tooltipFormatter: (ctx) => t("tooltipAvgAndTotal", { avg: formatMoney2(hourAvgs[ctx.dataIndex]), total: formatMoney(hourTotals[ctx.dataIndex]), count: hourDays }),
+      xAxisLabel: t("axisHourOfDay"), yAxisLabel: t("axisAvgSales"),
+      averageLine: avgOfActive(hourAvgs), averageLineLabel: t("legendAverageLine"),
     });
     attachChartLegend("chart-hours", [
-      { color: COLORS.amber, label: t("legendBusiestHours") },
+      { color: COLORS.amber, label: t("legendBusiestHoursAvg") },
       { color: COLORS.slate, label: t("legendClickToFilter") },
       { color: COLORS.muted, label: t("legendAverageLine") },
     ]);
   }
-  renderBarChart("chart-days", Array.from({ length: 7 }, (_, i) => dayShort(i)), dowTotals, {
+  renderBarChart("chart-days", Array.from({ length: 7 }, (_, i) => dayShort(i)), dowAvgs, {
     highlightIndexes: [bestDowIdx],
     selectedIndex: App.dashboardFilterDow,
     onClick: barClickToggle(() => App.dashboardFilterDow, (v) => { App.dashboardFilterDow = v; }),
-    xAxisLabel: t("axisDayOfWeek"), yAxisLabel: t("axisSales"),
-    averageLine: avgOfActive(dowTotals), averageLineLabel: t("legendAverageLine"),
+    tooltipFormatter: (ctx) => t("tooltipAvgAndTotal", { avg: formatMoney2(dowAvgs[ctx.dataIndex]), total: formatMoney(dowTotals[ctx.dataIndex]), count: dowDayCounts[ctx.dataIndex] }),
+    xAxisLabel: t("axisDayOfWeek"), yAxisLabel: t("axisAvgSales"),
+    averageLine: avgOfActive(dowAvgs), averageLineLabel: t("legendAverageLine"),
   });
   attachChartLegend("chart-days", [
-    { color: COLORS.amber, label: t("legendBusiestDayTotal") },
+    { color: COLORS.amber, label: t("legendBestDayAverage") },
     { color: COLORS.slate, label: t("legendClickToFilter") },
     { color: COLORS.muted, label: t("legendAverageLine") },
   ]);
@@ -1810,7 +1879,7 @@ App.renderDaysDetail = function () {
   const root = document.getElementById("view-root");
   const rows = getFilteredRows();
   const weeks = maturityWeeks(rows);
-  const { totals, averages } = salesByDow(rows);
+  const { totals, averages } = salesByDow(rows, rangeWeekdayOccurrences());
   const bestIdx = averages.indexOf(Math.max(...averages));
   const worstIdx = averages.indexOf(Math.min(...averages));
   const pct = averages[worstIdx] > 0 ? Math.round(((averages[bestIdx] - averages[worstIdx]) / averages[worstIdx]) * 100) : 0;
@@ -1821,8 +1890,8 @@ App.renderDaysDetail = function () {
 
     <div class="toggle-row">
       <div class="toggle-group" role="group">
-        <button type="button" data-mode="total" class="active">${esc(t("daysShowTotal"))}</button>
-        <button type="button" data-mode="average">${esc(t("daysShowAverage"))}</button>
+        <button type="button" data-mode="average" class="active">${esc(t("daysShowAverage"))}</button>
+        <button type="button" data-mode="total">${esc(t("daysShowTotal"))}</button>
       </div>
       <div class="toggle-group" role="group" aria-label="${esc(t("chartTypeToggleLabel"))}">
         <button type="button" data-chart-type="bar" class="${App.daysChartType === "bar" ? "active" : ""}">${esc(t("chartTypeBar"))}</button>
@@ -1849,7 +1918,7 @@ App.renderDaysDetail = function () {
     </div>
   `;
 
-  let mode = "total";
+  let mode = "average";
   const dayLabels = Array.from({ length: 7 }, (_, i) => dayShort(i));
   const draw = () => {
     const data = mode === "total" ? totals : averages;
@@ -1881,34 +1950,78 @@ App.renderDaysDetail = function () {
 };
 
 // ---------- Detail: Items ----------
+// Works on item rows (js/square-items.js): a Square receipt is split into
+// its items, any other file's rows are already one item each.
 App.renderItemsDetail = function () {
   const root = document.getElementById("view-root");
   const rows = getFilteredRows();
   const weeks = maturityWeeks(rows);
-  const { top, all } = topItems(rows, 5);
-  const totalQty = all.reduce((s, x) => s + x.quantity, 0);
-  const pct = totalQty > 0 ? Math.round((top.reduce((s, x) => s + x.quantity, 0) / totalQty) * 100) : 0;
-  const rareCount = all.filter((x) => x.quantity <= 3).length;
+  const allItems = itemRowsFor(rows);
+  const channels = Array.from(new Set(allItems.map((it) => it.channel).filter(Boolean))).sort();
+  if (!channels.includes(App.itemsChannel)) App.itemsChannel = "";
+  if (App.itemsGroup === "channel" && !channels.length) App.itemsGroup = "item";
+  const items = App.itemsChannel ? allItems.filter((it) => it.channel === App.itemsChannel) : allItems;
+  const groupKeys = {
+    item: (it) => it.name,
+    variation: (it) => (it.variation ? `${it.name} (${it.variation})` : it.name),
+    channel: (it) => it.channel || t("itemsChannelNone"),
+  };
+  const groups = summarize(items, groupKeys[App.itemsGroup]);
+  const byUnits = groups.slice().sort((a, b) => b.units - a.units);
+  const totalUnits = groups.reduce((s, g) => s + g.units, 0);
+  const totalRevenue = groups.reduce((s, g) => s + g.revenue, 0);
+  const topUnitsPct = totalUnits > 0 ? Math.round((byUnits.slice(0, 5).reduce((s, g) => s + g.units, 0) / totalUnits) * 100) : 0;
+  const rareCount = groups.filter((g) => g.units <= 3).length;
+  const hasPacked = rows.some((r) => r.packed);
+  const estBadge = (g) => (g.estimatedUnits > 0 ? `<span class="est-badge" title="${esc(t("itemsEstimatedTitle", { count: g.estimatedUnits }))}">${esc(t("itemsEstimatedBadge"))}</span>` : "");
 
   root.innerHTML = `
     <a class="see-details-link" href="#/dashboard">${esc(t("backToDashboard"))}</a>
-    <div class="detail-header"><h1>${esc(t("chartItemsTitle"))}</h1><span class="maturity-note">${esc(maturityLabel(weeks))}</span></div>
+    <div class="detail-header"><h1>${esc(t("itemsPageTitle"))}</h1><span class="maturity-note">${esc(maturityLabel(weeks))}</span></div>
+    ${renderRangeSelector()}
 
-    <div class="card"><div class="chart-canvas-wrap tall"><canvas id="chart-items-detail"></canvas></div></div>
+    <div class="toggle-row">
+      <div class="toggle-group" role="group" aria-label="${esc(t("itemsGroupLabel"))}">
+        <button type="button" data-items-group="item" class="${App.itemsGroup === "item" ? "active" : ""}">${esc(t("itemsGroupItem"))}</button>
+        <button type="button" data-items-group="variation" class="${App.itemsGroup === "variation" ? "active" : ""}">${esc(t("itemsGroupVariation"))}</button>
+        ${channels.length ? `<button type="button" data-items-group="channel" class="${App.itemsGroup === "channel" ? "active" : ""}">${esc(t("itemsGroupChannel"))}</button>` : ""}
+      </div>
+      ${channels.length ? `
+      <div class="search-row">
+        <label for="itemChannel">${esc(t("itemsChannelLabel"))}</label>
+        <select id="itemChannel">
+          <option value="">${esc(t("itemsChannelAll"))}</option>
+          ${channels.map((c) => `<option value="${esc(c)}" ${App.itemsChannel === c ? "selected" : ""}>${esc(c)}</option>`).join("")}
+        </select>
+      </div>` : ""}
+    </div>
+    ${hasPacked ? `<p class="chart-meta">${esc(t("itemsReconcileNote", { amount: formatMoney2(totalRevenue) }))}</p>` : ""}
+
+    <div class="chart-grid">
+      <div class="card chart-card">
+        <h3>${esc(t("itemsChartRevenue"))}</h3>
+        <div class="chart-canvas-wrap tall"><canvas id="chart-items-revenue"></canvas></div>
+      </div>
+      <div class="card chart-card">
+        <h3>${esc(t("itemsChartUnits"))}</h3>
+        <div class="chart-canvas-wrap tall"><canvas id="chart-items-units"></canvas></div>
+      </div>
+    </div>
 
     <div class="detail-section"><h2>${esc(t("detailWhatShows"))}</h2><p>${esc(t("itemsWhatShows"))}</p></div>
     <div class="detail-section">
       <h2>${esc(t("detailWhatFound"))}</h2>
       <ul class="finding-list">
-        <li>${esc(t("itemsFinding1", { item: top[0] ? top[0].item : "—", qty: top[0] ? top[0].quantity : 0 }))}</li>
-        <li>${esc(t("itemsFinding2", { pct }))}</li>
+        <li>${esc(t("itemsFinding1", { item: byUnits[0] ? byUnits[0].key : "—", qty: byUnits[0] ? byUnits[0].units : 0 }))}</li>
+        <li>${esc(t("itemsFindingRevenue", { item: groups[0] ? groups[0].key : "—", revenue: formatMoney(groups[0] ? groups[0].revenue : 0) }))}</li>
+        <li>${esc(t("itemsFinding2", { pct: topUnitsPct }))}</li>
         <li>${esc(t("itemsFinding3", { count: rareCount }))}</li>
       </ul>
     </div>
     <div class="detail-section">
       <h2>${esc(t("detailWhatTry"))}</h2>
       <ul class="try-list">
-        <li>${esc(t("itemsTry1", { item: top[0] ? top[0].item : "" }))}</li>
+        <li>${esc(t("itemsTry1", { item: byUnits[0] ? byUnits[0].key : "" }))}</li>
         <li>${esc(t("itemsTry2"))}</li>
       </ul>
     </div>
@@ -1924,29 +2037,58 @@ App.renderItemsDetail = function () {
           <option value="name" ${App.itemsSort === "name" ? "selected" : ""}>${esc(t("itemsSortName"))}</option>
         </select>
       </div>
-      <table class="data-table">
+      ${App.itemsGroup === "item" ? `<p class="match-note">${esc(t("itemsDrillHint"))}</p>` : ""}
+      <table class="data-table items-table">
         <thead><tr><th>${esc(t("itemsColItem"))}</th><th>${esc(t("itemsColQty"))}</th><th>${esc(t("itemsColRevenue"))}</th></tr></thead>
         <tbody id="itemsTableBody"></tbody>
       </table>
     </div>
   `;
 
-  renderBarChart("chart-items-detail", top.map((x) => x.item), top.map((x) => x.quantity), {
+  const topRevenue = groups.slice(0, 8);
+  const topUnits = byUnits.slice(0, 8);
+  renderBarChart("chart-items-revenue", topRevenue.map((g) => g.key), topRevenue.map((g) => g.revenue), {
+    horizontal: true, xAxisLabel: t("axisSales"), yAxisLabel: t("axisItem"),
+  });
+  renderBarChart("chart-items-units", topUnits.map((g) => g.key), topUnits.map((g) => g.units), {
     horizontal: true, xAxisLabel: t("axisOrderCount"), yAxisLabel: t("axisItem"),
+    tooltipFormatter: (ctx) => t("itemsUnitsTooltip", { count: ctx.parsed.x.toLocaleString() }),
   });
 
   function renderTable() {
-    let list = all.filter((x) => x.item.toLowerCase().includes(App.itemsSearch.toLowerCase()));
-    list = list.slice().sort((a, b) => {
-      if (App.itemsSort === "name") return a.item.localeCompare(b.item);
+    const search = App.itemsSearch.toLowerCase();
+    const list = groups.filter((g) => g.key.toLowerCase().includes(search)).sort((a, b) => {
+      if (App.itemsSort === "name") return a.key.localeCompare(b.key);
       if (App.itemsSort === "revenue") return b.revenue - a.revenue;
-      return b.quantity - a.quantity;
+      return b.units - a.units;
     });
-    document.getElementById("itemsTableBody").innerHTML = list.map((x) => `
-      <tr><td>${esc(x.item)}</td><td>${x.quantity}</td><td>${formatMoney2(x.revenue)}</td></tr>
-    `).join("");
+    const canDrill = App.itemsGroup === "item";
+    document.getElementById("itemsTableBody").innerHTML = list.map((g, i) => {
+      const expanded = canDrill && App.itemsExpanded === g.key;
+      const variations = expanded ? summarize(items.filter((it) => it.name === g.key), (it) => it.variation || "—") : [];
+      return `
+        <tr ${canDrill ? `data-item="${i}" tabindex="0" aria-expanded="${expanded}"` : ""}>
+          <td>${canDrill ? (expanded ? "▾ " : "▸ ") : ""}${esc(g.key)}${estBadge(g)}</td><td>${g.units.toLocaleString()}</td><td>${formatMoney2(g.revenue)}</td>
+        </tr>
+        ${variations.map((v) => `<tr class="variation-row"><td>${esc(v.key)}${estBadge(v)}</td><td>${v.units.toLocaleString()}</td><td>${formatMoney2(v.revenue)}</td></tr>`).join("")}`;
+    }).join("");
+    document.querySelectorAll("#itemsTableBody tr[data-item]").forEach((tr) => {
+      const key = list[Number(tr.dataset.item)].key;
+      const toggle = () => {
+        App.itemsExpanded = App.itemsExpanded === key ? null : key;
+        renderTable();
+      };
+      tr.addEventListener("click", toggle);
+      tr.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(); } });
+    });
   }
   renderTable();
+  wireRangeSelector(() => App.renderItemsDetail());
+  root.querySelectorAll("[data-items-group]").forEach((btn) => {
+    btn.addEventListener("click", () => { App.itemsGroup = btn.dataset.itemsGroup; App.itemsExpanded = null; App.renderItemsDetail(); });
+  });
+  const channelSel = document.getElementById("itemChannel");
+  if (channelSel) channelSel.addEventListener("change", (e) => { App.itemsChannel = e.target.value; App.renderItemsDetail(); });
   document.getElementById("itemSearch").addEventListener("input", (e) => { App.itemsSearch = e.target.value; renderTable(); });
   document.getElementById("itemSort").addEventListener("change", (e) => { App.itemsSort = e.target.value; renderTable(); });
 };
@@ -3097,6 +3239,8 @@ async function initApp() {
     App.weatherUnits = savedWeatherUnits || { temp: App.lang === "zh" ? "C" : "F", precip: App.lang === "zh" ? "mm" : "in" };
     const savedShowSunset = await DB.getSetting("showSunsetOnTrend");
     App.showSunsetOnTrend = !!savedShowSunset;
+    const savedExcludeOneOffs = await DB.getSetting("excludeOneOffs");
+    App.excludeOneOffs = savedExcludeOneOffs === undefined ? true : !!savedExcludeOneOffs;
     App.customerIdColumnName = (await DB.getSetting("customerIdColumnName")) || null;
     App.customerSummaryRows = await DB.getAllCustomerSummary();
     App.hasSeenIntro = !!(await DB.getSetting("hasSeenIntro"));

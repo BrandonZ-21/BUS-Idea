@@ -1,0 +1,3 @@
+# Real register exports contain customer names, card digits and staff names.
+# Keep them out of git -- Cloudflare Pages publishes everything in the repo.
+tests/private/

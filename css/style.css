@@ -405,7 +405,15 @@ main { max-width: 1080px; margin: 0 auto; padding: 28px 20px 60px; }
 
 .date-range-row { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
 .date-range-row select { padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--card); color: var(--text); }
+.date-range-row + .chart-meta { margin-top: -12px; margin-bottom: 16px; }
+.one-off-toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 0.88rem; color: var(--muted); margin-left: 8px; }
 .maturity-note { font-size: 0.72rem; color: var(--muted); }
+
+/* Items page */
+.items-table tbody tr[data-item] { cursor: pointer; }
+.items-table tr.variation-row td { font-size: 0.85rem; color: var(--muted); background: var(--bg); }
+.items-table tr.variation-row td:first-child { padding-left: 28px; }
+.est-badge { display: inline-block; margin-left: 6px; padding: 0 6px; border-radius: 6px; font-size: 0.72rem; background: var(--amber-light); color: var(--text); cursor: help; }
 
 .site-footer { text-align: center; color: var(--muted); font-size: 0.8rem; padding: 20px; }
 .footer-privacy-note {

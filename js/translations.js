@@ -120,7 +120,36 @@ const TRANSLATIONS = {
     rangeLabel: "Show:",
     range4weeks: "Last 4 weeks",
     range8weeks: "Last 8 weeks",
+    rangeThisYear: "This year",
     rangeAll: "All time",
+
+    // One-off payments (payment links, unusually large tickets)
+    excludeOneOffsLabel: "Exclude one-off payments",
+    excludeOneOffsHiddenNote: "Hiding {count} one-off payments ({amount}) in this range: payment links and unusually large tickets.",
+    excludeOneOffsShownNote: "Including {count} one-off payments ({amount}). They can make an hour or day look busier than it really is.",
+    chartAvgPerDayNote: "Average per day (hover for totals)",
+    tooltipAvgAndTotal: "Avg {avg} per day · Total {total} over {count} days",
+    axisAvgSales: "Avg sales per day ($)",
+    legendBusiestHoursAvg: "Your 2 busiest hours (highest average)",
+    matchSquareDetected: "Square Transactions export detected. Card digits, staff names and customer columns were removed before anything else read the file, and names typed into payment descriptions are masked.",
+
+    // Items page (item-level view of receipts)
+    itemsPageTitle: "Items",
+    itemsGroupLabel: "Group by",
+    itemsGroupItem: "Items",
+    itemsGroupVariation: "Flavors / variations",
+    itemsGroupChannel: "Channels",
+    itemsChannelLabel: "Channel",
+    itemsChannelAll: "All channels",
+    itemsChannelNone: "No channel",
+    itemsReconcileNote: "Your register exports one line per receipt, so each item's share is worked out from single-item sales of the same item (same day when possible). Item revenue adds up exactly to your receipts: {amount}.",
+    itemsChartRevenue: "Top items by revenue",
+    itemsChartUnits: "Top items by units sold",
+    itemsUnitsTooltip: "{count} sold",
+    itemsFindingRevenue: "{item} brings in the most money: {revenue}.",
+    itemsDrillHint: "Click an item to see its flavors / variations.",
+    itemsEstimatedBadge: "est.",
+    itemsEstimatedTitle: "Estimated price: {count} of these were sold on mixed receipts with no matching single-item sale, so their share of the receipt is an estimate.",
 
     // Data maturity notes
     basedOnWeeks: "Based on {weeks} weeks of data",
@@ -265,7 +294,7 @@ const TRANSLATIONS = {
     hoursTry2: "Try a small promotion during {startHour}–{endHour} to bring in more traffic.",
 
     // Detail pages: days
-    daysWhatShows: "This chart shows total sales for each day of the week, added across your selected range. The line/marker for average shows what a typical day of that type looks like, since some weekdays may repeat more often than others.",
+    daysWhatShows: "This chart shows average sales for each day of the week: the total for that weekday divided by how many of them were in your selected range, so a weekday that happens to repeat more often isn't over-counted. Switch to \"Total sales\" to see the plain totals.",
     daysShowTotal: "Total sales",
     daysShowAverage: "Average per day",
     daysFinding1: "{bestDay} is your best day, averaging {avg} per day.",
@@ -274,7 +303,7 @@ const TRANSLATIONS = {
     daysTry2: "A weekday promotion on {slowestDay} could help even out demand.",
 
     // Detail pages: items
-    itemsWhatShows: "This chart ranks your menu items by how many were sold. Longer bars mean the item sold more often.",
+    itemsWhatShows: "These charts rank your items by the money they brought in and by how many were sold. Group by flavor/variation or by channel to dig deeper.",
     itemsSearchLabel: "Search items",
     itemsSortLabel: "Sort by",
     itemsSortQty: "Quantity sold",
@@ -730,7 +759,34 @@ const TRANSLATIONS = {
     rangeLabel: "显示：",
     range4weeks: "最近 4 周",
     range8weeks: "最近 8 周",
+    rangeThisYear: "今年",
     rangeAll: "全部时间",
+
+    excludeOneOffsLabel: "排除一次性付款",
+    excludeOneOffsHiddenNote: "此范围内已隐藏 {count} 笔一次性付款（{amount}）：付款链接和异常大额的订单。",
+    excludeOneOffsShownNote: "已包含 {count} 笔一次性付款（{amount}）。它们可能让某个时段或某天看起来比实际更忙。",
+    chartAvgPerDayNote: "按每天平均（悬停查看总额）",
+    tooltipAvgAndTotal: "平均每天 {avg} · 共 {count} 天总计 {total}",
+    axisAvgSales: "日均销售额（$）",
+    legendBusiestHoursAvg: "你最忙的 2 个小时（平均值最高）",
+    matchSquareDetected: "已识别为 Square 交易导出文件。卡号尾数、员工姓名和顾客信息列在读取前已被删除，付款描述中填写的姓名也已隐藏。",
+
+    itemsPageTitle: "商品",
+    itemsGroupLabel: "分组方式",
+    itemsGroupItem: "商品",
+    itemsGroupVariation: "口味 / 规格",
+    itemsGroupChannel: "销售点",
+    itemsChannelLabel: "销售点",
+    itemsChannelAll: "全部销售点",
+    itemsChannelNone: "未注明销售点",
+    itemsReconcileNote: "你的收银系统每张小票只导出一行，所以每件商品的金额是根据同一商品的单品销售（尽量取同一天）推算的。商品销售额与小票总额完全一致：{amount}。",
+    itemsChartRevenue: "销售额最高的商品",
+    itemsChartUnits: "销量最高的商品",
+    itemsUnitsTooltip: "卖出 {count} 件",
+    itemsFindingRevenue: "{item} 带来的收入最多：{revenue}。",
+    itemsDrillHint: "点击商品查看其口味 / 规格。",
+    itemsEstimatedBadge: "估算",
+    itemsEstimatedTitle: "估算价格：其中 {count} 件是在混合小票中售出的，且没有可对照的单品销售，所以它在小票中的金额是估算的。",
 
     basedOnWeeks: "基于 {weeks} 周的数据",
     basedOnWeek1: "基于 1 周的数据",
@@ -868,7 +924,7 @@ const TRANSLATIONS = {
     hoursTry1: "在 {hour1} 和 {hour2} 安排经验最丰富的员工。",
     hoursTry2: "在 {startHour}–{endHour} 推出小促销活动来吸引更多客人。",
 
-    daysWhatShows: "这个图表显示了一周中每天的总销售额。平均值可以让你看到典型的一天是什么样子，因为有些星期出现的次数可能不一样。",
+    daysWhatShows: "这个图表显示一周中每天的平均销售额：该星期几的总额除以所选范围内它出现的天数，这样出现次数较多的星期几不会被多算。切换到“总销售额”可查看原始总额。",
     daysShowTotal: "总销售额",
     daysShowAverage: "每天平均",
     daysFinding1: "{bestDay}是你最好的一天，平均每天 {avg}。",
@@ -876,7 +932,7 @@ const TRANSLATIONS = {
     daysTry1: "可以在{bestDay}增加人手或推出特价，充分利用客流。",
     daysTry2: "在{slowestDay}做个工作日促销，有助于均衡需求。",
 
-    itemsWhatShows: "这个图表按销售数量对你的菜单项目进行排序。条形图越长，说明该商品卖得越多。",
+    itemsWhatShows: "这些图表按带来的收入和卖出的数量对你的商品排序。可以按口味/规格或销售点分组，进一步查看。",
     itemsSearchLabel: "搜索商品",
     itemsSortLabel: "排序方式",
     itemsSortQty: "销售数量",
