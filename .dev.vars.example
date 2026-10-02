@@ -14,3 +14,7 @@ TOKEN_ENCRYPTION_KEY=
 
 # Random 32-byte key, base64. Signs the OAuth `state` value / cookies. See SETUP.md for the command.
 STATE_SIGNING_KEY=
+
+# Optional, not a secret: set to on to count anonymous usage steps locally for the founder
+# dashboard (stored in your LOCAL test database only). Leave it out to keep counting off.
+# USAGE_EVENTS=on

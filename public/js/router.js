@@ -16,6 +16,7 @@ const ROUTES = {
   "#/ask": "renderAsk",
   "#/customers": "renderCustomers",
   "#/grow": "renderGrow",
+  "#/founder": "renderFounder", // admin only -- enforced by /api/admin/usage, not by this table
 };
 
 // Returns the current hash if it's a real route, or null if it's empty/
@@ -36,7 +37,8 @@ function dispatchRoute() {
   const hasData = App.allRows.length > 0;
   let route = currentRouteName();
   if (route === null) route = hasData ? "" : "#/home";
-  if (!hasData && route !== "#/home") route = "#/home";
+  // The founder dashboard shows site-wide counts, so it works without sales on this device.
+  if (!hasData && route !== "#/home" && route !== "#/founder") route = "#/home";
 
   if (window.location.hash !== route) {
     window.location.hash = route; // triggers another hashchange -> dispatchRoute runs again with the corrected hash

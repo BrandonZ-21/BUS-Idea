@@ -6,9 +6,10 @@
   "type": "module",
   "scripts": {
     "dev": "wrangler pages dev",
-    "test": "node --test tests/square-server.test.mjs tests/accounts-unit.test.mjs",
+    "test": "node --test tests/square-server.test.mjs tests/accounts-unit.test.mjs tests/usage-unit.test.mjs",
     "test:flow": "node --test --test-concurrency=1 tests/square-flow.test.mjs",
     "test:accounts": "node --test --test-concurrency=1 tests/accounts-flow.test.mjs",
+    "test:usage": "node --test --test-concurrency=1 tests/usage-flow.test.mjs",
     "accounts:list:local": "node scripts/set-role.mjs --local --list",
     "db:migrate:local": "wrangler d1 migrations apply counter-db --local",
     "db:migrate:remote": "wrangler d1 migrations apply counter-db --remote"

@@ -52,6 +52,8 @@ const App = {
   customerIdColumnName: null, // the header name last used for hashed customer tracking, shown on the privacy disclosure only
   customerSummaryRows: [], // optional, already-aggregated monthly new/returning report -- a separate data source from hashed per-transaction rows, see js/customer-summary.js
   hasSeenIntro: false, // whether the first-visit explainer overlay has ever been dismissed
+  pendingSource: null, // "own" | "sample" -- where the file being matched came from (founder-dashboard counting only)
+  dataSource: null, // "own" once the owner's own file/Square data is saved here, "sample" if only samples, null if unknown
 };
 
 function closedDates() {
@@ -164,6 +166,8 @@ function renderNav() {
     ["#/grow", "navGrow"],
     ["#/data", "navData"],
   ];
+  // Convenience only -- the server refuses the dashboard's data to non-admins.
+  if (Account.me && Account.me.role === "admin") items.push(["#/founder", "navFounder"]);
   document.getElementById("mainNav").innerHTML = items
     .map(([href, key]) => `<a href="${href}">${esc(t(key))}</a>`)
     .join("");
@@ -385,15 +389,25 @@ function fileExt(name) {
 const EXCEL_EXTENSIONS = ["xlsx", "xls", "xlsm"];
 const TEXT_EXTENSIONS = ["csv", "tsv", "txt"];
 
+// Shows an upload error and, for the owner's own file (not the samples),
+// counts it for the founder dashboard -- only the fixed reason code, never
+// anything from the file. See js/usage.js.
+function uploadFailed(reason, message) {
+  showError(message);
+  if (App.pendingSource === "own") Usage.track("upload_failed", { reason, source: "own" });
+}
+
 function handleFile(file) {
   clearError();
+  App.pendingSource = "own";
+  Usage.track("upload_started", { source: "own" });
   const ext = fileExt(file.name);
   if (EXCEL_EXTENSIONS.includes(ext)) {
     parseExcelFile(file);
   } else if (TEXT_EXTENSIONS.includes(ext) || !ext) {
     parseTextFile(file);
   } else {
-    showError(t("errorFileType"));
+    uploadFailed("unsupported_type", t("errorFileType"));
   }
 }
 
@@ -402,7 +416,7 @@ function parseTextFile(file) {
     header: true,
     skipEmptyLines: true,
     complete: onParsed,
-    error: () => showError(t("errorParse")),
+    error: () => uploadFailed("read_error", t("errorParse")),
   });
 }
 
@@ -416,15 +430,17 @@ function parseExcelFile(file) {
       const fields = rows.length ? Object.keys(rows[0]) : [];
       onParsed({ data: rows, meta: { fields } });
     } catch (err) {
-      showError(t("errorParse"));
+      uploadFailed("read_error", t("errorParse"));
     }
   };
-  reader.onerror = () => showError(t("errorParse"));
+  reader.onerror = () => uploadFailed("read_error", t("errorParse"));
   reader.readAsArrayBuffer(file);
 }
 
 function loadSampleFile(path) {
   clearError();
+  App.pendingSource = "sample";
+  Usage.track("sample_loaded", { source: "sample" });
   fetch(path)
     .then((r) => {
       if (!r.ok) throw new Error("fetch failed");
@@ -439,12 +455,12 @@ function loadSampleFile(path) {
 
 function onParsed(results) {
   if (!results || results.errors && results.errors.length && (!results.data || !results.data.length)) {
-    showError(t("errorParse"));
+    uploadFailed("read_error", t("errorParse"));
     return;
   }
-  if (!results.data || !results.data.length) { showError(t("errorEmpty")); return; }
+  if (!results.data || !results.data.length) { uploadFailed("empty_file", t("errorEmpty")); return; }
   const parsedHeaders = results.meta && results.meta.fields ? results.meta.fields : Object.keys(results.data[0]);
-  if (!parsedHeaders.length) { showError(t("errorParse")); return; }
+  if (!parsedHeaders.length) { uploadFailed("read_error", t("errorParse")); return; }
   // Card digits, staff names (and, for Square, customer columns) are removed
   // here, before the column-matching screen or anything else can see them.
   const { headers, dataRows: data, square } = stripSensitiveColumns(parsedHeaders, results.data);
@@ -536,18 +552,20 @@ async function getOrCreateCustomerSalt() {
 // isn't very actionable. This looks at the actual mapped values to say
 // specifically what went wrong -- most often a date column whose values
 // aren't a full day (e.g. "2021-01", a month only).
+// Returns { reason, message }: the reason is a fixed code for the founder
+// dashboard, the message is what the owner sees.
 function explainWhyNoValidRows(dataRows, mapping) {
-  if (!mapping.item) return t("errorNoValidRowsNoItemColumn");
+  if (!mapping.item) return { reason: "no_item_column", message: t("errorNoValidRowsNoItemColumn") };
   const sampleDateRaw = mapping.date ? dataRows.map((r) => r[mapping.date]).find((v) => v) : null;
   if (sampleDateRaw) {
     const { date } = parseDateString(sampleDateRaw);
-    if (!date) return t("errorNoValidRowsBadDateSample", { sample: String(sampleDateRaw) });
+    if (!date) return { reason: "bad_date", message: t("errorNoValidRowsBadDateSample", { sample: String(sampleDateRaw) }) };
   }
   const samplePriceRaw = mapping.price ? dataRows.map((r) => r[mapping.price]).find((v) => v !== "" && v !== null && v !== undefined) : null;
   if (samplePriceRaw !== null && samplePriceRaw !== undefined) {
-    if (parsePrice(samplePriceRaw) === null) return t("errorNoValidRowsBadPriceSample", { sample: String(samplePriceRaw) });
+    if (parsePrice(samplePriceRaw) === null) return { reason: "bad_price", message: t("errorNoValidRowsBadPriceSample", { sample: String(samplePriceRaw) }) };
   }
-  return t("errorNoValidRows");
+  return { reason: "no_valid_rows", message: t("errorNoValidRows") };
 }
 
 async function confirmMatch() {
@@ -558,14 +576,15 @@ async function confirmMatch() {
     mapping[field] = val || null;
   });
   if (!mapping.date || !mapping.price) {
-    showError(t("errorMissingRequired"));
+    uploadFailed("missing_columns", t("errorMissingRequired"));
     return;
   }
   try {
     const customerSalt = mapping.customerId ? await getOrCreateCustomerSalt() : null;
     const { rows, badCount } = await buildRows(p.dataRows, mapping, customerSalt, { square: p.square });
     if (!rows.length) {
-      showError(explainWhyNoValidRows(p.dataRows, mapping));
+      const why = explainWhyNoValidRows(p.dataRows, mapping);
+      uploadFailed(why.reason, why.message);
       return;
     }
     await DB.setSetting("format:" + p.signature, mapping);
@@ -574,7 +593,10 @@ async function confirmMatch() {
       App.customerIdColumnName = mapping.customerId;
     }
     App.pendingParse = null;
-    await mergeNewRows(rows);
+    const source = App.pendingSource === "sample" ? "sample" : "own";
+    const added = await mergeNewRows(rows);
+    Usage.track("upload_ok", { source });
+    await noteDataSource(source, added);
     clearError();
     location.hash = App.matchReturnHash;
     App.matchReturnHash = "#/dashboard";
@@ -585,8 +607,19 @@ async function confirmMatch() {
     // page loaded or the location was set.
     if (App.weatherEnabled && App.weatherLocation) refreshWeatherIfNeeded();
   } catch (err) {
-    showError(t("errorGeneric"));
+    uploadFailed("error", t("errorGeneric"));
   }
+}
+
+// Remembers whether this device holds the owner's own data or only a sample
+// (so "report viewed" can be counted as own vs sample), and counts new own
+// data for the "came back with new data" signal. Kept in this device's
+// settings; "Delete all my data" clears it.
+async function noteDataSource(source, added) {
+  if (source !== "sample") App.dataSource = "own";
+  else if (App.dataSource !== "own") App.dataSource = "sample";
+  await DB.setSetting("dataSource", App.dataSource);
+  if (added > 0 && source !== "sample") Usage.track("data_added", { source });
 }
 
 // ---------- Merge / dedupe ----------
@@ -629,6 +662,7 @@ async function mergeNewRows(newRows, opts = {}) {
     showMergeBanner(t("mergeSummary", { added, skipped }));
   }
   await refreshAllRows();
+  return added;
 }
 
 async function refreshAllRows() {
@@ -1498,6 +1532,7 @@ function generateInsights(rows) {
 App.renderDashboard = function () {
   const root = document.getElementById("view-root");
   const rows = getFilteredRows();
+  Usage.trackOnce("report_viewed", { source: App.dataSource || "unknown" });
   const weeks = maturityWeeks(rows);
   const thin = weeks < 2;
   const hasTime = rows.some((r) => r.time);
@@ -3124,6 +3159,8 @@ App.renderData = function () {
 
 async function deleteAllData() {
   await DB.clearAll();
+  Usage.reset(); // settings are gone, so the next event gets a brand-new random browser id
+  App.dataSource = null;
   App.ignoreHolidays = true;
   App.weatherEnabled = false;
   App.weatherLocation = null;
@@ -3255,6 +3292,7 @@ async function initApp() {
     App.customerIdColumnName = (await DB.getSetting("customerIdColumnName")) || null;
     App.customerSummaryRows = await DB.getAllCustomerSummary();
     App.hasSeenIntro = !!(await DB.getSetting("hasSeenIntro"));
+    App.dataSource = (await DB.getSetting("dataSource")) || null;
     applyStaticText();
     document.getElementById("langToggleBtn").addEventListener("click", () => {
       setLang(App.lang === "en" ? "zh" : "en");
@@ -3265,6 +3303,8 @@ async function initApp() {
     dispatchRoute(); // figures out the right route on its own -- #/home with no data, otherwise the dashboard or whatever hash is already set
     if (App.weatherEnabled) refreshWeatherIfNeeded(); // fire-and-forget; never blocks page load
     SquareSync.init(); // fire-and-forget: Square card status + returning from "Connect Square"
+    Usage.track("visit"); // fire-and-forget; see js/usage.js
+    Account.load().then(() => { if (App.allRows.length) renderNav(); }); // adds the admin-only Founder link
   } catch (err) {
     // If this device's saved data can't be opened (e.g. another tab of this
     // app is still open on an older version and is holding the database

@@ -43,6 +43,7 @@ const TRANSLATIONS = {
 
     navDashboard: "Dashboard",
     navData: "My Data",
+    navFounder: "Founder",
     navHours: "Hours",
     navDays: "Days",
     navItems: "Items",
@@ -761,6 +762,7 @@ const TRANSLATIONS = {
 
     navDashboard: "仪表盘",
     navData: "我的数据",
+    navFounder: "创始人",
     navHours: "时段",
     navDays: "星期",
     navItems: "商品",

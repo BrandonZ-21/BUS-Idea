@@ -208,7 +208,10 @@ Account.save = async function () {
     if (status === 401) return accountSessionEnded();
     const errorKey = { 201: null, 409: "accountLimitReached", 413: "accountTooLarge" }[status];
     Account.note = errorKey === null ? { error: false, text: t("accountSaved") } : { error: true, text: t(errorKey || "accountSaveFailed") };
-    if (status === 201) Account.reports = null; // reload the list
+    if (status === 201) {
+      Account.reports = null; // reload the list
+      Usage.track("report_saved");
+    }
   } catch {
     Account.note = { error: true, text: t("accountSaveFailed") };
   } finally {

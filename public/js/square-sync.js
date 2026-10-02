@@ -91,6 +91,8 @@ SquareSync.mount = function () {
   if (syncBtn) syncBtn.addEventListener("click", () => SquareSync.sync());
   const disconnectBtn = document.getElementById("squareDisconnectBtn");
   if (disconnectBtn) disconnectBtn.addEventListener("click", () => SquareSync.confirmDisconnect());
+  const connectLink = el.querySelector('a[href="/api/square/connect"]');
+  if (connectLink) connectLink.addEventListener("click", () => Usage.track("square_connect_started"));
 };
 
 // Server rows -> the app's sales rows. Item names get the same masking as an
@@ -127,17 +129,23 @@ SquareSync.sync = async function () {
       if (status === 401) {
         SquareSync.status = Object.assign({}, SquareSync.status, { connected: false });
         Account.reset();
+        Usage.track("square_sync_failed", { reason: "session_ended" });
         throw new SquareSyncError(t("squareSessionEnded"));
       }
-      if (status !== 200 || !data || !Array.isArray(data.rows)) throw new SquareSyncError(t("squareSyncFailed"));
+      if (status !== 200 || !data || !Array.isArray(data.rows)) {
+        Usage.track("square_sync_failed", { reason: "failed" });
+        throw new SquareSyncError(t("squareSyncFailed"));
+      }
       data.rows.forEach((r) => rows.push(squareRowToSalesRow(r)));
       SquareSync.progress = t("squareSyncing", { count: rows.length.toLocaleString() });
       SquareSync.mount();
       if (data.done) break;
       body = data.next;
     }
-    if (rows.length) await mergeNewRows(rows, { allDuplicateKey: "squareSyncUpToDate" });
-    else showMergeBanner(t("squareSyncUpToDate"));
+    const added = rows.length ? await mergeNewRows(rows, { allDuplicateKey: "squareSyncUpToDate" }) : 0;
+    if (!rows.length) showMergeBanner(t("squareSyncUpToDate"));
+    Usage.track("square_sync_ok");
+    await noteDataSource("square", added);
     SquareSync.note = { error: false, text: t("squareSyncDone") };
     await SquareSync.loadStatus();
   } catch (err) {
@@ -190,9 +198,12 @@ SquareSync.init = async function () {
   await SquareSync.loadStatus();
   SquareSync.mount();
   if (result === "connected" && SquareSync.status.connected) {
+    Usage.track("square_connected");
     showMergeBanner(t("squareConnectedBanner"));
     SquareSync.sync();
   } else if (result === "error") {
-    showError(t(SQUARE_ERROR_KEYS[params.get("reason")] || "squareErrorGeneric"));
+    const reason = params.get("reason");
+    Usage.track("square_connect_failed", { reason: ["denied", "state", "config"].includes(reason) ? reason : "error" });
+    showError(t(SQUARE_ERROR_KEYS[reason] || "squareErrorGeneric"));
   }
 };

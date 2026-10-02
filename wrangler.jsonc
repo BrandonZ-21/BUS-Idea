@@ -25,7 +25,10 @@
 	"env": {
 		"production": {
 			"vars": {
-				"SQUARE_ENVIRONMENT": "production"
+				"SQUARE_ENVIRONMENT": "production",
+				// Anonymous usage steps for the founder dashboard (approved 2026-10-02).
+				// Remove this line to stop counting; nothing else changes.
+				"USAGE_EVENTS": "on"
 			},
 			"d1_databases": [
 				{

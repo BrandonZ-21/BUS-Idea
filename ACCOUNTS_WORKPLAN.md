@@ -41,12 +41,14 @@ Last updated: 2026-10-02. Details are in `ACCOUNTS_SETUP.md`.
 - [x] Step B: four Production secrets set by Brandon (names verified only). The first Application ID paste saved 1 character; it was re-entered and redeployed, and the read-back shows a 29-character `sq0idp-…` ID
 - [x] Step C: pushed commit `b2787ac`; production deployment `54fe7936` (redeploy after the secrets fix)
 - [x] Read-back: status `configured/production`; `/api/reports` and `/api/admin/check` give 401 to visitors; Connect goes to `connect.squareup.com` with read-only scopes; `/privacy` loads
-- [ ] **NOT RUN:** a real Square connection. The Application **Secret** can only be proven by a successful connection
+- [x] First real connection failed with `401 service.not_authorized` at the token exchange (the Application Secret was a bad paste). Brandon re-entered it (checked `sq0csp-` in Notepad first)
+- [x] Added format checks for the Production/Sandbox app ID and secret, so a bad paste shows "not set up yet" instead of failing after Allow. Pushed commit `666ce4d`, deployment `dbec8c56`
+- [x] **Real Production connection works** (Brandon's own Square account, business "Tally"): the callback succeeded, an account was created as `user`, keys are stored encrypted, sync ran (no sales to import)
 - [ ] Supervised first real owner: connect → save report → open it in a second browser → sign out → disconnect
 
 ## Remaining / blocked
 - [ ] **Brandon:** try the Sandbox connect locally (`ACCOUNTS_SETUP.md` → Manual test). Optional now that production is live
-- [ ] Consider rejecting a Production app ID that doesn't start with `sq0idp-` (would have caught the bad paste)
+- [ ] Make Brandon's own account (`ML6GZG4KHCR85`, business "Tally") admin with `scripts/set-role.mjs --remote ... --yes`. Brandon runs it
 - [ ] Bootstrap the remote admin after Brandon signs in on the live site. This needs Brandon's **own** Square business, never the workplace account. Open question: does Brandon have one? If not, admin waits, or uses another approach chosen later.
 - [ ] Decide a contact line for `privacy.html`; add a Chinese privacy page
 - [ ] Founder dashboard (next phase; builds on `/api/admin/*`)
