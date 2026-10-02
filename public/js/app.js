@@ -643,7 +643,11 @@ async function mergeNewRows(newRows, opts = {}) {
       toInsert.push(Object.assign({}, row, { fingerprint: fp, importedAt: Date.now() }));
     } else if (saved[occ].kind === undefined) {
       // Saved before rows had a kind -- re-uploading the same file fills it in.
-      toUpgrade.push(Object.assign(saved[occ], { kind: row.kind, packed: row.packed }));
+      toUpgrade.push(Object.assign(saved[occ], { kind: row.kind, packed: row.packed }, row.customerHash ? { customerHash: row.customerHash } : {}));
+    } else if (row.customerHash && !saved[occ].customerHash) {
+      // Saved before its (scrambled) customer code was known -- e.g. a Square
+      // sync from before customer counting -- so fill it in, never duplicate.
+      toUpgrade.push(Object.assign(saved[occ], { customerHash: row.customerHash }));
     }
     importCounts.set(fp, occ + 1);
   });

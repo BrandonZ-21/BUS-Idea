@@ -29,7 +29,7 @@
   <h2>If you just upload a file</h2>
   <ul>
     <li>Your sales file is read and saved <strong>only in this browser</strong> on this device. It is not uploaded to Tally.</li>
-    <li>Customer columns (phone, email, loyalty ID, name), if you choose one, are scrambled on your device before anything is saved.</li>
+    <li>Customer columns (phone, email, loyalty ID, name, or Square's customer ID), if you choose one, are scrambled on your device before anything is saved. Only the scrambled code is kept, to count new vs. returning customers.</li>
     <li>No account, no analytics, no ads, no tracking.</li>
     <li>Optional weather (off by default) sends an approximate location and date ranges to the free Open-Meteo service. Never your sales.</li>
   </ul>
@@ -42,7 +42,7 @@
     <li>Square's access keys for your account, <strong>encrypted</strong>.</li>
     <li>When you last synced, and your sign-in sessions (stored scrambled, so a copy of the database can't be used to sign in as you).</li>
   </ul>
-  <p>Your sales themselves pass through to your browser and are saved only on your device, the same as an uploaded file.</p>
+  <p>Your sales themselves pass through to your browser and are saved only on your device, the same as an uploaded file. When Square has linked an order to a customer, its anonymous customer ID (a code, not a name) is scrambled on your device, and only the scrambled code is kept, for the Returning Customers page. Tally never asks Square for customer names, emails or phone numbers.</p>
 
   <h2>If you choose "Save this report to my account"</h2>
   <p>Saving is optional and off until you press the button. Each saved report contains only a <strong>summary</strong>:</p>

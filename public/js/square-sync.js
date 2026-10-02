@@ -97,20 +97,35 @@ SquareSync.mount = function () {
 
 // Server rows -> the app's sales rows. Item names get the same masking as an
 // uploaded file *before* merging, so a later re-sync fingerprints identically.
-function squareRowToSalesRow(r) {
-  return {
-    date: String(r.date),
-    time: r.time ? String(r.time) : null,
-    item: maskPersonalInfo(r.item) || "Payment",
-    variation: r.variation ? String(r.variation) : null,
-    quantity: Number(r.quantity) || 1,
-    price: Number(r.price) || 0,
-    orderType: r.orderType || null,
-    orderId: r.orderId || null,
-    kind: r.kind === "custom" ? "custom" : "product",
-    source: "square",
-  };
+// Square's opaque customer id is scrambled right here with this device's
+// secret salt (same as a customer column in an uploaded file) and only the
+// scrambled code is kept, for new-vs-returning counts on the Customers page.
+async function squareRowsToSalesRows(serverRows) {
+  const salt = serverRows.some((r) => r.customerId) ? await getOrCreateCustomerSalt() : null;
+  const out = [];
+  for (const r of serverRows) {
+    const row = {
+      date: String(r.date),
+      time: r.time ? String(r.time) : null,
+      item: maskPersonalInfo(r.item) || "Payment",
+      variation: r.variation ? String(r.variation) : null,
+      quantity: Number(r.quantity) || 1,
+      price: Number(r.price) || 0,
+      orderType: r.orderType || null,
+      orderId: r.orderId || null,
+      kind: r.kind === "custom" ? "custom" : "product",
+      source: "square",
+    };
+    if (r.customerId && salt) {
+      const hash = await hashCustomerId(String(r.customerId), salt);
+      if (hash) row.customerHash = hash;
+    }
+    out.push(row);
+  }
+  return out;
 }
+
+const SQUARE_CUSTOMER_LABEL = "Square customer ID";
 
 SquareSync.sync = async function () {
   if (SquareSync.busy) return;
@@ -120,10 +135,13 @@ SquareSync.sync = async function () {
   SquareSync.mount();
   const hadData = App.allRows.length > 0;
   try {
-    // Nothing from Square saved here yet (new device, or after "delete all"):
-    // ask for the full 90 days rather than "since last sync".
-    let body = App.allRows.some((r) => r.source === "square") ? {} : { full: true };
-    const rows = [];
+    // Nothing from Square saved here yet (new device, or after "delete all"),
+    // or synced before customer counting existed: ask for the full 90 days
+    // rather than "since last sync" (the merge then fills in the scrambled
+    // customer codes on rows already saved -- no duplicates).
+    const backfilled = await DB.getSetting("squareCustomersBackfilled");
+    let body = App.allRows.some((r) => r.source === "square") && backfilled ? {} : { full: true };
+    const serverRows = [];
     for (let page = 0; page < 1000; page++) {
       const { status, data } = await squareRequest("/api/square/sync", "POST", body);
       if (status === 401) {
@@ -136,13 +154,20 @@ SquareSync.sync = async function () {
         Usage.track("square_sync_failed", { reason: "failed" });
         throw new SquareSyncError(t("squareSyncFailed"));
       }
-      data.rows.forEach((r) => rows.push(squareRowToSalesRow(r)));
-      SquareSync.progress = t("squareSyncing", { count: rows.length.toLocaleString() });
+      serverRows.push(...data.rows);
+      SquareSync.progress = t("squareSyncing", { count: serverRows.length.toLocaleString() });
       SquareSync.mount();
       if (data.done) break;
       body = data.next;
     }
+    const rows = await squareRowsToSalesRows(serverRows);
+    serverRows.length = 0; // drop the unscrambled customer ids
     const added = rows.length ? await mergeNewRows(rows, { allDuplicateKey: "squareSyncUpToDate" }) : 0;
+    await DB.setSetting("squareCustomersBackfilled", true);
+    if (rows.some((r) => r.customerHash) && !App.customerIdColumnName) {
+      App.customerIdColumnName = SQUARE_CUSTOMER_LABEL;
+      await DB.setSetting("customerIdColumnName", SQUARE_CUSTOMER_LABEL);
+    }
     if (!rows.length) showMergeBanner(t("squareSyncUpToDate"));
     Usage.track("square_sync_ok");
     await noteDataSource("square", added);

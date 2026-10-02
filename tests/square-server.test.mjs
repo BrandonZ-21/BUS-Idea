@@ -170,7 +170,7 @@ test("ordersToRows: one row per line, unit gross price, variation, custom amount
   const rows = ordersToRows(
     [
       {
-        id: "O1", location_id: "L1", state: "COMPLETED", closed_at: "2026-09-15T17:45:10Z",
+        id: "O1", location_id: "L1", state: "COMPLETED", closed_at: "2026-09-15T17:45:10Z", customer_id: "CUST_ABC123",
         fulfillments: [{ type: "PICKUP" }],
         line_items: [
           { name: "Latte", variation_name: "Large", quantity: "2", gross_sales_money: money(1100), item_type: "ITEM" },
@@ -180,16 +180,16 @@ test("ordersToRows: one row per line, unit gross price, variation, custom amount
         ],
       },
       { id: "O2", location_id: "L1", state: "OPEN", closed_at: "2026-09-15T18:00:00Z", line_items: [] },
-      { id: "O3", location_id: "L1", state: "COMPLETED", closed_at: "2026-09-15T19:00:00Z", total_money: money(1234) },
+      { id: "O3", location_id: "L1", state: "COMPLETED", closed_at: "2026-09-15T19:00:00Z", total_money: money(1234), customer_id: "not an id; DROP" },
     ],
     { L1: "America/New_York" }
   );
   assert.deepEqual(rows, [
-    { date: "2026-09-15", time: "13:45", orderType: "Pickup", orderId: "O1", item: "Latte", variation: "Large", quantity: 2, price: 5.5, kind: "product" },
-    { date: "2026-09-15", time: "13:45", orderType: "Pickup", orderId: "O1", item: "Custom Amount", variation: null, quantity: 1, price: 5, kind: "custom" },
-    { date: "2026-09-15", time: "13:45", orderType: "Pickup", orderId: "O1", item: "Coffee beans", variation: null, quantity: 1, price: 8.99, kind: "product" },
-    { date: "2026-09-15", time: "13:45", orderType: "Pickup", orderId: "O1", item: "Cookie", variation: null, quantity: 3, price: 2.5, kind: "product" },
-    { date: "2026-09-15", time: "15:00", orderType: null, orderId: "O3", item: "Payment", variation: null, quantity: 1, price: 12.34, kind: "custom" },
+    { date: "2026-09-15", time: "13:45", orderType: "Pickup", orderId: "O1", customerId: "CUST_ABC123", item: "Latte", variation: "Large", quantity: 2, price: 5.5, kind: "product" },
+    { date: "2026-09-15", time: "13:45", orderType: "Pickup", orderId: "O1", customerId: "CUST_ABC123", item: "Custom Amount", variation: null, quantity: 1, price: 5, kind: "custom" },
+    { date: "2026-09-15", time: "13:45", orderType: "Pickup", orderId: "O1", customerId: "CUST_ABC123", item: "Coffee beans", variation: null, quantity: 1, price: 8.99, kind: "product" },
+    { date: "2026-09-15", time: "13:45", orderType: "Pickup", orderId: "O1", customerId: "CUST_ABC123", item: "Cookie", variation: null, quantity: 3, price: 2.5, kind: "product" },
+    { date: "2026-09-15", time: "15:00", orderType: null, orderId: "O3", customerId: null, item: "Payment", variation: null, quantity: 1, price: 12.34, kind: "custom" },
   ]);
 });
 

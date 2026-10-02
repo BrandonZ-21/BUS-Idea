@@ -46,9 +46,11 @@ function isSquareExport(headers) {
 
 // Dropped from every upload: card digits and staff names are never useful here.
 const ALWAYS_DROP_COLUMNS = ["pansuffix", "cardlast4", "last4", "cardnumber", "staffname", "staffid", "employee", "employeename", "cashier", "servername"];
-// Also dropped from Square exports, which identify customers directly (the
-// hashed repeat-customer feature is for other registers' phone/email columns).
-const SQUARE_DROP_COLUMNS = ["customerid", "customername", "customerreferenceid", "details", "tendernote", "fulfillmentnote", "cardbrand"];
+// Also dropped from Square exports: customer names and reference ids, notes,
+// card brand. Square's "Customer ID" is kept -- it's an opaque code (no name,
+// email or phone) -- so it can be scrambled like any customer column (see
+// hashCustomerId) for new-vs-returning counts; the raw code is never saved.
+const SQUARE_DROP_COLUMNS = ["customername", "customerreferenceid", "details", "tendernote", "fulfillmentnote", "cardbrand"];
 
 // Removes sensitive columns from freshly parsed rows before anything else
 // reads them. Returns { headers, dataRows, square }.

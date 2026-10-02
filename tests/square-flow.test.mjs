@@ -205,6 +205,10 @@ test("full connect -> sync -> disconnect flow", async (t) => {
     assert.equal(mock.calls.search[0].spanDays, 90);
     const [row] = query("SELECT sync_cursor, last_synced_at FROM connections");
     assert.ok(row.sync_cursor && row.last_synced_at);
+    // Square's opaque customer id rides along (for the browser to scramble) but is never stored server-side.
+    assert.equal(new Set(rows.filter((r) => r.customerId).map((r) => r.orderId)).size, Math.ceil(ORDER_COUNT / 3));
+    assert.ok(rows.every((r) => r.customerId === null || /^MOCKCUST\d+$/.test(r.customerId)));
+    for (const table of ["connections", "sessions"]) assert.ok(!JSON.stringify(query(`SELECT * FROM ${table}`)).includes("MOCKCUST"), table);
   });
 
   await t.test("the next sync only asks for the last couple of days", async () => {

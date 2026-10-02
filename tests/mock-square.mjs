@@ -15,7 +15,8 @@ const ACCESS_2 = "MOCK_ACCESS_REFRESHED";
 const REFRESH = "MOCK_REFRESH";
 const ACCESS_B = "MOCK_ACCESS_B";
 
-// 250 completed orders spread over the last 20 days; every 10th has 2 lines.
+// 250 completed orders spread over the last 20 days; every 10th has 2 lines;
+// every 3rd is linked to one of 20 (fake) Square customer ids.
 function makeOrders() {
   const now = Date.now();
   return Array.from({ length: ORDER_COUNT }, (_, i) => ({
@@ -23,6 +24,7 @@ function makeOrders() {
     location_id: "L1",
     state: "COMPLETED",
     closed_at: new Date(now - (ORDER_COUNT - i) * 1.9 * 3600 * 1000).toISOString(),
+    ...(i % 3 === 0 ? { customer_id: `MOCKCUST${i % 20}` } : {}),
     line_items: [
       { name: "Latte", variation_name: i % 2 ? "Large" : "Small", quantity: "1", gross_sales_money: { amount: i % 2 ? 550 : 450, currency: "USD" }, item_type: "ITEM" },
       ...(i % 10 === 0 ? [{ name: "Croissant", quantity: "2", gross_sales_money: { amount: 750, currency: "USD" }, item_type: "ITEM" }] : []),

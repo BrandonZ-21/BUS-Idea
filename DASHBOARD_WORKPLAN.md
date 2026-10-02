@@ -27,11 +27,18 @@ Last updated: 2026-10-02. The spec is in `DASHBOARD_SPEC.md`.
 
 **NOT RUN:** counting on the live site (it's off), and real owners' behaviour.
 
+## Live counting turned on (2026-10-02, approved by Brandon)
+- [x] `wrangler.jsonc`: `env.production.vars.USAGE_EVENTS = "on"` (local and preview stay off)
+- [x] Pushed commit `73a1ce9` (deployment `03e51634`)
+- [x] Brandon made `ML6GZG4KHCR85` admin with `set-role.mjs --remote`. Read-back: role = admin
+- [x] Migration 0004 applied remotely (the first attempt hadn't run; re-run confirmed: "No migrations to apply")
+- [x] Read-back, with no test data written to production: `/api/events` accepts input (400 on an empty body, i.e. counting is on); `/api/admin/usage` → 401 for visitors in live and demo; `usage_events` has 0 rows. **Counting starts from the next real visit**
+- Note: Brandon's own visits are counted too (as one browser). Keep that in mind when reading small numbers
+
 ## Remaining
 - [ ] Brandon: confirm or rewrite the three founder questions; add real tester observations after tomorrow
-- [ ] **Push** (dashboard code + migration 0004 file). Live counting stays OFF after a push
-- [ ] **Separate approval: turn on live counting.** Brandon runs `npm.cmd run db:migrate:remote` (applies 0004), then I add `"USAGE_EVENTS": "on"` under `env.production.vars` in `wrangler.jsonc`, then push. Tell testers that steps are counted (the privacy page describes it)
-- [ ] Make Brandon admin on the live site: `node scripts/set-role.mjs --remote ML6GZG4KHCR85 admin --yes` (Brandon runs it)
+- [ ] Tell testers that anonymous steps are counted (the privacy page describes it)
+- [ ] **To stop counting:** remove the `USAGE_EVENTS` line from `env.production.vars` and push
 
 ## Run / test commands
 ```

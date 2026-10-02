@@ -114,12 +114,22 @@
 
   compare("Columns in file", "55", String(rawHeaderCount), rawHeaderCount === 55);
   compare("Detected as Square export", "yes", square ? "yes" : "no", square);
-  const sensitive = ["PAN Suffix", "Staff Name", "Staff ID", "Customer ID", "Customer Name", "Customer Reference ID"];
+  // "Customer ID" is kept on purpose: an opaque Square code that is scrambled before saving (repeat-customer counts).
+  const sensitive = ["PAN Suffix", "Staff Name", "Staff ID", "Customer Name", "Customer Reference ID"];
   const leaked = sensitive.filter((h) => headers.includes(h) || dataRows.some((r) => h in r));
   compare("Sensitive columns removed at ingest", "none left", leaked.length ? leaked.join(", ") : "none left", !leaked.length);
-  compare("Column guesses (item / price / qty / order id / customer)", "Description / Gross Sales / – / Transaction ID / –",
+  compare("Column guesses (item / price / qty / order id / customer)", "Description / Gross Sales / – / Transaction ID / Customer ID",
     `${guesses.item} / ${guesses.price} / ${guesses.quantity || "–"} / ${guesses.orderId} / ${guesses.customerId || "–"}`,
-    guesses.item === "Description" && guesses.price === "Gross Sales" && !guesses.quantity && guesses.orderId === "Transaction ID" && !guesses.customerId);
+    guesses.item === "Description" && guesses.price === "Gross Sales" && !guesses.quantity && guesses.orderId === "Transaction ID" && guesses.customerId === "Customer ID");
+  // With a salt (as the app does once a customer column is chosen), Customer ID becomes a scrambled code only.
+  // Real ids only: a placeholder made of punctuation (e.g. "--") has nothing to scramble and is skipped.
+  const rawIds = new Set(dataRows.map((r) => r["Customer ID"]).filter((v) => v && /[A-Za-z0-9]/.test(v)));
+  const salted = await buildRows(dataRows, guesses, "test-salt", { square });
+  const hashedRows = salted.rows.filter((r) => r.customerHash);
+  const rawLeft = salted.rows.some((r) => Object.values(r).some((v) => rawIds.has(v)));
+  compare("Customer IDs scrambled; no raw ID kept", `${rawIds.size} ids → codes, none raw`,
+    `${new Set(hashedRows.map((r) => r.customerHash)).size} codes on ${hashedRows.length} rows${rawLeft ? ", RAW ID FOUND" : ", none raw"}`,
+    !rawLeft && new Set(hashedRows.map((r) => r.customerHash)).size === rawIds.size);
   compare("Rows kept (none dropped)", "5,547 (0 bad)", `${rows.length.toLocaleString()} (${badCount} bad)`, rows.length === 5547 && badCount === 0);
   compare("Unique Transaction IDs", "5,547", new Set(rows.map((r) => r.orderId)).size.toLocaleString(), new Set(rows.map((r) => r.orderId)).size === 5547);
 
