@@ -54,7 +54,7 @@ SquareSync.mount = function () {
   el.hidden = !!s.unavailable;
   if (s.unavailable) return;
 
-  const badge = s.environment === "sandbox" ? ` <span class="square-badge">${esc(t("squareSandboxBadge"))}</span>` : "";
+  const badge = s.environment !== "production" ?` <span class="square-badge">${esc(t("squareSandboxBadge"))}</span>` : "";
   const status = SquareSync.progress
     ? `<p class="square-status" role="status">${esc(SquareSync.progress)}</p>`
     : SquareSync.note
@@ -126,6 +126,7 @@ SquareSync.sync = async function () {
       const { status, data } = await squareRequest("/api/square/sync", "POST", body);
       if (status === 401) {
         SquareSync.status = Object.assign({}, SquareSync.status, { connected: false });
+        Account.reset();
         throw new SquareSyncError(t("squareSessionEnded"));
       }
       if (status !== 200 || !data || !Array.isArray(data.rows)) throw new SquareSyncError(t("squareSyncFailed"));
@@ -175,6 +176,9 @@ SquareSync.disconnect = async function () {
   SquareSync.busy = false;
   await SquareSync.loadStatus();
   SquareSync.mount();
+  // The account and its saved reports went with the connection.
+  Account.reset();
+  Account.mount();
 };
 
 // Called once at startup. Handles the return from Square

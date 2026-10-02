@@ -6,11 +6,14 @@ import http from "node:http";
 export const TEST_APP_ID = "sandbox-sq0idb-TEST";
 export const TEST_APP_SECRET = "sandbox-sq0csb-TEST-SECRET";
 export const MERCHANT_ID = "MOCK_MERCHANT";
+// A second seller, for tests that need two accounts (add as=B to the authorize URL).
+export const MERCHANT_ID_B = "MOCK_MERCHANT_B";
 export const ORDER_COUNT = 250;
 
 const ACCESS_1 = "MOCK_ACCESS_FIRST";
 const ACCESS_2 = "MOCK_ACCESS_REFRESHED";
 const REFRESH = "MOCK_REFRESH";
+const ACCESS_B = "MOCK_ACCESS_B";
 
 // 250 completed orders spread over the last 20 days; every 10th has 2 lines.
 function makeOrders() {
@@ -48,7 +51,7 @@ export function startMockSquare({ port, callbackUrl }) {
       // Pretend the seller pressed "Allow" (or "Deny" when asked to).
       const back = new URL(callbackUrl);
       if (url.searchParams.get("deny")) back.searchParams.set("error", "access_denied");
-      else back.searchParams.set("code", "MOCK_CODE");
+      else back.searchParams.set("code", url.searchParams.get("as") === "B" ? "MOCK_CODE_B" : "MOCK_CODE");
       back.searchParams.set("state", url.searchParams.get("state"));
       return send(302, null, { Location: back.toString() });
     }
@@ -59,6 +62,9 @@ export function startMockSquare({ port, callbackUrl }) {
       if (data.grant_type === "authorization_code" && data.code === "MOCK_CODE") {
         // Expires in 3 days, so the first sync has to refresh it.
         return send(200, { access_token: ACCESS_1, token_type: "bearer", expires_at: new Date(Date.now() + 3 * 86400e3).toISOString(), merchant_id: MERCHANT_ID, refresh_token: REFRESH });
+      }
+      if (data.grant_type === "authorization_code" && data.code === "MOCK_CODE_B") {
+        return send(200, { access_token: ACCESS_B, token_type: "bearer", expires_at: new Date(Date.now() + 30 * 86400e3).toISOString(), merchant_id: MERCHANT_ID_B, refresh_token: "MOCK_REFRESH_B" });
       }
       if (data.grant_type === "refresh_token" && data.refresh_token === REFRESH) {
         return send(200, { access_token: ACCESS_2, token_type: "bearer", expires_at: new Date(Date.now() + 30 * 86400e3).toISOString(), merchant_id: MERCHANT_ID, refresh_token: REFRESH });
@@ -71,6 +77,9 @@ export function startMockSquare({ port, callbackUrl }) {
     }
 
     const token = auth.startsWith("Bearer ") ? auth.slice(7) : null;
+    if (token === ACCESS_B && req.method === "GET" && url.pathname === `/v2/merchants/${MERCHANT_ID_B}`) {
+      return send(200, { merchant: { id: MERCHANT_ID_B, business_name: "Second Mock Bakery" } });
+    }
     if (token !== ACCESS_1 && token !== ACCESS_2) return send(401, { errors: [{ code: "UNAUTHORIZED" }] });
     const which = token === ACCESS_1 ? "first" : "refreshed";
 

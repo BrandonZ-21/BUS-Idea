@@ -19,3 +19,6 @@ node_modules/
 # Keys/certs, just in case one is ever dropped in the folder.
 *.pem
 *.key
+
+# Database exports (contain account rows and saved reports).
+backup-*.sql

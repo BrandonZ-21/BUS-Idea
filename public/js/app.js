@@ -174,6 +174,7 @@ function applyStaticText() {
   document.getElementById("brandName").textContent = t("appName");
   document.getElementById("privateBadgeText").textContent = t("privateBadge");
   document.getElementById("footerPrivacyText").textContent = t("privacyNote");
+  document.getElementById("footerPrivacyLink").textContent = t("privacyLinkText");
   document.getElementById("langToggleBtn").textContent = t("langToggle");
   document.getElementById("footerNote").textContent = t("insightsDisclaimer");
   renderNav();
@@ -304,10 +305,12 @@ App.renderHome = function () {
         <button type="button" class="btn btn-secondary" id="sample2Btn">${esc(t("uploadSample2"))}</button>
       </div>
       <div class="card square-card" id="squareCard" hidden></div>
+      <div class="card square-card" id="accountCard" hidden></div>
     </section>
   `;
   wireUploadWidget(el);
   SquareSync.mount();
+  Account.mount();
 
   const scrollToUpload = () => document.getElementById("landingUploadSection").scrollIntoView({ behavior: "smooth", block: "start" });
   document.getElementById("heroGetStartedBtn").addEventListener("click", scrollToUpload);
@@ -3047,6 +3050,7 @@ App.renderData = function () {
     </div>
 
     <div class="card" id="squareCard" style="margin-top:20px;" hidden></div>
+    <div class="card" id="accountCard" style="margin-top:20px;" hidden></div>
 
     <div class="card" style="margin-top:20px;">
       <h2>${esc(t("addMoreData"))}</h2>
@@ -3099,6 +3103,7 @@ App.renderData = function () {
   App.matchReturnHash = "#/data";
   wireUploadWidget(document.getElementById("view-root"));
   SquareSync.mount();
+  Account.mount();
 
   document.getElementById("exportBackupBtn").addEventListener("click", exportBackup);
   document.getElementById("importBackupBtn").addEventListener("click", () => document.getElementById("importInput").click());

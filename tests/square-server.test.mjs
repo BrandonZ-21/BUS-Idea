@@ -8,7 +8,7 @@ import {
   randomId, safeEqual, sha256Hex, signValue, verifySignedValue,
 } from "../lib/square/crypto.js";
 import { SCOPES, authorizeUrl, squareBase } from "../lib/square/api.js";
-import { describeError, isSameOrigin, missingConfig, parseCookies, sessionCookie } from "../lib/square/http.js";
+import { clearSessionCookies, describeError, isSameOrigin, missingConfig, parseCookies, sessionCookie } from "../lib/square/http.js";
 import { localDateTime, ordersToRows } from "../lib/square/orders.js";
 
 const testKey = () => bytesToBase64(crypto.getRandomValues(new Uint8Array(32)));
@@ -76,10 +76,18 @@ const fullEnv = {
   STATE_SIGNING_KEY: "k", SQUARE_ENVIRONMENT: "sandbox", DB: {},
 };
 
-test("missingConfig names what's missing and refuses non-sandbox", () => {
+test("missingConfig names what's missing and refuses an unknown environment", () => {
   assert.deepEqual(missingConfig(fullEnv), []);
   assert.deepEqual(missingConfig({ ...fullEnv, SQUARE_APPLICATION_SECRET: " " }), ["SQUARE_APPLICATION_SECRET"]);
-  assert.deepEqual(missingConfig({ ...fullEnv, SQUARE_ENVIRONMENT: "production" }), ['SQUARE_ENVIRONMENT="sandbox"']);
+  assert.deepEqual(missingConfig({ ...fullEnv, SQUARE_ENVIRONMENT: "" }), ['SQUARE_ENVIRONMENT ("sandbox" or "production")']);
+  assert.deepEqual(missingConfig({ ...fullEnv, SQUARE_ENVIRONMENT: "prod" }), ['SQUARE_ENVIRONMENT ("sandbox" or "production")']);
+});
+
+test("missingConfig allows production only with a production app id, and sandbox only with a sandbox one", () => {
+  const prodEnv = { ...fullEnv, SQUARE_ENVIRONMENT: "production", SQUARE_APPLICATION_ID: "sq0idp-test" };
+  assert.deepEqual(missingConfig(prodEnv), []);
+  assert.deepEqual(missingConfig({ ...prodEnv, SQUARE_APPLICATION_ID: "sandbox-sq0idb-test" }), ["SQUARE_APPLICATION_ID (doesn't match SQUARE_ENVIRONMENT)"]);
+  assert.deepEqual(missingConfig({ ...fullEnv, SQUARE_APPLICATION_ID: "sq0idp-test" }), ["SQUARE_APPLICATION_ID (doesn't match SQUARE_ENVIRONMENT)"]);
 });
 
 test("cookies: parsing, flags, and Secure only on https", () => {
@@ -88,9 +96,12 @@ test("cookies: parsing, flags, and Secure only on https", () => {
   const local = sessionCookie(new Request("http://localhost:8788/"), "sid");
   assert.match(local, /HttpOnly/);
   assert.match(local, /SameSite=Lax/);
-  assert.match(local, /Path=\/api\/square/);
+  assert.match(local, /Path=\/api;/);
   assert.doesNotMatch(local, /Secure/);
   assert.match(sessionCookie(new Request("https://bus-idea.pages.dev/"), "sid"), /Secure/);
+  const cleared = clearSessionCookies(new Request("https://bus-idea.pages.dev/"));
+  assert.deepEqual(cleared.map((c) => c.match(/Path=([^;]+)/)[1]), ["/api", "/api/square"], "also clears the old /api/square cookie");
+  assert.ok(cleared.every((c) => /Max-Age=0/.test(c)));
 });
 
 test("same-origin check for POSTs", () => {
@@ -124,6 +135,15 @@ test("the API base can only be overridden to a localhost test server", () => {
   assert.equal(squareBase({ SQUARE_API_BASE_OVERRIDE: "http://127.0.0.1:8799" }), "http://127.0.0.1:8799");
   assert.equal(squareBase({ SQUARE_API_BASE_OVERRIDE: "https://evil.example" }), "https://connect.squareupsandbox.com");
   assert.equal(squareBase({ SQUARE_API_BASE_OVERRIDE: "http://localhost.evil.example:80" }), "https://connect.squareupsandbox.com");
+});
+
+test("real Square only when SQUARE_ENVIRONMENT is exactly production", () => {
+  assert.equal(squareBase({ SQUARE_ENVIRONMENT: "production" }), "https://connect.squareup.com");
+  assert.equal(squareBase({ SQUARE_ENVIRONMENT: "sandbox" }), "https://connect.squareupsandbox.com");
+  assert.equal(squareBase({ SQUARE_ENVIRONMENT: "Production" }), "https://connect.squareupsandbox.com");
+  const u = new URL(authorizeUrl({ ...fullEnv, SQUARE_ENVIRONMENT: "production", SQUARE_APPLICATION_ID: "sq0idp-x" }, "S"));
+  assert.equal(u.origin, "https://connect.squareup.com");
+  assert.equal(u.searchParams.get("session"), "false");
 });
 
 // ---------- orders -> rows ----------

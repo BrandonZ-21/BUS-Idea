@@ -1,17 +1,18 @@
 // POST /api/square/disconnect
 //
-// Ends Tally's access: asks Square to revoke the authorization, then deletes
-// the stored (encrypted) tokens and every session for that seller, and clears
-// this browser's cookie. Sales already synced stay in the browser.
+// "Disconnect Square & delete my account": asks Square to revoke the
+// authorization, then deletes the stored (encrypted) tokens, every session,
+// every saved report and the account itself, and clears this browser's
+// cookie. Sales already synced stay in the browser.
 
 import { revokeAuthorization } from "../../../lib/square/api.js";
-import { clearSessionCookie, describeError, isSameOrigin, json, missingConfig } from "../../../lib/square/http.js";
+import { clearSessionCookies, describeError, isSameOrigin, json, missingConfig, setCookieHeaders } from "../../../lib/square/http.js";
 import { deleteMerchant, deleteSession, findSession } from "../../../lib/square/store.js";
 
 export async function onRequestPost({ request, env }) {
   if (!isSameOrigin(request)) return json({ error: "bad_origin" }, 403);
   if (missingConfig(env).length) return json({ error: "not_configured" }, 503);
-  const headers = { "Set-Cookie": clearSessionCookie(request) };
+  const headers = setCookieHeaders(clearSessionCookies(request));
 
   try {
     const session = await findSession(env.DB, request);

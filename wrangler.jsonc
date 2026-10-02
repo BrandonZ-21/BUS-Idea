@@ -7,7 +7,8 @@
 	"name": "bus-idea", // must match the Pages project name (bus-idea.pages.dev)
 	"pages_build_output_dir": "./public",
 	"compatibility_date": "2026-09-30",
-	// Non-secret settings. Keep "sandbox" until the integration is finished and reviewed.
+	// Non-secret settings. Top level = local `wrangler pages dev` and preview
+	// deployments: always the Square Sandbox.
 	"vars": {
 		"SQUARE_ENVIRONMENT": "sandbox"
 	},
@@ -18,5 +19,22 @@
 			"database_id": "455686fe-49c4-4c79-a0eb-3596921a2356",
 			"migrations_dir": "migrations"
 		}
-	]
+	],
+	// The live site (bus-idea.pages.dev) talks to real Square. Pages rule: once
+	// any binding is overridden here, every binding must be repeated here too.
+	"env": {
+		"production": {
+			"vars": {
+				"SQUARE_ENVIRONMENT": "production"
+			},
+			"d1_databases": [
+				{
+					"binding": "DB",
+					"database_name": "counter-db",
+					"database_id": "455686fe-49c4-4c79-a0eb-3596921a2356",
+					"migrations_dir": "migrations"
+				}
+			]
+		}
+	}
 }

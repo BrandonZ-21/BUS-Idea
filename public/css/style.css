@@ -396,6 +396,22 @@ main { max-width: 1080px; margin: 0 auto; padding: 28px 20px 60px; }
 .square-status-error { background: #FDF1EF; color: #B3401F; }
 #squareCard .data-actions a.btn { text-decoration: none; }
 
+/* "Your Tally account" card (js/account.js) */
+#accountCard h2 { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+#accountCard h3 { margin-top: 20px; font-size: 1rem; }
+.saved-report-list { list-style: none; padding: 0; margin: 8px 0 0; }
+.saved-report-list li {
+  display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 0.92rem;
+}
+.saved-report-actions { display: flex; gap: 6px; }
+.saved-report { margin-top: 16px; padding: 16px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg); }
+.saved-report h4 { margin: 14px 0 6px; font-size: 0.92rem; }
+.saved-report-table { border-collapse: collapse; font-size: 0.88rem; width: 100%; max-width: 420px; }
+.saved-report-table th, .saved-report-table td { text-align: left; padding: 4px 8px 4px 0; border-bottom: 1px solid var(--border); }
+.saved-report-table td { font-variant-numeric: tabular-nums; }
+#accountCard code { overflow-wrap: anywhere; }
+
 /* Column matching */
 .match-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 18px 0; }
 .match-field label { display: block; font-weight: 600; margin-bottom: 6px; font-size: 0.92rem; }

@@ -3,8 +3,11 @@
 Do these **in order**. Run every command in a terminal opened in the `BUS-Idea` folder
 (in the Claude app: Terminal panel → new tab). In PowerShell always type `npx.cmd`, not `npx`.
 
-> **Sandbox only.** Use a Square *Developer* account made with your own email. Never sign in
-> with, or copy anything from, your workplace's Square account. Never use the **Production** tab.
+> **Local testing is Sandbox only.** Use a Square *Developer* account made with your own email.
+> Never sign in with, or copy anything from, your workplace's Square account. Production keys are
+> only for the deployed site, set as Cloudflare secrets during the separately approved go-live
+> (see `ACCOUNTS_SETUP.md`). Never put Production keys in `.dev.vars`: the code refuses to run
+> when the app ID doesn't match `SQUARE_ENVIRONMENT`.
 
 ---
 

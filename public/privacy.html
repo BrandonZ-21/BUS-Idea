@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Tally privacy</title>
+<meta name="description" content="What Tally reads, what it stores, who can see it, and how to delete it." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="css/style.css" />
+<style>
+  .privacy-page { max-width: 760px; margin: 0 auto; padding: 24px 16px 60px; }
+  .privacy-page h2 { margin-top: 28px; }
+  .privacy-page li { margin-bottom: 6px; }
+</style>
+</head>
+<body>
+<header class="site-header">
+  <div class="header-inner">
+    <div class="brand"><a class="brand-name" href="/">Tally</a></div>
+  </div>
+</header>
+
+<main class="privacy-page" id="main-content">
+  <h1>Privacy: what Tally reads, stores and shows</h1>
+  <p>Tally is a student-built sales-insights tool for small restaurants and cafes. This page describes exactly what the app does today. Last updated October 2, 2026.</p>
+
+  <h2>If you just upload a file</h2>
+  <ul>
+    <li>Your sales file is read and saved <strong>only in this browser</strong> on this device. It is not uploaded to Tally.</li>
+    <li>Customer columns (phone, email, loyalty ID, name), if you choose one, are scrambled on your device before anything is saved.</li>
+    <li>No account, no analytics, no ads, no tracking.</li>
+    <li>Optional weather (off by default) sends an approximate location and date ranges to the free Open-Meteo service. Never your sales.</li>
+  </ul>
+
+  <h2>If you connect Square</h2>
+  <p>Connecting Square also signs you in to a Tally account. Tally asks Square for <strong>read-only</strong> access: your business name and locations, and your completed orders. It can never charge, refund or change anything in Square.</p>
+  <p>Stored on Tally's server (a Cloudflare database):</p>
+  <ul>
+    <li>Your Square merchant ID and business name.</li>
+    <li>Square's access keys for your account, <strong>encrypted</strong>.</li>
+    <li>When you last synced, and your sign-in sessions (stored scrambled, so a copy of the database can't be used to sign in as you).</li>
+  </ul>
+  <p>Your sales themselves pass through to your browser and are saved only on your device, the same as an uploaded file.</p>
+
+  <h2>If you choose "Save this report to my account"</h2>
+  <p>Saving is optional and off until you press the button. Each saved report contains only a <strong>summary</strong>:</p>
+  <ul>
+    <li>The date range, total sales, number of orders and average order.</li>
+    <li>Average sales per weekday and per hour.</li>
+    <li>Your top 10 items (name, number sold, sales).</li>
+    <li>The insight sentences shown on your dashboard.</li>
+  </ul>
+  <p>It never contains individual sales, receipts, customer details or card information.</p>
+
+  <h2>Who can see it</h2>
+  <ul>
+    <li><strong>You</strong>, from any browser where you're signed in with Square.</li>
+    <li>Tally has <strong>no screen or feature</strong> that lets anyone else, including Tally's admin, read your saved reports or your Square data.</li>
+    <li>To be fully honest: Tally's operator runs the Cloudflare account where this database lives and could technically open it. We don't, and Square keys are stored encrypted. If that's not acceptable to you, keep using Tally without connecting Square or saving reports. Everything else works the same.</li>
+  </ul>
+
+  <h2>Deleting your data</h2>
+  <ul>
+    <li><strong>Delete</strong> one saved report, or <strong>Delete all my saved reports</strong>, from your account card on the My Data page.</li>
+    <li><strong>Sign out</strong> ends the session in that browser. Your saved reports stay.</li>
+    <li><strong>Disconnect &amp; delete account</strong> revokes Tally's Square access and deletes your stored keys, sessions, saved reports and account.</li>
+    <li>You can also remove Tally from the Apps section of your Square Dashboard at any time.</li>
+    <li>Sales saved in this browser are deleted with <strong>Delete all my data</strong> on the My Data page.</li>
+  </ul>
+
+  <p style="margin-top:32px;"><a href="/">← Back to Tally</a></p>
+</main>
+</body>
+</html>

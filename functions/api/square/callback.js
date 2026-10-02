@@ -8,8 +8,10 @@
 
 import { SCOPES, exchangeCode, retrieveMerchant } from "../../../lib/square/api.js";
 import { importEncryptionKey, importSigningKey, safeEqual, verifySignedValue } from "../../../lib/square/crypto.js";
-import { STATE_COOKIE, cookie, describeError, missingConfig, parseCookies, redirectHome, sessionCookie } from "../../../lib/square/http.js";
-import { createSession, saveConnection } from "../../../lib/square/store.js";
+import {
+  STATE_COOKIE, clearSessionCookies, cookie, describeError, missingConfig, parseCookies, redirectHome, sessionCookie,
+} from "../../../lib/square/http.js";
+import { createSession, ensureAccount, saveConnection } from "../../../lib/square/store.js";
 
 export async function onRequestGet({ request, env }) {
   const url = new URL(request.url);
@@ -52,10 +54,12 @@ export async function onRequestGet({ request, env }) {
       console.error("Square callback: couldn't read business name:", describeError(err));
     }
 
-    // 4. Store tokens encrypted, start this browser's session.
+    // 4. Store tokens encrypted, make sure the account exists (as an
+    //    ordinary user), start this browser's session.
     await saveConnection(env.DB, await importEncryptionKey(env.TOKEN_ENCRYPTION_KEY), token, { scopes: SCOPES, businessName });
+    await ensureAccount(env.DB, token.merchant_id);
     const sessionId = await createSession(env.DB, token.merchant_id);
-    return redirectHome(request, "/?square=connected", [clearState, sessionCookie(request, sessionId)]);
+    return redirectHome(request, "/?square=connected", [clearState, ...clearSessionCookies(request).slice(1), sessionCookie(request, sessionId)]);
   } catch (err) {
     console.error("Square callback failed:", describeError(err));
     return fail("exchange");
