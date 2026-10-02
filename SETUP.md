@@ -35,8 +35,10 @@ Paste each output after the `=` on its line in `.dev.vars`, save, then clear the
 1. Go to <https://developer.squareup.com/apps> and sign in / sign up (free) with **your own** email.
 2. Create an application (any name, e.g. "Tally dev") or open your existing one.
 3. Switch the toggle at the top to **Sandbox**.
-4. **Credentials** page → copy the *Sandbox Application ID* into `SQUARE_APPLICATION_ID` and the
-   *Sandbox Application secret* into `SQUARE_APPLICATION_SECRET` in `.dev.vars`. Save.
+4. **Credentials** page → copy the *Sandbox Application ID* (starts `sandbox-sq0idb-`) into
+   `SQUARE_APPLICATION_ID`. Skip the "Sandbox Access token" — Tally doesn't use it.
+5. **OAuth** page (still Sandbox) → *Sandbox Application secret* → **Replace** if it says "None",
+   then copy it into `SQUARE_APPLICATION_SECRET`. Save `.dev.vars`.
 
 ## 4. Add the redirect URL (OAuth page, Sandbox tab)
 
@@ -64,21 +66,29 @@ Later, to test the *deployed* site in Sandbox, change it to
    the same browser to approve the connection.
 3. Optional: make a few test sales in that dashboard so a sync has something to read.
 
-## 6. Check it runs locally
+## 6. Try Connect Square locally
 
 ```powershell
 npm run db:migrate:local
 npm run dev
 ```
 
-Open <http://localhost:8788>. The app should load; <http://localhost:8788/api/square/status>
-answers `not_implemented` until the build step. Press `Ctrl+C` to stop.
+1. Make sure the Sandbox test account's **Square Dashboard** tab (step 5) is open in the same browser.
+2. Open <http://localhost:8788> → scroll to **Connect Square** (Home page, or My Data once you
+   have data) → **Connect Square**.
+3. Square's Sandbox page asks you to allow read-only access → **Allow**.
+4. You land back in Tally ("Connected to Square…") and the first sync (last 90 days) starts by
+   itself. Afterwards use **Sync now** for new sales, or **Disconnect** to end access.
+
+Press `Ctrl+C` in the terminal to stop the server. If something fails, the server window shows
+a one-line reason (never any token or secret).
 
 ## 7. Before any real deploy
 
 1. ✅ **Pages project created:** `bus-idea` → <https://bus-idea.pages.dev> (Git-connected,
    output directory `public`). Must stay a **Pages** project — not a Worker.
-2. **Create the tables in the cloud database** (asks to confirm):
+2. **Create the tables in the cloud database** (asks to confirm; applies every file in
+   `migrations/` that hasn't run there yet):
    ```powershell
    npm run db:migrate:remote
    ```
@@ -92,6 +102,8 @@ answers `not_implemented` until the build step. Press `Ctrl+C` to stop.
    Use **new** random keys for the deployed site (run step 2's command again) rather than reusing
    your local ones.
 4. Update the Sandbox redirect URL (step 4) to the deployed URL when you test there.
+5. Never set `SQUARE_API_BASE_OVERRIDE` on Cloudflare — it exists only for the local fake-Square
+   test, and the code ignores anything that isn't `http://localhost`/`127.0.0.1` anyway.
 
 ---
 

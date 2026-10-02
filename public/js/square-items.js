@@ -64,7 +64,8 @@ function parseSegment(seg) {
 }
 
 function segmentsOf(row) {
-  if (!row.packed) return [{ qty: row.quantity || 1, name: row.item, channel: null, variation: null }];
+  // Rows synced from Square carry their variation (e.g. "Large") separately.
+  if (!row.packed) return [{ qty: row.quantity || 1, name: row.item, channel: null, variation: row.variation || null }];
   // A payment link's description is a free-text title, not a list of items.
   if (row.kind === "payment_link") return [{ qty: 1, name: row.item, channel: null, variation: null }];
   return splitDescription(row.item).map(parseSegment);

@@ -2,7 +2,9 @@
 
 A single-page web app for small restaurant/cafe/bakery/bar owners. Upload a sales export (CSV, Excel, or tab-delimited) and instantly see charts and plain-English tips about busy hours, best sellers, and slow days. (Formerly "Cafe Insights", then "Counter".)
 
-**Privacy:** Everything runs in your browser. Your file is read on your device, saved only in your browser's local IndexedDB storage, and never uploaded anywhere. There is no backend, no accounts, and no analytics.
+**Privacy:** Everything runs in your browser. Your file is read on your device, saved only in your browser's local IndexedDB storage, and never uploaded anywhere. No accounts and no analytics.
+
+**Connect Square (optional, Sandbox/test mode only for now):** instead of uploading a file, an owner can press **Connect Square** (Home or My Data page) and approve **read-only** access (`MERCHANT_PROFILE_READ`, `ORDERS_READ` — Tally can never charge, refund or change anything). This is the one feature that uses a small backend (Cloudflare Pages Functions in `functions/`): Square's access/refresh tokens are stored **encrypted** (AES-GCM) in a Cloudflare D1 database so the server can fetch new completed orders when the owner presses **Sync now**. The sales themselves pass straight through to the browser and are saved locally, exactly like an uploaded file — they are never stored on the server. Item names typed into custom amounts are dropped, and names/emails/phones in item text are masked as with uploads. **Disconnect** revokes Tally's access at Square and deletes the stored tokens.
 
 **Weather (optional, off by default):** if you turn on "Use weather data" in Settings, the app sends an approximate location (latitude/longitude rounded to two decimal places) and date ranges to [Open-Meteo](https://open-meteo.com) — a free weather service that needs no API key or account. Your sales figures, item names, and business name are never sent anywhere. Open-Meteo is free for **non-commercial use**; if this app is ever used commercially (e.g. charging restaurant owners for it), check [Open-Meteo's commercial terms](https://open-meteo.com/en/pricing) first.
 
@@ -15,7 +17,11 @@ No build step, no server, no installs required.
 1. Open the `BUS-Idea\public` folder in File Explorer.
 2. Double-click `index.html`. It opens in your default browser and works immediately.
 
-**Square integration (in progress, Sandbox only):** the in-progress Square connection needs the backend in `functions/`, so it only runs through `npm run dev` (Cloudflare's local server at http://localhost:8788). One-time setup steps are in [SETUP.md](SETUP.md). The upload-a-file app above still needs no installs.
+**Connect Square (Sandbox only):** needs the backend in `functions/`, so it only runs through `npm run dev` (Cloudflare's local server at http://localhost:8788) or the deployed site. One-time setup steps are in [SETUP.md](SETUP.md). Without that backend the Connect card simply stays hidden — the upload-a-file app above still needs no installs.
+
+Automated checks for the Square backend (need Node):
+- `npm test` — unit tests: encryption, signing, cookies, order → sales-row conversion.
+- `npm run test:flow` — the whole Connect → Sync → Disconnect flow against a fake Square (`tests/mock-square.mjs`), in a throwaway copy with test keys; never touches your `.dev.vars`, Square, or your local database.
 
 That's it. (Some browsers restrict certain features when opening files directly with `file://` — if anything looks off, the simplest fix is to serve the folder locally instead, e.g. with `npx serve` or the free Cloudflare/GitHub Pages hosting below.)
 
@@ -26,13 +32,18 @@ Everything Cloudflare publishes is in `public/`. Backend, database and test file
 ```
 public/                The website (Cloudflare Pages "build output directory")
   index.html, css/, js/, sample CSVs -- listed below
-functions/api/square/  Pages Functions for the Square connection (placeholders: connect, callback,
-                       sync, disconnect, status) -- served at /api/square/...
+functions/api/square/  Pages Functions for Connect Square, served at /api/square/...:
+                         connect (start OAuth), callback (Square's redirect), status,
+                         sync (one page of orders -> sales rows), disconnect
+lib/square/            Shared server code those functions import (never served):
+                         crypto.js (AES-GCM token encryption, HMAC signing), api.js (Square calls,
+                         read-only scopes), store.js (D1), orders.js (orders -> rows), http.js
 migrations/            D1 database tables (connections, sessions)
 wrangler.jsonc         Cloudflare config: project name, output dir, D1 binding (no secrets)
 .dev.vars.example      Names of the secret settings; copy to .dev.vars (git-ignored) and fill in
 SETUP.md               Step-by-step things you must do yourself for the Square integration
-package.json           Dev tools only (Wrangler) -- `npm run dev`, `npm run db:migrate:local`
+package.json           Dev tools only (Wrangler) -- `npm run dev`, `npm test`, `npm run test:flow`,
+                         `npm run db:migrate:local` / `db:migrate:remote`
 
 Inside public/:
 index.html            The app shell (header, nav, containers)
@@ -41,6 +52,8 @@ js/translations.js     Every piece of English/Chinese text used by the app
 js/db.js               IndexedDB wrapper (local storage only, never network)
 js/parser.js            Column auto-detection + row cleanup (CSV/Excel/tab-delimited), sensitive-column
                         stripping and name masking, Square export detection
+js/square-sync.js       The "Connect Square" card: status, Connect / Sync now / Disconnect; saves synced
+                        orders through the same merge + duplicate-skipping as an upload
 js/square-items.js      Splits Square receipts ("2 x Gatorade (Desk) (Cool Blue), ...") into item rows and
                         works out each item's share of the receipt (adds back up to the cent)
 js/stats.js             Calculations: totals, by-hour, by-day, trends, gaps, one-off payment detection
@@ -226,6 +239,8 @@ Whenever you make changes later: GitHub Desktop will show them under "Changes" �
 - Fixed a column-guess bug: "Discounts" was being auto-picked as the Quantity column (it contains "count"), which would have multiplied revenue for any shop that gives discounts.
 
 ## What doesn't (yet)
+
+- **Connect Square** is Sandbox (test mode) only — production is deliberately blocked in code (`missingConfig` in `lib/square/http.js`) until the integration has been reviewed. It syncs completed orders only: refunds/returns made later aren't subtracted, only the first 10 Square locations are read, and amounts assume a currency with cents (e.g. USD). Synced orders and an uploaded Square Transactions export of the same days aren't recognized as the same sales — use one or the other for a given period.
 
 - There's no way to edit or delete individual rows once uploaded — only "delete all."
 - The "orders" count is an approximation when the file has no Order ID column: it groups rows by matching date+time, which works well for most register exports but can undercount if two different orders happen to share the exact same minute.

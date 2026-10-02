@@ -3,22 +3,20 @@
 // Cloudflare dashboard become read-only.
 // No secrets in here -- they go in .dev.vars (local) or `wrangler pages secret put` (deployed).
 {
-  "$schema": "./node_modules/wrangler/config-schema.json",
-  "name": "bus-idea",                    // must match the Pages project name (bus-idea.pages.dev)
-  "pages_build_output_dir": "./public",
-  "compatibility_date": "2026-09-30",
-
-  // Non-secret settings. Keep "sandbox" until the integration is finished and reviewed.
-  "vars": {
-    "SQUARE_ENVIRONMENT": "sandbox"
-  },
-
-  "d1_databases": [
-    {
-      "binding": "DB",                     // available in Functions as context.env.DB
-      "database_name": "counter-db",
-      "database_id": "455686fe-49c4-4c79-a0eb-3596921a2356",
-      "migrations_dir": "migrations"
-    }
-  ]
+	"$schema": "./node_modules/wrangler/config-schema.json",
+	"name": "bus-idea", // must match the Pages project name (bus-idea.pages.dev)
+	"pages_build_output_dir": "./public",
+	"compatibility_date": "2026-09-30",
+	// Non-secret settings. Keep "sandbox" until the integration is finished and reviewed.
+	"vars": {
+		"SQUARE_ENVIRONMENT": "sandbox"
+	},
+	"d1_databases": [
+		{
+			"binding": "DB", // available in Functions as context.env.DB
+			"database_name": "counter-db",
+			"database_id": "455686fe-49c4-4c79-a0eb-3596921a2356",
+			"migrations_dir": "migrations"
+		}
+	]
 }

@@ -6,7 +6,7 @@
 # Square Developer Console -> your app -> Credentials -> SANDBOX tab -> "Sandbox Application ID"
 SQUARE_APPLICATION_ID=
 
-# Same page, SANDBOX tab -> "Sandbox Application secret" (OAuth secret). Never the Production one.
+# Your app -> OAuth page (left menu), SANDBOX toggle -> "Application secret" -> Show. Never the Production one.
 SQUARE_APPLICATION_SECRET=
 
 # Random 32-byte key, base64. Encrypts Square tokens before they go into D1. See SETUP.md for the command.

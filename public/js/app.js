@@ -303,9 +303,11 @@ App.renderHome = function () {
         <button type="button" class="btn btn-secondary" id="sampleBtn">${esc(t("uploadSample"))}</button>
         <button type="button" class="btn btn-secondary" id="sample2Btn">${esc(t("uploadSample2"))}</button>
       </div>
+      <div class="card square-card" id="squareCard" hidden></div>
     </section>
   `;
   wireUploadWidget(el);
+  SquareSync.mount();
 
   const scrollToUpload = () => document.getElementById("landingUploadSection").scrollIntoView({ behavior: "smooth", block: "start" });
   document.getElementById("heroGetStartedBtn").addEventListener("click", scrollToUpload);
@@ -585,7 +587,8 @@ async function confirmMatch() {
 }
 
 // ---------- Merge / dedupe ----------
-async function mergeNewRows(newRows) {
+// opts.allDuplicateKey: message when nothing was new (default talks about a file).
+async function mergeNewRows(newRows, opts = {}) {
   const existing = App.allRows.length ? App.allRows : await DB.getAllRows();
   const savedByFp = new Map();
   existing.forEach((r) => {
@@ -616,7 +619,7 @@ async function mergeNewRows(newRows) {
     await DB.setSetting("lastUpload", Date.now());
   }
   if (added === 0) {
-    showMergeBanner(t("mergeAllDuplicate"));
+    showMergeBanner(t(opts.allDuplicateKey || "mergeAllDuplicate"));
   } else if (skipped === 0) {
     showMergeBanner(t("mergeSummaryNoSkip", { added }));
   } else {
@@ -3043,6 +3046,8 @@ App.renderData = function () {
       <p class="match-note">${esc(t("weatherAttribution"))} <a href="https://open-meteo.com" target="_blank" rel="noopener noreferrer">Open-Meteo</a></p>
     </div>
 
+    <div class="card" id="squareCard" style="margin-top:20px;" hidden></div>
+
     <div class="card" style="margin-top:20px;">
       <h2>${esc(t("addMoreData"))}</h2>
       <div class="dropzone" id="dropzoneData">
@@ -3093,6 +3098,7 @@ App.renderData = function () {
 
   App.matchReturnHash = "#/data";
   wireUploadWidget(document.getElementById("view-root"));
+  SquareSync.mount();
 
   document.getElementById("exportBackupBtn").addEventListener("click", exportBackup);
   document.getElementById("importBackupBtn").addEventListener("click", () => document.getElementById("importInput").click());
@@ -3253,6 +3259,7 @@ async function initApp() {
     document.getElementById("bootStatus").hidden = true;
     dispatchRoute(); // figures out the right route on its own -- #/home with no data, otherwise the dashboard or whatever hash is already set
     if (App.weatherEnabled) refreshWeatherIfNeeded(); // fire-and-forget; never blocks page load
+    SquareSync.init(); // fire-and-forget: Square card status + returning from "Connect Square"
   } catch (err) {
     // If this device's saved data can't be opened (e.g. another tab of this
     // app is still open on an older version and is holding the database
