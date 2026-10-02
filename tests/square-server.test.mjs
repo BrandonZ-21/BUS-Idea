@@ -72,7 +72,7 @@ test("random ids are url-safe and unique; hashing and safeEqual behave", async (
 // ---------- http ----------
 
 const fullEnv = {
-  SQUARE_APPLICATION_ID: "sandbox-sq0idb-test", SQUARE_APPLICATION_SECRET: "s", TOKEN_ENCRYPTION_KEY: "k",
+  SQUARE_APPLICATION_ID: "sandbox-sq0idb-test00000000", SQUARE_APPLICATION_SECRET: "sandbox-sq0csb-secret0000", TOKEN_ENCRYPTION_KEY: "k",
   STATE_SIGNING_KEY: "k", SQUARE_ENVIRONMENT: "sandbox", DB: {},
 };
 
@@ -84,10 +84,20 @@ test("missingConfig names what's missing and refuses an unknown environment", ()
 });
 
 test("missingConfig allows production only with a production app id, and sandbox only with a sandbox one", () => {
-  const prodEnv = { ...fullEnv, SQUARE_ENVIRONMENT: "production", SQUARE_APPLICATION_ID: "sq0idp-test" };
+  const prodEnv = { ...fullEnv, SQUARE_ENVIRONMENT: "production", SQUARE_APPLICATION_ID: "sq0idp-test0000000000", SQUARE_APPLICATION_SECRET: "sq0csp-secret00000000" };
   assert.deepEqual(missingConfig(prodEnv), []);
   assert.deepEqual(missingConfig({ ...prodEnv, SQUARE_APPLICATION_ID: "sandbox-sq0idb-test" }), ["SQUARE_APPLICATION_ID (doesn't match SQUARE_ENVIRONMENT)"]);
-  assert.deepEqual(missingConfig({ ...fullEnv, SQUARE_APPLICATION_ID: "sq0idp-test" }), ["SQUARE_APPLICATION_ID (doesn't match SQUARE_ENVIRONMENT)"]);
+  assert.deepEqual(missingConfig({ ...fullEnv, SQUARE_APPLICATION_ID: "sq0idp-test0000000000" }), ["SQUARE_APPLICATION_ID (doesn't match SQUARE_ENVIRONMENT)"]);
+  // A bad paste at the hidden secret prompt (this happened on 2026-10-02: one character saved).
+  for (const bad of ["x", "sq0idp-", "sq0idp-abc", " ", "EAAAl-access-token-by-mistake"]) {
+    assert.ok(missingConfig({ ...prodEnv, SQUARE_APPLICATION_ID: bad }).length, JSON.stringify(bad));
+  }
+  // ...and for the secret (a wrong one only fails after the owner presses Allow: 401 service.not_authorized).
+  const secretMsg = ["SQUARE_APPLICATION_SECRET (doesn't match SQUARE_ENVIRONMENT)"];
+  for (const bad of ["x", "sandbox-sq0csb-secret0000", "EAAAl-access-token-by-mistake", "sq0idp-test0000000000"]) {
+    assert.deepEqual(missingConfig({ ...prodEnv, SQUARE_APPLICATION_SECRET: bad }), secretMsg, JSON.stringify(bad));
+  }
+  assert.deepEqual(missingConfig({ ...fullEnv, SQUARE_APPLICATION_SECRET: "sq0csp-secret00000000" }), secretMsg);
 });
 
 test("cookies: parsing, flags, and Secure only on https", () => {
@@ -122,7 +132,7 @@ test("authorize URL: sandbox host, read-only scopes only, state, session=false",
   const u = new URL(authorizeUrl(fullEnv, "STATE123"));
   assert.equal(u.origin, "https://connect.squareupsandbox.com");
   assert.equal(u.pathname, "/oauth2/authorize");
-  assert.equal(u.searchParams.get("client_id"), "sandbox-sq0idb-test");
+  assert.equal(u.searchParams.get("client_id"), "sandbox-sq0idb-test00000000");
   assert.equal(u.searchParams.get("state"), "STATE123");
   assert.equal(u.searchParams.get("session"), "false");
   const scopes = u.searchParams.get("scope").split(" ");

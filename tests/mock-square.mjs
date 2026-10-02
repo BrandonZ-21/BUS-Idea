@@ -3,7 +3,7 @@
 // it just records yes/no facts about each call for the test to check.
 import http from "node:http";
 
-export const TEST_APP_ID = "sandbox-sq0idb-TEST";
+export const TEST_APP_ID = "sandbox-sq0idb-TESTAPPID0000000000";
 export const TEST_APP_SECRET = "sandbox-sq0csb-TEST-SECRET";
 export const MERCHANT_ID = "MOCK_MERCHANT";
 // A second seller, for tests that need two accounts (add as=B to the authorize URL).

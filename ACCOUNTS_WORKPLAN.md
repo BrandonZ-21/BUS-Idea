@@ -34,9 +34,19 @@ Last updated: 2026-10-02. Details are in `ACCOUNTS_SETUP.md`.
 
 **What these tests did not cover:** they all ran against a **fake Square** and **local D1** (Wrangler's local SQLite simulation of D1). Real D1, real Square Sandbox or Production, and the deployed site are **NOT RUN**.
 
+## Go-live log (2026-10-02, approved step by step)
+- [x] Read-only check: account `ac8b305f…` (Brandonzhao@brandeis.edu's Account), Pages `bus-idea`, D1 `counter-db` (`455686fe-…`) had 0 tables, so no backup was needed
+- [x] `wrangler.jsonc`: `env.production` sets `SQUARE_ENVIRONMENT="production"` and repeats the D1 binding (Pages rule, checked in the Cloudflare docs); local/preview stay `sandbox`
+- [x] Step A: Brandon ran `npm.cmd run db:migrate:remote`. Read-back: 0001–0003 applied; tables `accounts, audit_log, connections, saved_reports, sessions`
+- [x] Step B: four Production secrets set by Brandon (names verified only). The first Application ID paste saved 1 character; it was re-entered and redeployed, and the read-back shows a 29-character `sq0idp-…` ID
+- [x] Step C: pushed commit `b2787ac`; production deployment `54fe7936` (redeploy after the secrets fix)
+- [x] Read-back: status `configured/production`; `/api/reports` and `/api/admin/check` give 401 to visitors; Connect goes to `connect.squareup.com` with read-only scopes; `/privacy` loads
+- [ ] **NOT RUN:** a real Square connection. The Application **Secret** can only be proven by a successful connection
+- [ ] Supervised first real owner: connect → save report → open it in a second browser → sign out → disconnect
+
 ## Remaining / blocked
-- [ ] **Brandon:** try the real Sandbox connect locally (`ACCOUNTS_SETUP.md` → Manual test)
-- [ ] **Go-live (separate approval):** back up the remote DB, apply remote migrations, set the production environment in `wrangler.jsonc` (verify Pages env syntax first), Brandon enters the Production secrets, push, read back, then a supervised first real owner
+- [ ] **Brandon:** try the Sandbox connect locally (`ACCOUNTS_SETUP.md` → Manual test). Optional now that production is live
+- [ ] Consider rejecting a Production app ID that doesn't start with `sq0idp-` (would have caught the bad paste)
 - [ ] Bootstrap the remote admin after Brandon signs in on the live site. This needs Brandon's **own** Square business, never the workplace account. Open question: does Brandon have one? If not, admin waits, or uses another approach chosen later.
 - [ ] Decide a contact line for `privacy.html`; add a Chinese privacy page
 - [ ] Founder dashboard (next phase; builds on `/api/admin/*`)
