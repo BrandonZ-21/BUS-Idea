@@ -42,7 +42,9 @@
     <li>Square's access keys for your account, <strong>encrypted</strong>.</li>
     <li>When you last synced, and your sign-in sessions (stored scrambled, so a copy of the database can't be used to sign in as you).</li>
   </ul>
-  <p>Your sales themselves pass through to your browser and are saved only on your device, the same as an uploaded file. When Square has linked an order to a customer, its anonymous customer ID (a code, not a name) is scrambled on your device, and only the scrambled code is kept, for the Returning Customers page. Tally never asks Square for customer names, emails or phone numbers.</p>
+  <p>Your sales themselves pass through to your browser and are saved only on your device, the same as an uploaded file. When Square has linked an order to a customer, its anonymous customer ID (a code, not a name) is scrambled on your device, and only the scrambled code is kept, for the Returning Customers page.</p>
+  <p><strong>What Tally keeps from each order:</strong> date, time, item names, quantity, price, order type (such as pickup), Square's order ID and that scrambled customer code. Nothing else.</p>
+  <p><strong>What it throws away:</strong> Tally does not ask for your Square customer directory. But the order details Square sends can include more than Tally needs, for example the name and contact details on a pickup or delivery order, or the card brand and last four digits of a payment. Tally's server reads past those and discards them immediately: they are never stored, shown, or sent to your browser.</p>
 
   <h2>If you choose "Save this report to my account"</h2>
   <p>Saving is optional and off until you press the button. Each saved report contains only a <strong>summary</strong>:</p>
