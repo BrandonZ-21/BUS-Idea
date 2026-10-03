@@ -219,7 +219,9 @@ main { max-width: 1080px; margin: 0 auto; padding: 28px 20px 60px; }
   max-width: 640px;
   transition: border-color 0.15s ease, background 0.15s ease;
 }
-.dropzone.dragover { border-color: var(--green); background: var(--green-light); box-shadow: var(--shadow-md); }
+.dropzone.dragover { border-color: var(--green); border-style: solid; background: var(--green-light); box-shadow: var(--shadow-md); outline: 3px solid var(--green-light); }
+/* While dragging, let the box itself (not its text/buttons) receive the drag events. */
+.dropzone.dragover * { pointer-events: none; }
 .dropzone p { margin: 10px 0; color: var(--muted); }
 .upload-actions { display: flex; flex-direction: column; align-items: center; gap: 12px; margin-top: 16px; }
 .upload-secondary { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-top: 18px; }

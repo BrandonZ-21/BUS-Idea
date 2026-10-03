@@ -357,8 +357,20 @@ function showIntroOverlay() {
   document.getElementById("introDismissBtn").focus();
 }
 
+// True when the thing being dragged is a file (not selected text or a link).
+function dragHasFiles(e) {
+  return !!e.dataTransfer && Array.from(e.dataTransfer.types || []).includes("Files");
+}
+
+// A file dropped anywhere outside an upload box would make the browser leave
+// the app and open the file itself. Swallow that once, page-wide; the upload
+// boxes handle their own drops in wireUploadWidget.
+window.addEventListener("dragover", (e) => { if (dragHasFiles(e)) e.preventDefault(); });
+window.addEventListener("drop", (e) => { if (dragHasFiles(e)) e.preventDefault(); });
+
 function wireUploadWidget(scopeEl) {
-  const dz = scopeEl.querySelector("#dropzone");
+  // By class, not id: the Home page's box is #dropzone, My Data's is #dropzoneData.
+  const dz = scopeEl.querySelector(".dropzone");
   const input = scopeEl.querySelector("#fileInput");
   const chooseBtn = scopeEl.querySelector("#chooseFileBtn");
   const sampleBtn = scopeEl.querySelector("#sampleBtn");
@@ -369,9 +381,20 @@ function wireUploadWidget(scopeEl) {
     if (e.target.files && e.target.files[0]) handleFile(e.target.files[0]);
   });
   if (dz) {
-    dz.addEventListener("dragover", (e) => { e.preventDefault(); dz.classList.add("dragover"); });
-    dz.addEventListener("dragleave", () => dz.classList.remove("dragover"));
+    // Dropping a file does exactly what choosing one does: handleFile().
+    const over = (e) => {
+      if (!dragHasFiles(e)) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "copy";
+      dz.classList.add("dragover");
+    };
+    dz.addEventListener("dragenter", over);
+    dz.addEventListener("dragover", over);
+    // dragleave also fires when moving onto the text/button inside the box;
+    // only un-highlight when the pointer has really left it.
+    dz.addEventListener("dragleave", (e) => { if (!dz.contains(e.relatedTarget)) dz.classList.remove("dragover"); });
     dz.addEventListener("drop", (e) => {
+      if (!dragHasFiles(e)) return;
       e.preventDefault();
       dz.classList.remove("dragover");
       if (e.dataTransfer.files && e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
