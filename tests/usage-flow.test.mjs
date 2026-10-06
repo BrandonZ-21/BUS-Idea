@@ -187,6 +187,46 @@ test("usage counting and the founder dashboard", async (t) => {
     assert.equal(live.data.firstReport.visitors, 4, "demo numbers never leak into live");
   });
 
+  await t.test("the admin can leave their own browser out (past and future) and undo it; nobody else can", async () => {
+    const exclude = (who, body, opts = {}) => who.json("/api/admin/exclude-browser", { method: "POST", body, ...opts });
+    assert.equal((await exclude(page, { browserId: ID("s"), excluded: true })).status, 401, "visitor");
+    assert.equal((await exclude(owner, { browserId: ID("s"), excluded: true }, { origin: "https://evil.example" })).status, 403, "other site");
+    assert.equal((await exclude(owner, { browserId: "x' OR 1=1 --", excluded: true })).status, 400);
+    assert.equal((await exclude(owner, { browserId: ID("s"), excluded: "yes" })).status, 400);
+
+    // Browser "s" was the one successful journey. Excluded, it drops out of every number...
+    assert.deepEqual((await exclude(owner, { browserId: ID("s"), excluded: true })).data, { browserId: ID("s"), excluded: true });
+    let live = (await owner.json("/api/admin/usage?mode=live&days=7")).data;
+    assert.deepEqual(live.firstReport, { visitors: 3, reachedOwn: 0, rate: 0 });
+    assert.deepEqual(live.funnel.map((s) => s.browsers), [3, 1, 0, 0]);
+    assert.equal(live.excludedBrowsers, 1);
+    // ...its new steps aren't stored, and nothing already stored was deleted.
+    const before = query(`SELECT COUNT(*) AS n FROM usage_events WHERE browser_id = '${ID("s")}'`)[0].n;
+    assert.deepEqual((await page.track(ID("s"), "visit")).data, { collecting: true, stored: false });
+    assert.equal(query(`SELECT COUNT(*) AS n FROM usage_events WHERE browser_id = '${ID("s")}'`)[0].n, before);
+    assert.ok(before > 0);
+    // Other browsers are unaffected.
+    assert.equal((await page.track(ID("p"), "visit")).data.stored, true);
+
+    // Undo: it counts again.
+    await exclude(owner, { browserId: ID("s"), excluded: false });
+    live = (await owner.json("/api/admin/usage?mode=live&days=7")).data;
+    assert.deepEqual(live.firstReport, { visitors: 4, reachedOwn: 1, rate: 0.25 });
+    assert.equal(live.excludedBrowsers, 0);
+  });
+
+  await t.test("an ordinary signed-in user can't exclude browsers", async () => {
+    const other = new Browser();
+    const start = await other.request("/api/square/connect");
+    const authorize = new URL(start.headers.get("location"));
+    authorize.searchParams.set("as", "B");
+    const back = await fetch(authorize, { redirect: "manual" });
+    await other.request(back.headers.get("location"));
+    const res = await other.json("/api/admin/exclude-browser", { method: "POST", body: { browserId: ID("p"), excluded: true } });
+    assert.equal(res.status, 403);
+    assert.equal(query("SELECT COUNT(*) AS n FROM usage_excluded_browsers")[0].n, 0);
+  });
+
   await t.test("demoting the admin removes dashboard access immediately", async () => {
     execFileSync(process.execPath, [join(REPO, "scripts", "set-role.mjs"), "--local", MERCHANT_ID, "user", "--allow-no-admin"], { cwd: project, stdio: "pipe" });
     assert.equal((await owner.json("/api/admin/usage")).status, 403);

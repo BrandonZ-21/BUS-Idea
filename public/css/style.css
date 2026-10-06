@@ -420,6 +420,7 @@ main { max-width: 1080px; margin: 0 auto; padding: 28px 20px 60px; }
 .founder-mode-live { background: var(--green-light); color: #1E3A8A; border-color: var(--green); }
 .founder-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 16px; }
 .founder-controls [role="group"] { display: flex; gap: 6px; }
+.founder-own { margin: -6px 0 16px; }
 .founder-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; margin-bottom: 16px; }
 .founder-card { margin-bottom: 16px; }
 .founder-card h2 { font-size: 1.05rem; }

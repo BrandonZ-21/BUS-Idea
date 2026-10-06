@@ -20,6 +20,20 @@ function usageOptedOut() {
   return navigator.globalPrivacyControl === true || navigator.doNotTrack === "1" || window.doNotTrack === "1";
 }
 
+// "1" once the admin's Founder page has marked this browser as "don't count"
+// (js/founder.js), so the founder's own visits stay out of the numbers; "0"
+// if the admin chose to be counted here after all. Kept in localStorage so
+// it survives "Delete all my data". The server also refuses excluded ids.
+const USAGE_EXCLUDED_KEY = "tally.usageExcluded";
+
+function usageExcludedHere() {
+  try {
+    return localStorage.getItem(USAGE_EXCLUDED_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
 function usageBrowserId() {
   if (!Usage.idPromise) {
     Usage.idPromise = DB.getSetting("usageBrowserId").then(async (id) => {
@@ -35,7 +49,7 @@ function usageBrowserId() {
 
 // Usage.track("upload_failed", { reason: "bad_date", source: "own" })
 Usage.track = async function (event, opts = {}) {
-  if (Usage.off || usageOptedOut() || location.protocol === "file:") return;
+  if (Usage.off || usageOptedOut() || usageExcludedHere() || location.protocol === "file:") return;
   try {
     const browserId = await usageBrowserId();
     const res = await fetch("/api/events", {

@@ -35,6 +35,13 @@ Last updated: 2026-10-02. The spec is in `DASHBOARD_SPEC.md`.
 - [x] Read-back, with no test data written to production: `/api/events` accepts input (400 on an empty body, i.e. counting is on); `/api/admin/usage` → 401 for visitors in live and demo; `usage_events` has 0 rows. **Counting starts from the next real visit**
 - Note: Brandon's own visits are counted too (as one browser). Keep that in mind when reading small numbers
 
+## Own-browser exclusion (built 2026-10-06, local)
+- [x] Migration `0005_usage_excluded_browsers.sql`, `POST /api/admin/exclude-browser`, Founder page auto-excludes the browser it's opened in, with a toggle to undo
+- [x] Tests: `npm test` 34/34; `npm run test:usage` 11/11 (visitor 401, other site 403, ordinary user 403, bad input 400; excluded browser drops out of every number, new steps not stored, nothing deleted, undo restores)
+- [x] Browser check in a throwaway copy: own 5 steps hidden after opening Founder; toggle works both ways; no console errors
+- [ ] **Go-live:** Brandon runs `npm.cmd run db:migrate:remote` (applies 0005) **before** pushing, then pushes. Until 0005 is applied, the Live tab and step counting would fail on the new code
+- Also fixed 2026-10-06: an admin with no sales data on the device now still sees the Founder tab. The admin role was lost on 2026-10-03 when the account was disconnected and reconnected; it was re-granted with `set-role` on 2026-10-06
+
 ## Remaining
 - [ ] Brandon: confirm or rewrite the three founder questions; add real tester observations after tomorrow
 - [ ] Tell testers that anonymous steps are counted (the privacy page describes it)

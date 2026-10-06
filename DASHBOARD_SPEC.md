@@ -35,6 +35,12 @@ Source tag: `own` / `sample` / `square` / `unknown`. `unknown` means data saved 
 - **Manual observations:** the "Next experiment" note, saved in the admin's browser only (localStorage).
 - Automated tests use throwaway databases, so they never inflate live counts.
 
+## The founder's own browsers aren't counted
+- The first time the Founder page is opened in a browser, that browser is marked "don't count" (admin-only `POST /api/admin/exclude-browser`, table `usage_excluded_browsers`, migration 0005).
+- Its **past** steps stay stored but are left out of every number, and **new** ones aren't sent or stored. A button on the page switches it back.
+- Admin accounts are also left out of the "accounts with a saved report" count.
+- Limit: a browser where the founder has never opened the Founder page (for example a phone) still counts until the page is opened there once.
+
 ## Privacy decisions
 - Stored per event: time, day, random browser ID, event name, reason code, source tag. Nothing else, enforced by a strict allow-list (extra fields get a 400).
 - Not stored: sales, item names, amounts, file names or contents, business names, IPs, user agents, cookies.

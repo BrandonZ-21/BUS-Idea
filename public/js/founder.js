@@ -64,10 +64,45 @@ function saveFounderNote(note) {
   }
 }
 
+function founderExcludedFlag() {
+  try {
+    return localStorage.getItem(USAGE_EXCLUDED_KEY); // "1" | "0" | null (never decided)
+  } catch {
+    return null;
+  }
+}
+
+// Tells the server (admin only) to count or not count THIS browser, and
+// remembers the choice here. Excluding also drops this browser's past steps
+// from every number; nothing is deleted, so it can be switched back.
+Founder.setExcluded = async function (excluded) {
+  try {
+    const browserId = await usageBrowserId();
+    const res = await fetch("/api/admin/exclude-browser", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ browserId, excluded }),
+    });
+    if (res.status !== 200) return false;
+    try {
+      localStorage.setItem(USAGE_EXCLUDED_KEY, excluded ? "1" : "0");
+    } catch {
+      // storage blocked: the server-side exclusion still holds for this id
+    }
+    return true;
+  } catch {
+    return false;
+  }
+};
+
 Founder.load = async function () {
   Founder.loading = true;
   Founder.error = null;
   App.renderFounder();
+  // The founder's own browser shouldn't count as a user: the first time the
+  // dashboard is opened here, exclude it (the server refuses non-admins).
+  if (founderExcludedFlag() === null) await Founder.setExcluded(true);
   try {
     const res = await fetch(`/api/admin/usage?mode=${Founder.mode}&days=${Founder.days}`, { credentials: "same-origin" });
     if (res.status !== 200) {
@@ -252,6 +287,13 @@ App.renderFounder = function () {
       <span class="founder-sub">${Founder.loadedAt && d ? `Loaded ${esc(Founder.loadedAt.toLocaleTimeString())}${d.mode === "live" && d.firstEventAt ? ` · counting since ${esc(new Date(d.firstEventAt * 1000).toLocaleDateString())}` : ""}` : ""}</span>
       <button type="button" class="btn btn-sm btn-ghost" id="founderRefresh">Refresh</button>
     </div>
+    ${d ? `<p class="founder-sub founder-own" role="status">
+      ${founderExcludedFlag() === "1"
+        ? "<strong>This browser isn't counted.</strong> Your own visits here, past and future, are left out of the Live numbers."
+        : "<strong>This browser is being counted</strong> like any visitor's."}
+      <button type="button" class="btn btn-sm btn-ghost" id="founderExcludeToggle">${founderExcludedFlag() === "1" ? "Count this browser" : "Don't count this browser"}</button>
+      ${d.mode === "live" && d.excludedBrowsers ? ` · ${d.excludedBrowsers} browser${d.excludedBrowsers === 1 ? "" : "s"} excluded in total` : ""}
+    </p>` : ""}
     ${body}
     ${renderExperimentNote()}`;
 
@@ -265,6 +307,12 @@ App.renderFounder = function () {
     Founder.load();
   }));
   document.getElementById("founderRefresh").addEventListener("click", Founder.load);
+  const excludeToggle = document.getElementById("founderExcludeToggle");
+  if (excludeToggle) excludeToggle.addEventListener("click", async () => {
+    excludeToggle.disabled = true;
+    await Founder.setExcluded(founderExcludedFlag() !== "1");
+    Founder.load(); // numbers change when this browser is added or removed
+  });
   document.getElementById("founderNoteSave").addEventListener("click", () => {
     const note = {};
     ["issue", "evidence", "change", "success"].forEach((k) => { note[k] = document.getElementById(`founderNote-${k}`).value; });
