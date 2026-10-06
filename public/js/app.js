@@ -138,14 +138,12 @@ function showView(name) {
   });
 }
 
-// hasData=false means nothing except #/home has anything to show, so the
-// nav bar (which only links to pages that need data) is left empty rather
-// than showing a bunch of links to pages that would just say "upload data
-// first" -- same as before, just no longer tangled up with routing itself.
-App.showAppShell = function (hasData) {
+// With no saved data, nothing except #/home has anything to show, so the
+// nav bar leaves out the links to pages that need data rather than showing
+// a bunch of links that would just say "upload data first" (see renderNav).
+App.showAppShell = function () {
   showView("view-root");
-  if (hasData) renderNav();
-  else document.getElementById("mainNav").innerHTML = "";
+  renderNav();
 };
 
 App.updateActiveNav = function (route) {
@@ -157,7 +155,8 @@ App.updateActiveNav = function (route) {
 };
 
 function renderNav() {
-  const items = [
+  // These pages all need saved sales on this device.
+  const items = App.allRows.length ? [
     ["#/dashboard", "navDashboard"],
     ["#/items", "navItems"],
     ["#/ask", "navAsk"],
@@ -165,8 +164,10 @@ function renderNav() {
     ["#/customers", "navCustomers"],
     ["#/grow", "navGrow"],
     ["#/data", "navData"],
-  ];
-  // Convenience only -- the server refuses the dashboard's data to non-admins.
+  ] : [];
+  // The founder dashboard shows site-wide counts, so an admin gets its link
+  // with or without sales here. Convenience only -- the server refuses the
+  // dashboard's data to non-admins.
   if (Account.me && Account.me.role === "admin") items.push(["#/founder", "navFounder"]);
   document.getElementById("mainNav").innerHTML = items
     .map(([href, key]) => `<a href="${href}">${esc(t(key))}</a>`)
@@ -3331,7 +3332,7 @@ async function initApp() {
     if (App.weatherEnabled) refreshWeatherIfNeeded(); // fire-and-forget; never blocks page load
     SquareSync.init(); // fire-and-forget: Square card status + returning from "Connect Square"
     Usage.track("visit"); // fire-and-forget; see js/usage.js
-    Account.load().then(() => { if (App.allRows.length) renderNav(); }); // adds the admin-only Founder link
+    Account.load().then(() => { renderNav(); App.updateActiveNav(location.hash); }); // adds the admin-only Founder link
   } catch (err) {
     // If this device's saved data can't be opened (e.g. another tab of this
     // app is still open on an older version and is holding the database
