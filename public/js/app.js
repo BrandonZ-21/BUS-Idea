@@ -226,7 +226,7 @@ function showMergeBanner(msg) {
 }
 
 // ---------- Modal ----------
-function showModal({ title, body, confirmLabel, cancelLabel, onConfirm, danger }) {
+function showModal({ title, body, confirmLabel, cancelLabel, onConfirm, onCancel, danger }) {
   const root = document.getElementById("modalRoot");
   root.innerHTML = `
     <div class="modal-overlay" id="modalOverlay">
@@ -240,8 +240,9 @@ function showModal({ title, body, confirmLabel, cancelLabel, onConfirm, danger }
       </div>
     </div>`;
   const close = () => { root.innerHTML = ""; };
-  document.getElementById("modalCancelBtn").addEventListener("click", close);
-  document.getElementById("modalOverlay").addEventListener("click", (e) => { if (e.target.id === "modalOverlay") close(); });
+  const cancel = () => { close(); if (onCancel) onCancel(); };
+  document.getElementById("modalCancelBtn").addEventListener("click", cancel);
+  document.getElementById("modalOverlay").addEventListener("click", (e) => { if (e.target.id === "modalOverlay") cancel(); });
   document.getElementById("modalConfirmBtn").addEventListener("click", () => { close(); onConfirm(); });
   document.getElementById("modalConfirmBtn").focus();
 }
@@ -253,12 +254,13 @@ function showModal({ title, body, confirmLabel, cancelLabel, onConfirm, danger }
 // no images/fonts from a third party beyond the Google Fonts stylesheet
 // already loaded in index.html).
 const LANDING_FEATURES = [
+  { icon: "📅", titleKey: "landingFeatureWeekTitle", bodyKey: "landingFeatureWeekBody" },
   { icon: "💬", titleKey: "landingFeatureDashboardTitle", bodyKey: "landingFeatureDashboardBody" },
-  { icon: "🌦️", titleKey: "landingFeatureWeatherTitle", bodyKey: "landingFeatureWeatherBody" },
-  { icon: "🔁", titleKey: "landingFeatureCustomersTitle", bodyKey: "landingFeatureCustomersBody" },
-  { icon: "📈", titleKey: "landingFeatureGrowTitle", bodyKey: "landingFeatureGrowBody" },
   { icon: "🔒", titleKey: "landingFeaturePrivacyTitle", bodyKey: "landingFeaturePrivacyBody" },
   { icon: "🌐", titleKey: "landingFeatureBilingualTitle", bodyKey: "landingFeatureBilingualBody" },
+  { icon: "🔁", titleKey: "landingFeatureCustomersTitle", bodyKey: "landingFeatureCustomersBody" },
+  { icon: "📈", titleKey: "landingFeatureGrowTitle", bodyKey: "landingFeatureGrowBody" },
+  { icon: "🌦️", titleKey: "landingFeatureWeatherTitle", bodyKey: "landingFeatureWeatherBody" },
 ];
 const LANDING_STEPS = [
   { titleKey: "landingStep1Title", bodyKey: "landingStep1Body" },
@@ -625,6 +627,8 @@ async function confirmMatch() {
       uploadFailed(why.reason, why.message);
       return;
     }
+    // Stays on this screen if the owner backs out, so nothing is lost.
+    if (!(await confirmNoDoubleCount(rows, false))) return;
     await DB.setSetting("format:" + p.signature, mapping);
     if (mapping.customerId) {
       await DB.setSetting("customerIdColumnName", mapping.customerId);
@@ -658,6 +662,35 @@ async function noteDataSource(source, added) {
   else if (App.dataSource !== "own") App.dataSource = "sample";
   await DB.setSetting("dataSource", App.dataSource);
   if (added > 0 && source !== "sample") Usage.track("data_added", { source });
+}
+
+// ---------- Square sync + file upload on the same dates ----------
+// A synced row is one line item with Square's order id; an uploaded Square
+// export row is one whole receipt with a transaction id. The de-dupe below
+// can never match the two, so the same day from both sources counts twice.
+// Until the two can be reconciled, the owner is asked before that happens.
+// Returns { days, first, last } for the dates both would cover, or null.
+function overlapWithOtherSource(newRows, newIsSquare) {
+  const otherDates = new Set(App.allRows.filter((r) => (r.source === "square") !== newIsSquare).map((r) => r.date));
+  const days = Array.from(new Set(newRows.map((r) => r.date).filter((d) => otherDates.has(d)))).sort();
+  return days.length ? { days: days.length, first: days[0], last: days[days.length - 1] } : null;
+}
+
+// Resolves true to go ahead (no overlap, or the owner said "add anyway").
+function confirmNoDoubleCount(newRows, newIsSquare) {
+  const overlap = overlapWithOtherSource(newRows, newIsSquare);
+  if (!overlap) return Promise.resolve(true);
+  return new Promise((resolve) => {
+    showModal({
+      title: t("overlapTitle"),
+      body: t(newIsSquare ? "overlapBodySync" : "overlapBodyUpload", { days: overlap.days, first: shortDate(overlap.first), last: shortDate(overlap.last) }),
+      confirmLabel: t("overlapAddAnyway"),
+      cancelLabel: t("overlapCancel"),
+      danger: true,
+      onConfirm: () => resolve(true),
+      onCancel: () => resolve(false),
+    });
+  });
 }
 
 // ---------- Merge / dedupe ----------

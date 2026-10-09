@@ -162,6 +162,9 @@ SquareSync.sync = async function () {
     }
     const rows = await squareRowsToSalesRows(serverRows);
     serverRows.length = 0; // drop the unscrambled customer ids
+    // Same dates already here from an uploaded file would count twice (see
+    // overlapWithOtherSource in app.js) -- ask first; backing out adds nothing.
+    if (rows.length && !(await confirmNoDoubleCount(rows, true))) throw new SquareSyncError(t("squareSyncCancelled"));
     const added = rows.length ? await mergeNewRows(rows, { allDuplicateKey: "squareSyncUpToDate" }) : 0;
     await DB.setSetting("squareCustomersBackfilled", true);
     if (rows.some((r) => r.customerHash) && !App.customerIdColumnName) {
