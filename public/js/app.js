@@ -32,6 +32,7 @@ const App = {
   ignoreHolidays: true,
   holidaysMap: new Map(), // "YYYY-MM-DD" -> { key, nameKey } (computed US holidays)
   customHolidaysMap: new Map(), // "YYYY-MM-DD" -> { date, name } (owner-entered: Chinese New Year, etc.)
+  localCalendar: null, // "brandeis" | null -- optional nearby dates on the weekly comparison (js/local-calendar.js)
   dayNotesMap: new Map(), // "YYYY-MM-DD" -> { date, text, tags }
   notesFilter: "all", // "all" | "noted"
   editingNoteDate: null,
@@ -150,6 +151,8 @@ App.updateActiveNav = function (route) {
   document.querySelectorAll("#mainNav a").forEach((a) => {
     a.classList.toggle("active", a.getAttribute("href") === route || (route === "#/dashboard" && a.getAttribute("href") === "#/dashboard"));
   });
+  const more = document.querySelector("#mainNav .nav-more");
+  if (more) more.classList.toggle("active", !!more.querySelector("a.active"));
   const brand = document.getElementById("brandName");
   if (brand) brand.classList.toggle("active", route === "#/home");
 };
@@ -159,19 +162,30 @@ function renderNav() {
   const items = App.allRows.length ? [
     ["#/dashboard", "navDashboard"],
     ["#/items", "navItems"],
-    ["#/ask", "navAsk"],
     ["#/notes", "navNotes"],
-    ["#/customers", "navCustomers"],
-    ["#/grow", "navGrow"],
     ["#/data", "navData"],
   ] : [];
+  // Pages an owner opens now and then sit behind "More", so the bar leads
+  // with the report itself.
+  const more = App.allRows.length ? [
+    ["#/ask", "navAsk"],
+    ["#/customers", "navCustomers"],
+    ["#/grow", "navGrow"],
+  ] : [];
+  const link = ([href, key]) => `<a href="${href}">${esc(t(key))}</a>`;
   // The founder dashboard shows site-wide counts, so an admin gets its link
   // with or without sales here. Convenience only -- the server refuses the
   // dashboard's data to non-admins.
-  if (Account.me && Account.me.role === "admin") items.push(["#/founder", "navFounder"]);
-  document.getElementById("mainNav").innerHTML = items
-    .map(([href, key]) => `<a href="${href}">${esc(t(key))}</a>`)
-    .join("");
+  const founder = Account.me && Account.me.role === "admin" ? link(["#/founder", "navFounder"]) : "";
+  const nav = document.getElementById("mainNav");
+  nav.innerHTML = items.map(link).join("")
+    + (more.length ? `<details class="nav-more"><summary>${esc(t("navMore"))}</summary><div class="nav-more-menu">${more.map(link).join("")}</div></details>` : "")
+    + founder;
+  const details = nav.querySelector(".nav-more");
+  if (details) {
+    details.querySelectorAll("a").forEach((a) => a.addEventListener("click", () => { details.open = false; }));
+    details.addEventListener("keydown", (e) => { if (e.key === "Escape") details.open = false; });
+  }
 }
 
 function applyStaticText() {
@@ -747,6 +761,13 @@ function getFilteredRows() {
   const ranged = filterByRange(App.allRows, App.rangeMode);
   const closed = closedDates();
   return ranged.filter((r) => !closed.has(r.date) && !(App.excludeOneOffs && App.oneOffRows.has(r)));
+}
+
+// The same clean-up as getFilteredRows, but over every saved date -- for
+// pages with no date-range selector of their own.
+function normalSellingRows() {
+  const closed = closedDates();
+  return App.allRows.filter((r) => !closed.has(r.date) && !(App.excludeOneOffs && App.oneOffRows.has(r)));
 }
 
 // One-off payments inside the selected range (whether or not they're hidden).
@@ -1556,6 +1577,96 @@ function generateInsights(rows) {
   return insights.slice(0, 5);
 }
 
+// ---------- Weekly comparison (top of the dashboard) ----------
+// "Oct 3" / "10月3日"; with weekday: "Sat, Oct 3".
+function shortDate(dateStr, withWeekday) {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const opts = withWeekday ? { weekday: "short", month: "short", day: "numeric" } : { month: "short", day: "numeric" };
+  return new Date(y, m - 1, d).toLocaleDateString(App.lang === "zh" ? "zh-CN" : "en-US", opts);
+}
+
+// Everything Tally knows that could explain one week: holidays (US and the
+// owner's own), the owner's Day Notes, running promos, and the optional
+// local calendar. Returns display strings, in date order.
+function weekReasons(start, end) {
+  const out = [];
+  const promosSeen = new Set();
+  for (let d = start; d <= end; d = shiftDate(d, 1)) {
+    const parts = [];
+    const holiday = holidayAt(d);
+    if (holiday) parts.push(holiday.name);
+    const note = noteAt(d);
+    if (note) {
+      (note.tags || []).forEach((tag) => parts.push(tagLabel(tag)));
+      if (note.text) parts.push(note.text.length > 80 ? note.text.slice(0, 77) + "..." : note.text);
+      if (note.tags && note.tags.includes("promo")) promosSeen.add(note.date);
+    }
+    promoNotesActiveOn(d).forEach((n) => {
+      if (promosSeen.has(n.date)) return;
+      promosSeen.add(n.date);
+      parts.push(t("weekPromoRunning", { since: shortDate(n.date) }));
+    });
+    if (parts.length) out.push(`${shortDate(d, true)}: ${parts.join(", ")}`);
+  }
+  localCalendarEventsBetween(App.localCalendar, start, end).forEach((e) => {
+    const when = e.start === e.end ? shortDate(e.start, true) : `${shortDate(e.start)} – ${shortDate(e.end)}`;
+    out.push(`${when}: ${t(e.labelKey)}`);
+  });
+  return out;
+}
+
+// Always the two most recent weeks in the saved data -- it ignores the date
+// range selector and the click-to-filter chips, because "how did this week
+// go?" shouldn't change when a chart is being explored. Closed days and
+// (when hidden) one-off payments are left out, like everywhere else.
+function renderWeekCompareCard() {
+  const cmp = compareLastTwoWeeks(normalSellingRows());
+  if (!cmp) return `<p class="chart-meta week-compare-wait">${esc(t("weekNeedsData"))}</p>`;
+  const { thisWeek: now, lastWeek: before, pct, movers } = cmp;
+
+  const amounts = { thisAmount: formatMoney(now.sales), lastAmount: formatMoney(before.sales) };
+  let headline;
+  if (pct === null) headline = t("weekHeadlineNoPrior", amounts);
+  else if (Math.abs(pct) < 1) headline = t("weekHeadlineFlat", amounts);
+  else headline = t(pct > 0 ? "weekHeadlineUp" : "weekHeadlineDown", Object.assign({ pct: Math.round(Math.abs(pct)) }, amounts));
+
+  const figure = (label, value, was) => `
+    <div class="week-figure"><div class="stat-label">${esc(label)}</div><div class="week-figure-value">${esc(value)}</div><div class="chart-meta">${esc(t("weekWas", { value: was }))}</div></div>`;
+  const moverLine = (m) => esc(t(m.change > 0 ? "weekMoverUp" : "weekMoverDown", {
+    item: m.item, amount: formatMoney(Math.abs(m.change)), thisQty: m.thisQty.toLocaleString(), lastQty: m.lastQty.toLocaleString(),
+  }));
+  const reasonList = (title, week) => {
+    const reasons = weekReasons(week.start, week.end);
+    reasons.push(t("weekSellingDays", { count: week.sellingDays }));
+    return `<h4>${esc(title)} <span class="chart-meta">${esc(shortDate(week.start))} – ${esc(shortDate(week.end))}</span></h4>
+      <ul>${reasons.map((r) => `<li>${esc(r)}</li>`).join("")}</ul>`;
+  };
+
+  return `
+    <section class="card week-compare" id="weekCompareCard">
+      <h2>${esc(t("weekTitle"))}</h2>
+      <p class="chart-meta">${esc(t("weekAlwaysLatest"))}</p>
+      <p class="week-headline">${esc(headline)}</p>
+      <div class="week-figures">
+        ${figure(t("cardTotalSales"), formatMoney(now.sales), formatMoney(before.sales))}
+        ${figure(t("cardOrders"), now.orders.toLocaleString(), before.orders.toLocaleString())}
+        ${figure(t("cardAvgOrder"), formatMoney2(now.avgOrder), formatMoney2(before.avgOrder))}
+      </div>
+      <div class="week-cols">
+        <div>
+          <h3>${esc(t("weekMoversTitle"))}</h3>
+          ${movers.length ? `<ul>${movers.map((m) => `<li>${moverLine(m)}</li>`).join("")}</ul>` : `<p class="chart-meta">${esc(t("weekMoversNone"))}</p>`}
+        </div>
+        <div>
+          <h3>${esc(t("weekReasonsTitle"))}</h3>
+          ${reasonList(t("weekReasonsThis"), now)}
+          ${reasonList(t("weekReasonsLast"), before)}
+          <p class="chart-meta">${esc(t("weekReasonsHint"))} <a href="#/notes">${esc(t("navNotes"))}</a></p>
+        </div>
+      </div>
+    </section>`;
+}
+
 // ---------- Dashboard ----------
 App.renderDashboard = function () {
   const root = document.getElementById("view-root");
@@ -1610,6 +1721,8 @@ App.renderDashboard = function () {
     ${renderWeatherLine()}
     ${renderHolidayLine(rows)}
     ${thin ? `<div class="thin-data-banner">${esc(t("thinDataBanner"))}</div>` : ""}
+    ${renderWeekCompareCard()}
+    ${App.allRows.some((r) => r.source === "square") ? `<p class="chart-meta gross-note">${esc(t("grossNote"))}</p>` : ""}
     <div class="stat-grid">
       <div class="card stat-card"><div class="stat-label">${esc(t("cardTotalSales"))}</div><div class="stat-value">${formatMoney(summary.totalSales)}</div></div>
       <div class="card stat-card"><div class="stat-label">${esc(t("cardOrders"))}</div><div class="stat-value">${summary.orderCount.toLocaleString()}</div></div>
@@ -2018,6 +2131,44 @@ App.renderDaysDetail = function () {
   });
 };
 
+// ---------- Item-level CSV (Items page) ----------
+// One row per item sold -- the shape spreadsheets and bookkeeping tools
+// want, which a Square export (one row per receipt) doesn't give. Built and
+// downloaded in this browser; nothing is sent anywhere.
+const ITEMS_CSV_COLUMNS = ["date", "time", "item", "variation", "channel", "quantity", "unit_price", "line_total", "price_estimated", "order_id"];
+
+function csvCell(value) {
+  let s = value === null || value === undefined ? "" : String(value);
+  // A spreadsheet would run a cell that starts like a formula.
+  if (/^[=+\-@\t\r]/.test(s) && typeof value !== "number") s = "'" + s;
+  return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+function itemsToCsv(items) {
+  const lines = [ITEMS_CSV_COLUMNS.join(",")];
+  items.slice().sort((a, b) => (a.date + (a.time || "")).localeCompare(b.date + (b.time || ""))).forEach((it) => {
+    lines.push([
+      it.date, it.time || "", it.name, it.variation || "", it.channel || "", it.qty,
+      Number(it.unitPrice.toFixed(2)), Number(it.lineTotal.toFixed(2)),
+      ESTIMATED_PRICE_SOURCES.has(it.priceSource) ? "yes" : "no", it.receipt.orderId || "",
+    ].map(csvCell).join(","));
+  });
+  return lines.join("\r\n") + "\r\n";
+}
+
+function downloadItemsCsv(items) {
+  // The BOM makes Excel read non-English item names correctly.
+  const blob = new Blob(["﻿" + itemsToCsv(items)], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "tally-items.csv";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 // ---------- Detail: Items ----------
 // Works on item rows (js/square-items.js): a Square receipt is split into
 // its items, any other file's rows are already one item each.
@@ -2029,10 +2180,13 @@ App.renderItemsDetail = function () {
   const channels = Array.from(new Set(allItems.map((it) => it.channel).filter(Boolean))).sort();
   if (!channels.includes(App.itemsChannel)) App.itemsChannel = "";
   if (App.itemsGroup === "channel" && !channels.length) App.itemsGroup = "item";
+  if (App.itemsGroup === "option" && !allItems.some((it) => it.variation)) App.itemsGroup = "item";
   const items = App.itemsChannel ? allItems.filter((it) => it.channel === App.itemsChannel) : allItems;
   const groupKeys = {
     item: (it) => it.name,
     variation: (it) => (it.variation ? `${it.name} (${it.variation})` : it.name),
+    // One size or option added up across every item ("Large", "Oat milk").
+    option: (it) => it.variation || t("itemsOptionNone"),
     channel: (it) => it.channel || t("itemsChannelNone"),
   };
   const groups = summarize(items, groupKeys[App.itemsGroup]);
@@ -2053,6 +2207,7 @@ App.renderItemsDetail = function () {
       <div class="toggle-group" role="group" aria-label="${esc(t("itemsGroupLabel"))}">
         <button type="button" data-items-group="item" class="${App.itemsGroup === "item" ? "active" : ""}">${esc(t("itemsGroupItem"))}</button>
         <button type="button" data-items-group="variation" class="${App.itemsGroup === "variation" ? "active" : ""}">${esc(t("itemsGroupVariation"))}</button>
+        ${allItems.some((it) => it.variation) ? `<button type="button" data-items-group="option" class="${App.itemsGroup === "option" ? "active" : ""}">${esc(t("itemsGroupOption"))}</button>` : ""}
         ${channels.length ? `<button type="button" data-items-group="channel" class="${App.itemsGroup === "channel" ? "active" : ""}">${esc(t("itemsGroupChannel"))}</button>` : ""}
       </div>
       ${channels.length ? `
@@ -2111,8 +2266,13 @@ App.renderItemsDetail = function () {
         <thead><tr><th>${esc(t("itemsColItem"))}</th><th>${esc(t("itemsColQty"))}</th><th>${esc(t("itemsColRevenue"))}</th></tr></thead>
         <tbody id="itemsTableBody"></tbody>
       </table>
+      <div class="data-actions" style="margin-top:14px;">
+        <button type="button" class="btn btn-secondary" id="itemsCsvBtn">${esc(t("itemsCsvBtn"))}</button>
+      </div>
+      <p class="match-note">${esc(t("itemsCsvNote", { count: items.length.toLocaleString() }))}</p>
     </div>
   `;
+  document.getElementById("itemsCsvBtn").addEventListener("click", () => downloadItemsCsv(items));
 
   const topRevenue = groups.slice(0, 8);
   const topUnits = byUnits.slice(0, 8);
@@ -2425,6 +2585,16 @@ App.renderNotes = function () {
       </table>` : ""}
     </div>
 
+    <div class="card" style="margin-top:20px;">
+      <h2>${esc(t("localCalTitle"))}</h2>
+      <p class="match-note">${esc(t("localCalIntro"))}</p>
+      <label style="display:flex;align-items:flex-start;gap:8px;margin-top:10px;">
+        <input type="checkbox" id="localCalBrandeisToggle" ${App.localCalendar === "brandeis" ? "checked" : ""} style="margin-top:3px;" />
+        <span>${esc(t("localCalBrandeisToggle", { year: LOCAL_CALENDARS.brandeis.academicYear }))}</span>
+      </label>
+      <p class="match-note">${esc(t("localCalSource"))}</p>
+    </div>
+
     <div class="toggle-group" role="group" style="margin-top:20px;">
       <button type="button" data-filter="all" class="${App.notesFilter === "all" ? "active" : ""}">${esc(t("notesShowAllDays"))}</button>
       <button type="button" data-filter="noted" class="${App.notesFilter === "noted" ? "active" : ""}">${esc(t("notesShowNotedOnly"))}</button>
@@ -2518,6 +2688,11 @@ App.renderNotes = function () {
     await refreshDayNotes();
     App.editingNoteDate = null;
     App.renderNotes();
+  });
+
+  document.getElementById("localCalBrandeisToggle").addEventListener("change", async (e) => {
+    App.localCalendar = e.target.checked ? "brandeis" : null;
+    await DB.setSetting("localCalendar", App.localCalendar);
   });
 
   // ---- Custom holidays: manual add, CSV import, template, delete ----
@@ -2987,7 +3162,15 @@ App.renderGrow = function () {
   };
 
   const tips = generateBusinessTips(ctx);
-  const menuEngineering = computeMenuEngineering(rows);
+  // The matrix works on single items: a Square export's receipts are split
+  // first (js/square-items.js), or each whole receipt would be ranked as if
+  // it were one menu item. Closed days, one-off payments and custom amounts
+  // aren't menu items, so they stay out.
+  const menuEngineering = computeMenuEngineering(
+    itemRowsFor(normalSellingRows())
+      .filter((it) => it.kind === "product" && it.qty > 0)
+      .map((it) => ({ item: it.name, quantity: it.qty, price: it.unitPrice }))
+  );
 
   root.innerHTML = `
     <h1>${esc(t("growTitle"))}</h1>
@@ -3190,6 +3373,7 @@ async function deleteAllData() {
   Usage.reset(); // settings are gone, so the next event gets a brand-new random browser id
   App.dataSource = null;
   App.ignoreHolidays = true;
+  App.localCalendar = null;
   App.weatherEnabled = false;
   App.weatherLocation = null;
   App.weatherUnits = { temp: "F", precip: "in" };
@@ -3321,6 +3505,7 @@ async function initApp() {
     App.customerSummaryRows = await DB.getAllCustomerSummary();
     App.hasSeenIntro = !!(await DB.getSetting("hasSeenIntro"));
     App.dataSource = (await DB.getSetting("dataSource")) || null;
+    App.localCalendar = (await DB.getSetting("localCalendar")) === "brandeis" ? "brandeis" : null;
     applyStaticText();
     document.getElementById("langToggleBtn").addEventListener("click", () => {
       setLang(App.lang === "en" ? "zh" : "en");

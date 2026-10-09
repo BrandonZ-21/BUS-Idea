@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Weekly comparison tests</title>
+<style>
+  body { font-family: monospace; padding: 24px; background: #fff; color: #111; }
+  .pass { color: #1F5C4A; }
+  .fail { color: #b3401f; font-weight: bold; }
+  h1 { font-family: sans-serif; }
+  #summary { font-family: sans-serif; font-size: 1.2em; margin-top: 16px; }
+</style>
+</head>
+<body>
+<h1>Weekly comparison tests</h1>
+<p>No test framework needed -- just open this file in a browser. Each line is one check.</p>
+<div id="results"></div>
+<div id="summary"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script src="../js/local-calendar.js"></script>
+<script src="../js/square-items.js"></script>
+<script src="../js/stats.js"></script>
+<script>
+  const results = [];
+  let pass = 0, fail = 0;
+
+  function assert(label, condition) {
+    if (condition) { pass++; } else { fail++; }
+    results.push({ label, ok: !!condition });
+  }
+  const near = (a, b) => Math.abs(a - b) < 0.005;
+
+  let orderSeq = 0;
+  const sale = (date, item, quantity, price) => ({ date, time: "09:00", item, quantity, price, orderId: "o" + ++orderSeq, kind: "product" });
+
+  // --- Not enough history ---
+  assert("no rows -> null", compareLastTwoWeeks([]) === null);
+  (function () {
+    const rows = [];
+    for (let d = 1; d <= 13; d++) rows.push(sale(`2026-10-${String(d).padStart(2, "0")}`, "Latte", 1, 5));
+    assert("13 days of data -> null", compareLastTwoWeeks(rows) === null);
+    rows.push(sale("2026-10-14", "Latte", 1, 5));
+    assert("14 days of data -> a result", compareLastTwoWeeks(rows) !== null);
+  })();
+
+  // --- Two known weeks: Oct 1-7 (before) and Oct 8-14 (last 7 days) ---
+  (function () {
+    const rows = [
+      sale("2026-09-20", "Latte", 100, 5), // older than both weeks: ignored
+      sale("2026-10-01", "Latte", 10, 5), // 50
+      sale("2026-10-03", "Muffin", 10, 3), // 30
+      sale("2026-10-07", "Bagel", 5, 4), // 20   -> before = 100, 3 orders, 3 days
+      sale("2026-10-08", "Latte", 16, 5), // 80
+      sale("2026-10-10", "Muffin", 5, 3), // 15
+      sale("2026-10-14", "Scone", 3, 6), // 18
+      sale("2026-10-14", "Scone", 2, 6), // 12   -> last 7 days = 125, 4 orders, 3 days
+    ];
+    const c = compareLastTwoWeeks(rows);
+    assert("last 7 days end on the latest date", c.thisWeek.end === "2026-10-14" && c.thisWeek.start === "2026-10-08");
+    assert("the 7 days before are Oct 1-7", c.lastWeek.start === "2026-10-01" && c.lastWeek.end === "2026-10-07");
+    assert("last 7 days sales = 125", near(c.thisWeek.sales, 125));
+    assert("7 days before sales = 100 (older rows ignored)", near(c.lastWeek.sales, 100));
+    assert("pct = +25", near(c.pct, 25));
+    assert("orders counted per week (4 vs 3)", c.thisWeek.orders === 4 && c.lastWeek.orders === 3);
+    assert("average order = sales / orders", near(c.thisWeek.avgOrder, 125 / 4) && near(c.lastWeek.avgOrder, 100 / 3));
+    assert("selling days counted per week (3 vs 3)", c.thisWeek.sellingDays === 3 && c.lastWeek.sellingDays === 3);
+    assert("three movers by default", c.movers.length === 3);
+    assert("biggest mover is Latte, up 30", c.movers[0].item === "Latte" && near(c.movers[0].change, 30));
+    assert("Latte quantities 16 now, 10 before", c.movers[0].thisQty === 16 && c.movers[0].lastQty === 10);
+    assert("a new item counts as a mover (Scone, +30, was 0)", c.movers[1].item === "Scone" && c.movers[1].lastQty === 0);
+    assert("a dropped item is negative (Bagel, -20)", c.movers[2].item === "Bagel" && near(c.movers[2].change, -20));
+    assert("moverCount limits the list", compareLastTwoWeeks(rows, 1).movers.length === 1);
+    assert("the item maps aren't leaked on the result", c.thisWeek.items === undefined);
+  })();
+
+  // --- Earlier week had no sales: no percentage ---
+  (function () {
+    const rows = [sale("2026-09-30", "Latte", 1, 5), sale("2026-10-14", "Latte", 2, 5)];
+    const c = compareLastTwoWeeks(rows);
+    assert("empty earlier week -> pct is null, not Infinity", c !== null && c.pct === null);
+    assert("empty earlier week -> 0 orders, 0 selling days", c.lastWeek.orders === 0 && c.lastWeek.sellingDays === 0);
+  })();
+
+  // --- Unchanged items aren't movers ---
+  (function () {
+    const rows = [sale("2026-10-01", "Latte", 2, 5), sale("2026-10-14", "Latte", 2, 5)];
+    const c = compareLastTwoWeeks(rows);
+    assert("same sales both weeks -> pct 0, no movers", near(c.pct, 0) && c.movers.length === 0);
+  })();
+
+  // --- Local calendar ---
+  (function () {
+    const week = localCalendarEventsBetween("brandeis", "2026-10-08", "2026-10-14");
+    assert("Oct 12, 2026 is a Brandeis no-classes day", week.length === 1 && week[0].start === "2026-10-12" && week[0].labelKey === "localCalNoClasses");
+    assert("a week with nothing on the calendar is empty", localCalendarEventsBetween("brandeis", "2026-10-14", "2026-10-20").length === 0);
+    const finals = localCalendarEventsBetween("brandeis", "2026-12-14", "2026-12-20");
+    assert("ranges are clipped to the week (finals end Dec 16)", finals[0].labelKey === "localCalFinals" && finals[0].start === "2026-12-14" && finals[0].end === "2026-12-16");
+    assert("the gap between terms follows finals", finals[1].labelKey === "localCalBetweenTerms" && finals[1].start === "2026-12-17" && finals[1].end === "2026-12-20");
+    assert("calendar off (null) -> nothing", localCalendarEventsBetween(null, "2026-10-08", "2026-10-14").length === 0);
+    assert("unknown calendar -> nothing", localCalendarEventsBetween("nope", "2026-10-08", "2026-10-14").length === 0);
+    const e = LOCAL_CALENDARS.brandeis.entries;
+    assert("every entry has start <= end", e.every((x) => x.start <= x.end));
+    assert("entries are in date order and don't overlap", e.every((x, i) => i === 0 || e[i - 1].end < x.start));
+  })();
+
+  // --- Render results ---
+  const el = document.getElementById("results");
+  results.forEach((r) => {
+    const div = document.createElement("div");
+    div.className = r.ok ? "pass" : "fail";
+    div.textContent = (r.ok ? "PASS - " : "FAIL - ") + r.label;
+    el.appendChild(div);
+  });
+  document.getElementById("summary").innerHTML = fail === 0
+    ? `<span class="pass">All ${pass} checks passed.</span>`
+    : `<span class="fail">${fail} of ${pass + fail} checks FAILED.</span>`;
+</script>
+</body>
+</html>

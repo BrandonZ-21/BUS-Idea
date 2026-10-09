@@ -180,6 +180,47 @@ function salesByWeek(rows) {
   });
 }
 
+// The last 7 days in the data against the 7 days before them (rolling
+// windows counted back from the most recent date, same as salesByWeek).
+// Returns null until the data covers all 14 days. `movers` are the items
+// whose sales changed most between the two weeks, biggest change first.
+// pct is null when the earlier week had no sales (no "up infinity%").
+function compareLastTwoWeeks(rows, moverCount = 3) {
+  const range = dateRangeOf(rows);
+  if (!range) return null;
+  const lastStart = shiftDate(range.max, -13);
+  if (range.min > lastStart) return null;
+
+  const week = (start, end) => {
+    const list = rows.filter((r) => r.date >= start && r.date <= end);
+    const s = computeSummary(list);
+    const items = new Map();
+    itemRowsFor(list).forEach((it) => {
+      const cur = items.get(it.name) || { quantity: 0, revenue: 0 };
+      cur.quantity += it.qty;
+      cur.revenue += it.lineTotal;
+      items.set(it.name, cur);
+    });
+    return { start, end, sales: s.totalSales, orders: s.orderCount, avgOrder: s.avgOrder, sellingDays: new Set(list.map((r) => r.date)).size, items };
+  };
+  const thisWeek = week(shiftDate(range.max, -6), range.max);
+  const lastWeek = week(lastStart, shiftDate(range.max, -7));
+
+  const none = { quantity: 0, revenue: 0 };
+  const names = new Set([...thisWeek.items.keys(), ...lastWeek.items.keys()]);
+  const movers = Array.from(names).map((item) => {
+    const now = thisWeek.items.get(item) || none;
+    const before = lastWeek.items.get(item) || none;
+    return { item, change: now.revenue - before.revenue, thisQty: now.quantity, lastQty: before.quantity };
+  }).filter((m) => Math.abs(m.change) >= 0.005)
+    .sort((a, b) => Math.abs(b.change) - Math.abs(a.change) || a.item.localeCompare(b.item))
+    .slice(0, moverCount);
+
+  delete thisWeek.items;
+  delete lastWeek.items;
+  return { thisWeek, lastWeek, pct: lastWeek.sales > 0 ? ((thisWeek.sales - lastWeek.sales) / lastWeek.sales) * 100 : null, movers };
+}
+
 // Per item name. Square receipts are split into their items first (see
 // js/square-items.js); other files already have one row per item.
 function topItems(rows, n) {

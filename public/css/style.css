@@ -140,7 +140,40 @@ button {
 .main-nav a:hover { background: var(--green-light); color: var(--green); }
 .main-nav a.active { background: var(--green); color: #fff; }
 
+/* "More": the now-and-then pages, folded into one menu. */
+.nav-more { position: relative; }
+.nav-more summary {
+  list-style: none; cursor: pointer; color: var(--muted); font-size: 0.9rem; font-weight: 500;
+  padding: 8px 12px; border-radius: 999px;
+}
+.nav-more summary::-webkit-details-marker { display: none; }
+.nav-more summary::after { content: " ▾"; }
+.nav-more summary:hover, .nav-more[open] summary { background: var(--green-light); color: var(--green); }
+.nav-more.active summary { background: var(--green); color: #fff; }
+.nav-more-menu {
+  position: absolute; right: 0; top: calc(100% + 6px); z-index: 20; display: flex; flex-direction: column; gap: 2px;
+  min-width: 160px; padding: 6px; background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--radius); box-shadow: var(--shadow-md);
+}
+
 main { max-width: 1080px; margin: 0 auto; padding: 28px 20px 60px; }
+
+/* Weekly comparison: the first thing on the dashboard. */
+.week-compare { margin-bottom: 12px; }
+.week-compare h2 { margin-bottom: 2px; }
+.week-headline { font-size: 1.25rem; font-weight: 700; margin: 12px 0 16px; }
+.week-figures { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-bottom: 18px; }
+.week-figure-value { font-size: 1.6rem; font-weight: 800; letter-spacing: -0.02em; line-height: 1.15; }
+.week-cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
+.week-cols h3 { font-size: 1rem; margin-bottom: 8px; }
+.week-cols h4 { font-size: 0.88rem; margin: 10px 0 4px; }
+.week-cols ul { margin: 0; padding-left: 18px; }
+.week-cols li { margin-bottom: 4px; overflow-wrap: anywhere; }
+.week-compare-wait, .gross-note { margin-bottom: 16px; }
+@media (max-width: 640px) {
+  .week-figures, .week-cols { grid-template-columns: 1fr; }
+  .nav-more-menu { right: auto; left: 0; }
+}
 
 .view[hidden] { display: none; }
 [hidden] { display: none !important; }
