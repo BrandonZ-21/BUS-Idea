@@ -203,6 +203,11 @@ function applyStaticText() {
     feedbackLink.textContent = t("feedbackLink");
     wireFeedbackLink(feedbackLink);
   });
+  // The printable card (card.html) is where the QR code for the form lives.
+  const cardLink = document.getElementById("footerCardLink");
+  cardLink.textContent = t("feedbackCardLink");
+  cardLink.hidden = !feedbackUrl();
+  document.getElementById("footerCardSep").hidden = cardLink.hidden;
   renderNav();
 }
 
@@ -335,7 +340,22 @@ App.renderHome = function () {
       <div class="card square-card" id="squareCard" hidden></div>
       <div class="card square-card" id="accountCard" hidden></div>
     </section>
+
+    ${feedbackUrl() ? `
+    <section class="landing-feedback card">
+      <div class="landing-feedback-qr">${qrSvg(feedbackUrl(), { label: t("feedbackHomeQrLabel") })}</div>
+      <div>
+        <h2>${esc(t("feedbackHomeTitle"))}</h2>
+        <p>${esc(t("feedbackHomeBody"))}</p>
+        <div class="data-actions">
+          <a class="btn btn-primary" id="homeFeedbackLink">${esc(t("feedbackLink"))}</a>
+          <a class="btn btn-ghost" href="/card.html">${esc(t("feedbackCardLink"))}</a>
+        </div>
+      </div>
+    </section>` : ""}
   `;
+  const homeFeedbackLink = document.getElementById("homeFeedbackLink");
+  if (homeFeedbackLink) wireFeedbackLink(homeFeedbackLink);
   wireUploadWidget(el);
   SquareSync.mount();
   Account.mount();
