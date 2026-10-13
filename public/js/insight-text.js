@@ -321,6 +321,8 @@ const INSIGHT_STRINGS = {
       noDiscountColumn: "this data has no discount amounts.",
       noDiscounts: "no discounts were recorded in this period.",
       noRefunds: "no refunds were recorded in this period.",
+      refundsNotSynced: "Connect Square doesn't bring in refunds yet. Upload a Square export to see them.",
+      discountsNotSynced: "Connect Square doesn't bring in discount amounts yet. Upload a Square export to see them.",
       noClearPattern: "the data shows no clear difference here.",
     },
     cantTell: {
@@ -362,6 +364,8 @@ const INSIGHT_STRINGS = {
       noDiscountColumn: "这份数据里没有折扣金额。",
       noDiscounts: "这段时间没有记录到折扣。",
       noRefunds: "这段时间没有记录到退款。",
+      refundsNotSynced: "“连接 Square”暂时不会导入退款。上传 Square 导出文件就能看到。",
+      discountsNotSynced: "“连接 Square”暂时不会导入折扣金额。上传 Square 导出文件就能看到。",
       noClearPattern: "数据在这方面没有明显差别。",
     },
     cantTell: {

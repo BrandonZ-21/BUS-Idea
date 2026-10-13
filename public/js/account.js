@@ -70,7 +70,7 @@ function buildReportSummary(rows) {
     topItems: topItems(rows, 10).top
       .map((it) => ({ name: accountClip(it.item, ACCOUNT_MAX_NAME), quantity: accountRound2(it.quantity), revenue: accountRound2(it.revenue) }))
       .filter((it) => it.name),
-    insights: generateInsights(rows)
+    insights: buildMemo(rows).memo.insights
       .map((ins) => ({ headline: accountClip(ins.headline, ACCOUNT_MAX_TEXT), action: accountClip(ins.action, ACCOUNT_MAX_TEXT) }))
       .filter((ins) => ins.headline)
       .slice(0, 8),

@@ -320,7 +320,7 @@ function insightPairs(ctx) {
 // ---------- Pricing and order size ----------
 
 function insightOrderSize(ctx) {
-  const id = "orderSize", angle = "pricing", link = "#/dashboard";
+  const id = "orderSize", angle = "pricing", link = "#/items";
   const all = Array.from(ctx.receipts.values()).filter((rc) => rc.units > 0);
   if (all.length < INSIGHT_MIN.receipts) return insightNotEnough(id, angle, link, { what: "receipts", need: INSIGHT_MIN.receipts, have: all.length });
   const single = all.filter((rc) => rc.units === 1);
@@ -434,7 +434,7 @@ function insightRefunds(ctx) {
   if (payments < INSIGHT_MIN.refundPayments) return insightNotEnough(id, angle, link, { what: "receipts", need: INSIGHT_MIN.refundPayments, have: payments });
   const refundKeys = new Set(ctx.refundRows.map(ctx.receiptKey));
   const refundAmount = ctx.refundRows.reduce((s, r) => s + Math.abs(rowRevenue(r)), 0);
-  if (!refundKeys.size) return insightNotEnough(id, angle, link, { what: "noRefunds" });
+  if (!refundKeys.size) return insightNotEnough(id, angle, link, { what: ctx.sales.some((r) => r.source === "square") ? "refundsNotSynced" : "noRefunds" });
   const ratePct = insightPct(refundKeys.size, payments);
   return {
     id, angle, link, status: "ok",
@@ -450,9 +450,9 @@ function insightRefunds(ctx) {
 }
 
 function insightDiscounts(ctx) {
-  const id = "discounts", angle = "operations", link = "#/dashboard";
+  const id = "discounts", angle = "operations", link = "#/items";
   const withField = ctx.sales.filter((r) => typeof r.discount === "number");
-  if (!withField.length) return insightNotEnough(id, angle, link, { what: "noDiscountColumn" });
+  if (!withField.length) return insightNotEnough(id, angle, link, { what: ctx.sales.some((r) => r.source === "square") ? "discountsNotSynced" : "noDiscountColumn" });
   const discounted = withField.filter((r) => r.discount > 0);
   if (!discounted.length) return insightNotEnough(id, angle, link, { what: "noDiscounts" });
   const amount = discounted.reduce((s, r) => s + r.discount, 0);
@@ -494,7 +494,7 @@ function insightChannels(ctx) {
   if (gapPct < 10) return insightNotEnough(id, angle, link, { what: "noClearPattern" });
   const counted = groups.reduce((s, g) => s + g.receipts, 0);
   return {
-    id, angle, link: kind === "location" ? "#/dashboard" : link, status: "ok",
+    id, angle, link: kind === "location" ? "#/items" : link, status: "ok",
     confidence: insightConfidence(Math.min(high.receipts, low.receipts), INSIGHT_MIN.groupReceipts),
     strength: Math.min(1, gapPct / 100), reach: Math.min(high.receipts, low.receipts) / counted,
     facts: {

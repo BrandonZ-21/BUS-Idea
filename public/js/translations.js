@@ -173,6 +173,9 @@ const TRANSLATIONS = {
 
     // Dashboard cards
     navMore: "More",
+    memoBasis: "Based on {start} to {end}: {days} selling days, {receipts} receipts. One-off payments and closed days are left out. Change the date range at the top to look at a different period.",
+    memoDetails: "See why",
+    memoSeeAll: "See all insights on the dashboard",
     feedbackLink: "Give feedback",
     feedbackPromptText: "Tally is a student project. Two minutes of honest feedback would help a lot. The form is a Google Form; Tally sends it nothing from your data.",
     feedbackPromptDismiss: "Not now",
@@ -928,6 +931,9 @@ const TRANSLATIONS = {
     thinDataBanner: "你的数据不足 2 周。下面显示的是基础图表——随着数据增加，规律会更清晰。",
 
     navMore: "更多",
+    memoBasis: "依据 {start} 至 {end}：{days} 个营业日，{receipts} 张小票。一次性付款和休息日不计入。在页面顶部更改日期范围，可以查看其他时段。",
+    memoDetails: "查看原因",
+    memoSeeAll: "在仪表盘查看全部洞察",
     feedbackLink: "提供反馈",
     feedbackPromptText: "Tally 是一个学生项目。花两分钟说说你的真实看法，会对我很有帮助。问卷是 Google 表单；Tally 不会把你的任何数据发送给它。",
     feedbackPromptDismiss: "暂时不用",

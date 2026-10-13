@@ -197,9 +197,12 @@ function applyStaticText() {
   document.getElementById("footerPrivacyLink").textContent = t("privacyLinkText");
   document.getElementById("langToggleBtn").textContent = t("langToggle");
   document.getElementById("footerNote").textContent = t("insightsDisclaimer");
-  const feedbackLink = document.getElementById("footerFeedbackLink");
-  feedbackLink.textContent = t("feedbackLink");
-  wireFeedbackLink(feedbackLink);
+  // In the header on every page, and again in the footer.
+  ["headerFeedbackLink", "footerFeedbackLink"].forEach((id) => {
+    const feedbackLink = document.getElementById(id);
+    feedbackLink.textContent = t("feedbackLink");
+    wireFeedbackLink(feedbackLink);
+  });
   renderNav();
 }
 
@@ -719,6 +722,9 @@ async function mergeNewRows(newRows, opts = {}) {
     } else if (saved[occ].kind === undefined) {
       // Saved before rows had a kind -- re-uploading the same file fills it in.
       toUpgrade.push(Object.assign(saved[occ], { kind: row.kind, packed: row.packed }, row.customerHash ? { customerHash: row.customerHash } : {}));
+    } else if (row.discount !== undefined && saved[occ].discount === undefined) {
+      // Saved before refunds, discounts and locations were kept (js/insights.js uses them).
+      toUpgrade.push(Object.assign(saved[occ], { discount: row.discount }, row.refund ? { refund: true } : {}, row.location ? { location: row.location } : {}, row.customerHash && !saved[occ].customerHash ? { customerHash: row.customerHash } : {}));
     } else if (row.customerHash && !saved[occ].customerHash) {
       // Saved before its (scrambled) customer code was known -- e.g. a Square
       // sync from before customer counting -- so fill it in, never duplicate.
@@ -1266,352 +1272,58 @@ function avgOfActive(arr) {
   return active.length ? active.reduce((s, v) => s + v, 0) / active.length : 0;
 }
 
-// Shared thresholds for "does this outside factor actually matter" style
-// comparisons (weather, daylight, and any future factor): both groups need
-// at least this many days before we trust the comparison, and the two
-// averages need to differ by at least this percent before it's worth
-// mentioning as an insight rather than noise.
-const FACTOR_MIN_DAYS = 5;
-const FACTOR_MIN_PCT_DIFF = 8;
+// ---------- Advisory memo ----------
+// The numbers come from js/insights.js and the sentences from
+// js/insight-text.js; this only draws them. Returns { result, memo }.
+function buildMemo(rows) {
+  const result = generateInsightFacts(rows);
+  return { result, memo: renderInsightMemo(result, App.lang) };
+}
 
-// ---------- Insights ----------
-function generateInsights(rows) {
-  const insights = [];
-  if (!rows.length) return insights;
-  const summary = computeSummary(rows);
-  // "Normal day" baselines (best/slowest day, week-over-week) exclude
-  // holidays when the "ignore holidays" setting is on, per Settings, so one
-  // freak holiday doesn't get mistaken for a real weekly pattern. Charts
-  // elsewhere still show every day's real numbers -- this only affects
-  // which days count as "typical" for these comparisons.
-  const baselineRows = App.ignoreHolidays ? rows.filter((r) => !holidayAt(r.date)) : rows;
-  const { totals: dowTotals, averages: dowAverages } = salesByDow(baselineRows);
-  const hasTime = rows.some((r) => r.time);
-  const hasOrderType = rows.some((r) => r.orderType);
-  const weeks = maturityWeeks(rows);
-
-  // 1. Best vs slowest day
-  let bestIdx = 0, worstIdx = 0;
-  dowAverages.forEach((v, i) => {
-    if (v > dowAverages[bestIdx]) bestIdx = i;
-    if (v < dowAverages[worstIdx]) worstIdx = i;
+// Expandable cards: headline + what to try; opened, the evidence, why it
+// matters, how to tell if it worked, confidence, and a link to the chart.
+function renderMemoCards(containerId, insights, labels) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  container.innerHTML = insights.map((x) => `
+    <div class="insight-card" id="${containerId}-card-${x.id}">
+      <button type="button" class="insight-toggle" aria-expanded="false" aria-controls="${containerId}-detail-${x.id}">
+        <span class="insight-icon" aria-hidden="true"></span>
+        <span class="insight-headline-wrap">
+          <span class="memo-kind">${esc(x.name)}</span>
+          <span class="insight-headline">${esc(x.headline)}</span>
+          <span class="insight-action">${esc(x.action)}</span>
+        </span>
+        <span class="insight-caret" aria-hidden="true">▾</span>
+      </button>
+      <div class="insight-detail" id="${containerId}-detail-${x.id}" hidden>
+        <dl class="memo-parts">
+          <dt>${esc(labels.evidence)}</dt><dd>${esc(x.evidence)}</dd>
+          <dt>${esc(labels.why)}</dt><dd>${esc(x.why)}</dd>
+          <dt>${esc(labels.action)}</dt><dd>${esc(x.action)}</dd>
+          <dt>${esc(labels.check)}</dt><dd>${esc(x.check)}</dd>
+        </dl>
+        <p class="insight-why"><span class="memo-conf memo-conf-${esc(x.confidenceLevel)}">${esc(x.confidence)}</span> ${esc(x.caveat)}</p>
+        <a class="see-details-link" href="${esc(x.link)}">${esc(x.linkLabel)} →</a>
+      </div>
+    </div>`).join("");
+  container.querySelectorAll(".insight-toggle").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const expanded = btn.getAttribute("aria-expanded") === "true";
+      btn.setAttribute("aria-expanded", String(!expanded));
+      document.getElementById(btn.getAttribute("aria-controls")).hidden = expanded;
+    });
   });
-  if (dowAverages[worstIdx] >= 0 && bestIdx !== worstIdx && dowAverages[worstIdx] > 0) {
-    const pct = Math.round(((dowAverages[bestIdx] - dowAverages[worstIdx]) / dowAverages[worstIdx]) * 100);
-    if (pct > 0) {
-      const { dayCounts } = salesByDow(baselineRows);
-      insights.push({
-        type: "bestVsSlowest",
-        headline: t("insightBestVsSlowestHeadline", { bestDay: dayLong(bestIdx), slowestDay: dayLong(worstIdx) }),
-        action: t("insightBestVsSlowestAction", { bestDay: dayLong(bestIdx), slowestDay: dayLong(worstIdx), pct }),
-        stats: [
-          t("statAvgPerDay", { day: dayLong(bestIdx), amount: formatMoney(dowAverages[bestIdx]), count: dayCounts[bestIdx] }),
-          t("statAvgPerDay", { day: dayLong(worstIdx), amount: formatMoney(dowAverages[worstIdx]), count: dayCounts[worstIdx] }),
-          t("statDifference", { amount: formatMoney(dowAverages[bestIdx] - dowAverages[worstIdx]), pct }),
-        ],
-        why: t("whyBestVsSlowest"),
-        steps: [
-          t("stepBestVsSlowest1", { bestDay: dayLong(bestIdx) }),
-          t("stepBestVsSlowest2", { slowestDay: dayLong(worstIdx) }),
-          t("stepBestVsSlowest3", { slowestDay: dayLong(worstIdx) }),
-        ],
-        sparkline: { kind: "bar", labels: Array.from({ length: 7 }, (_, i) => dayShort(i)), data: dowAverages, highlightIndexes: [bestIdx, worstIdx] },
-      });
-    }
-  }
+}
 
-  // 1b. Holiday impact -- compares each holiday actually present in the data
-  // to a "typical" same-weekday baseline (holidays always excluded from
-  // that baseline, regardless of the ignore-holidays setting, since the
-  // whole point is comparing a holiday to a normal day).
-  {
-    const nonHolidayRows = rows.filter((r) => !holidayAt(r.date));
-    const nonHolidayByDow = salesByDow(nonHolidayRows);
-    const dailyTotals = computeDailyTotals(rows);
-    let bestHoliday = null;
-    dailyTotals.forEach((revenue, date) => {
-      const h = holidayAt(date);
-      if (!h) return;
-      const dow = rowDayOfWeek({ date });
-      const typical = nonHolidayByDow.averages[dow];
-      const daysUsed = nonHolidayByDow.dayCounts[dow];
-      if (typical > 0 && daysUsed >= 2) {
-        const pct = Math.round(((revenue - typical) / typical) * 100);
-        if (Math.abs(pct) >= 15 && (!bestHoliday || Math.abs(pct) > Math.abs(bestHoliday.pct))) {
-          bestHoliday = { date, name: h.name, pct, dow, revenue, typical, daysUsed };
-        }
-      }
-    });
-    if (bestHoliday) {
-      const dir = bestHoliday.pct >= 0 ? "up" : "down";
-      insights.push({
-        type: "holidayImpact",
-        headline: t("insightHolidayImpactHeadline", { name: bestHoliday.name, pct: Math.abs(bestHoliday.pct), direction: t(dir), day: dayLong(bestHoliday.dow) }),
-        action: t("insightHolidayImpactAction", { name: bestHoliday.name }),
-        stats: [
-          t("statOnDate", { label: bestHoliday.name, date: bestHoliday.date, amount: formatMoney(bestHoliday.revenue) }),
-          t("statAvgPerDay", { day: dayLong(bestHoliday.dow), amount: formatMoney(bestHoliday.typical), count: bestHoliday.daysUsed }),
-          t("statDifference", { amount: formatMoney(Math.abs(bestHoliday.revenue - bestHoliday.typical)), pct: Math.abs(bestHoliday.pct) }),
-        ],
-        why: t("whyHolidayImpact"),
-        steps: [
-          t("stepHolidayImpact1", { name: bestHoliday.name }),
-          t("stepHolidayImpact2"),
-        ],
-        sparkline: { kind: "bar", labels: [bestHoliday.name, t("statTypicalLabel", { day: dayLong(bestHoliday.dow) })], data: [bestHoliday.revenue, bestHoliday.typical], highlightIndexes: [0] },
-      });
-    }
-  }
-
-  // 1c. Weather comparison -- only when the owner has weather turned on and
-  // cached weather actually covers some of these days. A simple same-vs-dry
-  // comparison (not yet weekday-adjusted -- that refinement can come later).
-  if (App.weatherEnabled && App.weatherMap.size > 0) {
-    const dailyTotals = computeDailyTotals(rows);
-    const groups = {};
-    dailyTotals.forEach((revenue, date) => {
-      if (App.ignoreHolidays && holidayAt(date)) return;
-      const w = weatherAt(date);
-      if (!w) return;
-      const cat = precipCategory(w.precipSum, w.snowSum);
-      if (!groups[cat]) groups[cat] = { sum: 0, count: 0 };
-      groups[cat].sum += revenue;
-      groups[cat].count++;
-    });
-    const dry = groups.dry;
-    let bestWeather = null;
-    ["rain", "lightRain", "snow"].forEach((cat) => {
-      const g = groups[cat];
-      if (!g || !dry || g.count < FACTOR_MIN_DAYS || dry.count < FACTOR_MIN_DAYS) return;
-      const avgCat = g.sum / g.count, avgDry = dry.sum / dry.count;
-      if (avgDry <= 0) return;
-      const pct = Math.round(((avgCat - avgDry) / avgDry) * 100);
-      if (Math.abs(pct) >= FACTOR_MIN_PCT_DIFF && (!bestWeather || Math.abs(pct) > Math.abs(bestWeather.pct))) {
-        bestWeather = { cat, pct, catCount: g.count, dryCount: dry.count };
-      }
-    });
-    if (bestWeather) {
-      const dir = bestWeather.pct >= 0 ? "up" : "down";
-      const adj = weatherCategoryAdjective(bestWeather.cat);
-      const avgCat = groups[bestWeather.cat].sum / groups[bestWeather.cat].count;
-      const avgDry = dry.sum / dry.count;
-      insights.push({
-        type: "weather",
-        headline: t("insightWeatherHeadline", { category: adj, pct: Math.abs(bestWeather.pct), direction: t(dir) }),
-        action: t("insightWeatherAction", { category: adj, catDays: bestWeather.catCount, dryDays: bestWeather.dryCount }),
-        stats: [
-          t("statAvgPerDay", { day: weatherCategoryLabel(bestWeather.cat), amount: formatMoney(avgCat), count: bestWeather.catCount }),
-          t("statAvgPerDay", { day: weatherCategoryLabel("dry"), amount: formatMoney(avgDry), count: bestWeather.dryCount }),
-          t("statDifference", { amount: formatMoney(Math.abs(avgCat - avgDry)), pct: Math.abs(bestWeather.pct) }),
-        ],
-        why: t("whyWeather"),
-        steps: [
-          t("stepWeather1", { category: adj }),
-          t("stepWeather2", { category: adj }),
-        ],
-        sparkline: { kind: "bar", labels: [weatherCategoryLabel(bestWeather.cat), weatherCategoryLabel("dry")], data: [avgCat, avgDry], highlightIndexes: [0] },
-      });
-    }
-  }
-
-  // 1d. Daylight/sunset comparison -- purely local math, so (unlike weather)
-  // this works whenever a location is on file, whether or not live weather
-  // fetching is turned on.
-  if (App.weatherLocation) {
-    const dailyTotals = computeDailyTotals(rows);
-    const early = { sum: 0, count: 0 };
-    const late = { sum: 0, count: 0 };
-    dailyTotals.forEach((revenue, date) => {
-      if (App.ignoreHolidays && holidayAt(date)) return;
-      const d = daylightFor(date, App.weatherLocation);
-      if (!d) return;
-      const bucket = d.sunsetMin < EARLY_SUNSET_MINUTES ? early : late;
-      bucket.sum += revenue;
-      bucket.count++;
-    });
-    if (early.count >= FACTOR_MIN_DAYS && late.count >= FACTOR_MIN_DAYS) {
-      const avgEarly = early.sum / early.count, avgLate = late.sum / late.count;
-      if (avgLate > 0) {
-        const pct = Math.round(((avgEarly - avgLate) / avgLate) * 100);
-        if (Math.abs(pct) >= FACTOR_MIN_PCT_DIFF) {
-          const dir = pct >= 0 ? "up" : "down";
-          insights.push({
-            type: "daylight",
-            headline: t("insightDaylightHeadline", { pct: Math.abs(pct), direction: t(dir) }),
-            action: t("insightDaylightAction", { earlyDays: early.count, lateDays: late.count }),
-            stats: [
-              t("statAvgPerDay", { day: t("statEarlySunsetLabel"), amount: formatMoney(avgEarly), count: early.count }),
-              t("statAvgPerDay", { day: t("statLongDaylightLabel"), amount: formatMoney(avgLate), count: late.count }),
-              t("statDifference", { amount: formatMoney(Math.abs(avgEarly - avgLate)), pct: Math.abs(pct) }),
-            ],
-            why: t("whyDaylight"),
-            steps: [t("stepDaylight1"), t("stepDaylight2")],
-            sparkline: { kind: "bar", labels: [t("statEarlySunsetLabel"), t("statLongDaylightLabel")], data: [avgEarly, avgLate], highlightIndexes: [0] },
-          });
-        }
-      }
-    }
-  }
-
-  // 2. Peak two hours
-  if (hasTime) {
-    const hourTotals = salesByHour(rows);
-    const sortedHours = hourTotals.map((v, i) => [i, v]).sort((a, b) => b[1] - a[1]);
-    const top2 = sortedHours.slice(0, 2);
-    const top2Sum = top2.reduce((s, x) => s + x[1], 0);
-    if (summary.totalSales > 0 && top2Sum > 0) {
-      const pct = Math.round((top2Sum / summary.totalSales) * 100);
-      const hour1 = formatHourLabel(top2[0][0]), hour2 = formatHourLabel(top2[1] ? top2[1][0] : top2[0][0]);
-      insights.push({
-        type: "peakHours",
-        headline: t("insightPeakHoursHeadline", { pct }),
-        action: t("insightPeakHoursAction", { hour1, hour2 }),
-        stats: [
-          t("statAtHour", { hour: hour1, amount: formatMoney(top2[0][1]) }),
-          t("statAtHour", { hour: hour2, amount: formatMoney(top2[1] ? top2[1][1] : top2[0][1]) }),
-          t("statShareOfTotal", { pct, amount: formatMoney(top2Sum) }),
-        ],
-        why: t("whyPeakHours"),
-        steps: [
-          t("stepPeakHours1", { hour1, hour2 }),
-          t("stepPeakHours2", { hour1, hour2 }),
-        ],
-        sparkline: { kind: "bar", labels: Array.from({ length: 24 }, (_, i) => formatHourLabel(i)), data: hourTotals, highlightIndexes: top2.map((x) => x[0]) },
-      });
-    }
-  }
-
-  // 3. Week over week (2+ weeks) -- also uses the holiday-excluded baseline,
-  // so a holiday landing in "last week" doesn't look like a real trend change.
-  if (weeks >= 2) {
-    const byWeek = salesByWeek(baselineRows);
-    if (byWeek.length >= 2) {
-      const last = byWeek[byWeek.length - 1][1];
-      const prior = byWeek[byWeek.length - 2][1];
-      if (prior > 0) {
-        const pct = Math.round(Math.abs((last - prior) / prior) * 100);
-        const dir = last >= prior ? "up" : "down";
-        const recentWeeks = byWeek.slice(-6);
-        insights.push({
-          type: "weekOverWeek",
-          headline: t("insightWeekOverWeekHeadline", { direction: t(dir), pct }),
-          action: t(dir === "up" ? "insightWeekOverWeekActionUp" : "insightWeekOverWeekActionDown"),
-          stats: [
-            t("statWeekOf", { week: byWeek[byWeek.length - 1][0], amount: formatMoney(last) }),
-            t("statWeekOf", { week: byWeek[byWeek.length - 2][0], amount: formatMoney(prior) }),
-            t("statDifference", { amount: formatMoney(Math.abs(last - prior)), pct }),
-          ],
-          why: t("whyWeekOverWeek"),
-          steps: [
-            t(dir === "up" ? "stepWeekOverWeekUp1" : "stepWeekOverWeekDown1"),
-            t(dir === "up" ? "stepWeekOverWeekUp2" : "stepWeekOverWeekDown2"),
-          ],
-          sparkline: { kind: "line", labels: recentWeeks.map((w) => w[0]), data: recentWeeks.map((w) => w[1]), highlightIndexes: [recentWeeks.length - 1] },
-        });
-      }
-    }
-  }
-
-  // 4. Top item share
-  const { top, all } = topItems(rows, 5);
-  if (top.length) {
-    const totalQty = all.reduce((s, x) => s + x.quantity, 0);
-    const pct = totalQty > 0 ? Math.round((top[0].quantity / totalQty) * 100) : 0;
-    insights.push({
-      type: "topItem",
-      headline: t("insightTopItemHeadline", { item: top[0].item }),
-      action: t("insightTopItemAction", { pct }),
-      stats: [
-        t("statItemSold", { item: top[0].item, qty: top[0].quantity, revenue: formatMoney(top[0].revenue) }),
-        t("statShareOfItems", { pct, totalQty }),
-      ],
-      why: t("whyTopItem"),
-      steps: [
-        t("stepTopItem1", { item: top[0].item }),
-        t("stepTopItem2", { item: top[0].item }),
-      ],
-      sparkline: { kind: "bar", horizontal: true, labels: top.map((x) => x.item), data: top.map((x) => x.quantity), highlightIndexes: [0] },
-    });
-  }
-
-  // 5. Quiet stretch
-  if (hasTime) {
-    const hourTotals = salesByHour(rows);
-    const activeHours = hourTotals.map((v, i) => i).filter((i) => hourTotals[i] > 0);
-    if (activeHours.length >= 3) {
-      const minH = Math.min(...activeHours), maxH = Math.max(...activeHours);
-      let quietStart = minH, quietVal = Infinity;
-      for (let h = minH + 1; h < maxH - 1; h++) {
-        const windowVal = hourTotals[h] + (hourTotals[h + 1] || 0);
-        if (windowVal < quietVal) { quietVal = windowVal; quietStart = h; }
-      }
-      if (quietVal < Infinity) {
-        const startHour = formatHourLabel(quietStart), endHour = formatHourLabel(quietStart + 2);
-        insights.push({
-          type: "quietStretch",
-          headline: t("insightQuietStretchHeadline", { startHour, endHour }),
-          action: t("insightQuietStretchAction"),
-          stats: [
-            t("statAtHour", { hour: startHour, amount: formatMoney(hourTotals[quietStart]) }),
-            t("statAtHour", { hour: endHour, amount: formatMoney(hourTotals[quietStart + 1] || 0) }),
-            t("statBusiestForComparison", { hour: formatHourLabel(busiestHourOf(hourTotals)), amount: formatMoney(Math.max(...hourTotals)) }),
-          ],
-          why: t("whyQuietStretch"),
-          steps: [
-            t("stepQuietStretch1", { startHour, endHour }),
-            t("stepQuietStretch2", { startHour, endHour }),
-          ],
-          sparkline: { kind: "bar", labels: Array.from({ length: 24 }, (_, i) => formatHourLabel(i)), data: hourTotals, highlightIndexes: [quietStart, quietStart + 1] },
-        });
-      }
-    }
-  }
-
-  // 6. Delivery share
-  if (hasOrderType) {
-    const deliveryRevenue = rows.filter((r) => r.orderType && r.orderType.toLowerCase().includes("deliver")).reduce((s, r) => s + rowRevenue(r), 0);
-    if (deliveryRevenue > 0 && summary.totalSales > 0) {
-      const pct = Math.round((deliveryRevenue / summary.totalSales) * 100);
-      const otherRevenue = summary.totalSales - deliveryRevenue;
-      const typesForSpark = orderTypeSplit(rows);
-      insights.push({
-        type: "deliveryShare",
-        headline: t("insightDeliveryShareHeadline", { pct }),
-        action: t("insightDeliveryShareAction"),
-        stats: [
-          t("statAmount", { label: t("orderTypeDelivery"), amount: formatMoney(deliveryRevenue) }),
-          t("statAmount", { label: t("statOtherOrderTypes"), amount: formatMoney(otherRevenue) }),
-          t("statShareOfTotal", { pct, amount: formatMoney(deliveryRevenue) }),
-        ],
-        why: t("whyDeliveryShare"),
-        steps: [
-          t("stepDeliveryShare1"),
-          t("stepDeliveryShare2"),
-        ],
-        sparkline: { kind: "bar", labels: typesForSpark.map((x) => orderTypeLabel(x.type)), data: typesForSpark.map((x) => x.revenue), highlightIndexes: typesForSpark.map((x, i) => (x.type || "").toLowerCase().includes("deliver") ? i : -1).filter((i) => i >= 0) },
-      });
-    }
-  }
-
-  // 7. Rare items
-  const rareItemsList = all.filter((x) => x.quantity <= 3);
-  const rareCount = rareItemsList.length;
-  if (rareCount > 0) {
-    insights.push({
-      type: "rareItems",
-      headline: t("insightRareItemsHeadline", { count: rareCount }),
-      action: t("insightRareItemsAction"),
-      stats: rareItemsList.slice(0, 5).map((x) => t("statItemSold", { item: x.item, qty: x.quantity, revenue: formatMoney(x.revenue) })),
-      why: t("whyRareItems"),
-      steps: [
-        t("stepRareItems1"),
-        t("stepRareItems2"),
-      ],
-      sparkline: rareItemsList.length ? { kind: "bar", horizontal: true, labels: rareItemsList.slice(0, 5).map((x) => x.item), data: rareItemsList.slice(0, 5).map((x) => x.quantity), highlightIndexes: [] } : null,
-    });
-  }
-
-  return insights.slice(0, 5);
+// Opens one memo card and brings it into view (from the Top 3 list).
+function openMemoCard(containerId, id) {
+  const card = document.getElementById(`${containerId}-card-${id}`);
+  if (!card) return;
+  const btn = card.querySelector(".insight-toggle");
+  if (btn.getAttribute("aria-expanded") !== "true") btn.click();
+  card.scrollIntoView({ block: "center" });
+  btn.focus({ preventScroll: true });
 }
 
 // ---------- Weekly comparison (top of the dashboard) ----------
@@ -1743,6 +1455,10 @@ App.renderDashboard = function () {
 
   const { top: topItemsList, rare } = topItems(crossRows, 5);
   const orderTypes = orderTypeSplit(crossRows);
+  // The memo reads the chosen date range (closed days and one-offs left
+  // out), not the click-to-filter chips: advice shouldn't change because a
+  // bar is being explored.
+  const { result: memoResult, memo } = buildMemo(rows);
   const showWeatherCharts = App.weatherEnabled && App.weatherMap.size > 0;
   const weatherByPrecip = showWeatherCharts ? salesByPrecipCategory(crossRows) : null;
   const weatherByTemp = showWeatherCharts ? salesByTempBand(crossRows) : null;
@@ -1766,6 +1482,11 @@ App.renderDashboard = function () {
     </div>` : ""}
     ${renderWeekCompareCard()}
     ${App.allRows.some((r) => r.source === "square") ? `<p class="chart-meta gross-note">${esc(t("grossNote"))}</p>` : ""}
+    ${memo.top3.length ? `
+    <section class="card memo-top3">
+      <h2>${esc(memo.titles.top3)}</h2>
+      <ol>${memo.top3.map((x) => `<li><strong>${esc(x.headline)}</strong> ${esc(x.action)} <button type="button" class="link-button" data-memo-jump="${esc(x.id)}">${esc(t("memoDetails"))}</button></li>`).join("")}</ol>
+    </section>` : ""}
     <div class="stat-grid">
       <div class="card stat-card"><div class="stat-label">${esc(t("cardTotalSales"))}</div><div class="stat-value">${formatMoney(summary.totalSales)}</div></div>
       <div class="card stat-card"><div class="stat-label">${esc(t("cardOrders"))}</div><div class="stat-value">${summary.orderCount.toLocaleString()}</div></div>
@@ -1842,7 +1563,14 @@ App.renderDashboard = function () {
 
     <section class="card insights-section">
       <h2>${esc(t("insightsTitle"))}</h2>
-      <div id="insightsList"></div>
+      ${memoResult.meta.start ? `<p class="chart-meta">${esc(t("memoBasis", { start: InsightFmt.date(memoResult.meta.start, App.lang), end: InsightFmt.date(memoResult.meta.end, App.lang), days: memoResult.meta.sellingDays.toLocaleString(), receipts: memoResult.meta.receipts.toLocaleString() }))}</p>` : ""}
+      <div id="memoList"></div>
+      ${memo.notEnough.length ? `
+      <h3 class="memo-subtitle">${esc(memo.titles.notEnough)}</h3>
+      <ul class="finding-list memo-quiet">${memo.notEnough.map((x) => `<li><strong>${esc(x.name)}:</strong> ${esc(x.text)}</li>`).join("")}</ul>` : ""}
+      ${memo.cantTell.length ? `
+      <h3 class="memo-subtitle">${esc(memo.titles.cantTell)}</h3>
+      <ul class="finding-list memo-quiet">${memo.cantTell.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>` : ""}
       <p class="insights-disclaimer">${esc(t("insightsDisclaimer"))}</p>
     </section>
   `;
@@ -1966,55 +1694,9 @@ App.renderDashboard = function () {
     });
   }
 
-  const insights = generateInsights(crossRows);
-  renderInsightCards(insights);
+  renderMemoCards("memoList", memo.insights, memo.labels);
+  root.querySelectorAll("[data-memo-jump]").forEach((btn) => btn.addEventListener("click", () => openMemoCard("memoList", btn.dataset.memoJump)));
 };
-
-// Renders the dashboard's expandable tip cards. Each card starts collapsed
-// (just the headline + short action, like before); clicking/tapping it
-// expands in place to show the exact numbers, a "why this matters" note,
-// concrete next steps, and a small chart -- all computed locally, no AI.
-function renderInsightCards(insights) {
-  const container = document.getElementById("insightsList");
-  container.innerHTML = insights.map((ins, i) => `
-    <div class="insight-card">
-      <button type="button" class="insight-toggle" id="insight-toggle-${i}" aria-expanded="false" aria-controls="insight-detail-${i}">
-        <span class="insight-icon" aria-hidden="true"></span>
-        <span class="insight-headline-wrap">
-          <span class="insight-headline">${esc(ins.headline)}</span>
-          <span class="insight-action">${esc(ins.action)}</span>
-        </span>
-        <span class="insight-caret" aria-hidden="true">▾</span>
-      </button>
-      <div class="insight-detail" id="insight-detail-${i}" hidden>
-        ${ins.stats && ins.stats.length ? `<ul class="finding-list">${ins.stats.map((s) => `<li>${esc(s)}</li>`).join("")}</ul>` : ""}
-        ${ins.why ? `<p class="insight-why">${esc(ins.why)}</p>` : ""}
-        ${ins.steps && ins.steps.length ? `<ul class="try-list">${ins.steps.map((s) => `<li>${esc(s)}</li>`).join("")}</ul>` : ""}
-        ${ins.sparkline ? `<div class="chart-canvas-wrap" style="height:180px;"><canvas id="insight-spark-${i}"></canvas></div>` : ""}
-      </div>
-    </div>
-  `).join("") || `<p>${esc(t("dataNoData"))}</p>`;
-
-  insights.forEach((ins, i) => {
-    const btn = document.getElementById(`insight-toggle-${i}`);
-    const detail = document.getElementById(`insight-detail-${i}`);
-    let sparkDrawn = false;
-    btn.addEventListener("click", () => {
-      const expanded = btn.getAttribute("aria-expanded") === "true";
-      btn.setAttribute("aria-expanded", String(!expanded));
-      detail.hidden = expanded;
-      if (!expanded && ins.sparkline && !sparkDrawn) {
-        sparkDrawn = true;
-        const sp = ins.sparkline;
-        if (sp.kind === "line") {
-          renderLineChart(`insight-spark-${i}`, sp.labels, sp.data, {});
-        } else {
-          renderBarChart(`insight-spark-${i}`, sp.labels, sp.data, { horizontal: !!sp.horizontal, highlightIndexes: sp.highlightIndexes || [] });
-        }
-      }
-    });
-  });
-}
 
 // ---------- Detail: Hours ----------
 App.renderHoursDetail = function () {
@@ -3149,75 +2831,16 @@ function wireCustomersPage() {
 }
 
 // ---------- Grow Your Business ----------
-// Maps each tip id from js/business-tips.js to the translation keys used to
-// render it. Kept as one table so adding a new tip only means adding a rule
-// in business-tips.js plus one row here plus the translations themselves.
-const BUSINESS_TIP_CONTENT = {
-  loyaltyProgram: { headline: "tipLoyaltyProgramHeadline", why: "tipLoyaltyProgramWhy", action: "tipLoyaltyProgramAction" },
-  strongRepeat: { headline: "tipStrongRepeatHeadline", why: "tipStrongRepeatWhy", action: "tipStrongRepeatAction" },
-  deliveryGap: { headline: "tipDeliveryGapHeadline", why: "tipDeliveryGapWhy", action: "tipDeliveryGapAction" },
-  menuConcentrationRisk: { headline: "tipMenuConcentrationHeadline", why: "tipMenuConcentrationWhy", action: "tipMenuConcentrationAction" },
-  manyRareItems: { headline: "tipManyRareItemsHeadline", why: "tipManyRareItemsWhy", action: "tipManyRareItemsAction" },
-  weekdayWeekendGap: { headline: "tipWeekdayGapHeadline", why: "tipWeekdayGapWhy", action: "tipWeekdayGapAction" },
-  weatherSensitive: { headline: "tipWeatherSensitiveHeadline", why: "tipWeatherSensitiveWhy", action: "tipWeatherSensitiveAction" },
-  daylightSensitive: { headline: "tipDaylightSensitiveHeadline", why: "tipDaylightSensitiveWhy", action: "tipDaylightSensitiveAction" },
-  holidayPlanning: { headline: "tipHolidayPlanningHeadline", why: "tipHolidayPlanningWhy", action: "tipHolidayPlanningAction" },
-  noPromosLogged: { headline: "tipNoPromosHeadline", why: "tipNoPromosWhy", action: "tipNoPromosAction" },
-  barHappyHour: { headline: "tipBarHappyHourHeadline", why: "tipBarHappyHourWhy", action: "tipBarHappyHourAction" },
-  bakeryPerishables: { headline: "tipBakeryPerishablesHeadline", why: "tipBakeryPerishablesWhy", action: "tipBakeryPerishablesAction" },
-};
-
 const MENU_QUADRANT_LABEL_KEYS = { star: "quadrantStar", plowhorse: "quadrantPlowhorse", puzzle: "quadrantPuzzle", dog: "quadrantDog" };
 const MENU_QUADRANT_ORDER = ["star", "plowhorse", "puzzle", "dog"];
 
 App.renderGrow = function () {
   const root = document.getElementById("view-root");
-  const rows = App.allRows;
-  const summary = computeSummary(rows);
-  const weeks = maturityWeeks(rows);
-
-  const businessType = detectBusinessType(rows);
-
-  // Build the small context object business-tips.js's rules read. Reuses
-  // stats this app already computes elsewhere rather than recalculating a
-  // second definition of "delivery share" or "weather sensitivity."
-  const { totals: dowTotals, averages: dowAverages, dayCounts } = salesByDow(rows);
-  let bestIdx = 0, worstIdx = 0;
-  dowAverages.forEach((v, i) => { if (v > dowAverages[bestIdx]) bestIdx = i; if (v < dowAverages[worstIdx]) worstIdx = i; });
-  const dowGapPct = (bestIdx !== worstIdx && dowAverages[worstIdx] > 0)
-    ? ((dowAverages[bestIdx] - dowAverages[worstIdx]) / dowAverages[worstIdx]) * 100 : null;
-
-  const typeSplit = orderTypeSplit(rows);
-  const hasOrderTypeData = typeSplit.length > 0;
-  const totalTypeRevenue = typeSplit.reduce((s, x) => s + x.revenue, 0);
-  const deliveryRevenue = typeSplit.find((x) => (x.type || "").toLowerCase() === "delivery");
-  const deliveryPct = hasOrderTypeData && totalTypeRevenue > 0 ? ((deliveryRevenue ? deliveryRevenue.revenue : 0) / totalTypeRevenue) * 100 : null;
-
-  const { top, all, rare } = topItems(rows, 1);
-  const topItemPct = summary.totalSales > 0 && top.length ? (top[0].revenue / summary.totalSales) * 100 : null;
-  const distinctItemCount = all.length;
-  const rareItemRatio = distinctItemCount > 0 ? rare.length / distinctItemCount : null;
-
-  let hasPromoNotes = false;
-  App.dayNotesMap.forEach((n) => { if (n.tags && n.tags.includes("promo")) hasPromoNotes = true; });
-
-  const visits = computeCustomerVisits(rows);
-  const hasCustomerData = visits.size >= CUSTOMER_MIN_COUNT;
-  const range = dateRangeOf(rows);
-  const repeatRate30 = hasCustomerData && range ? computeRepeatRate(visits, range.max, 30).pct : null;
-
-  const insightTypes = new Set(generateInsights(rows).map((i) => i.type));
-
-  const ctx = {
-    businessType, weeks, hasCustomerData, repeatRate30,
-    hasOrderTypeData, deliveryPct, topItemPct, distinctItemCount, rareItemRatio, dowGapPct,
-    hasWeatherInsight: insightTypes.has("weather"),
-    hasDaylightInsight: insightTypes.has("daylight"),
-    hasHolidayInsight: insightTypes.has("holidayImpact"),
-    hasPromoNotes,
-  };
-
-  const tips = generateBusinessTips(ctx);
+  const businessType = detectBusinessType(App.allRows);
+  // Product and pricing advice from the same memo as the dashboard, over
+  // every saved date (this page has no date-range selector).
+  const { memo } = buildMemo(normalSellingRows());
+  const menuAdvice = memo.insights.filter((x) => ["topSellers", "longTail", "pairs", "orderSize"].includes(x.id));
   // The matrix works on single items: a Square export's receipts are split
   // first (js/square-items.js), or each whole receipt would be ranked as if
   // it were one menu item. Closed days, one-off payments and custom amounts
@@ -3257,57 +2880,15 @@ App.renderGrow = function () {
 
     <div class="card" style="margin-top:20px;">
       <h2>${esc(t("growTipsTitle"))}</h2>
-      ${tips.length ? `<div id="growTipsList"></div>` : `<p>${esc(t("growNoTips"))}</p>`}
+      ${menuAdvice.length ? `<div id="growTipsList"></div>` : `<p>${esc(t("growNoTips"))}</p>`}
+      <a class="see-details-link" href="#/dashboard">${esc(t("memoSeeAll"))}</a>
     </div>
 
     <p class="insights-disclaimer">${esc(t("growDisclaimer"))}</p>
   `;
 
-  if (tips.length) {
-    const insightShaped = tips.map((tip) => {
-      const content = BUSINESS_TIP_CONTENT[tip.id];
-      return {
-        headline: t(content.headline, tip.vars),
-        action: t(content.action, tip.vars),
-        why: t(content.why, tip.vars),
-      };
-    });
-    renderInsightCardsInto("growTipsList", insightShaped);
-  }
+  renderMemoCards("growTipsList", menuAdvice, memo.labels);
 };
-
-// Same expandable-card renderer as the dashboard's insights, but targeting
-// an arbitrary container id so the Grow page's tips can reuse it without
-// competing with the dashboard's own #insightsList.
-function renderInsightCardsInto(containerId, insights) {
-  const container = document.getElementById(containerId);
-  if (!container) return;
-  container.innerHTML = insights.map((ins, i) => `
-    <div class="insight-card">
-      <button type="button" class="insight-toggle" id="${containerId}-toggle-${i}" aria-expanded="false" aria-controls="${containerId}-detail-${i}">
-        <span class="insight-icon" aria-hidden="true"></span>
-        <span class="insight-headline-wrap">
-          <span class="insight-headline">${esc(ins.headline)}</span>
-          <span class="insight-action">${esc(ins.action)}</span>
-        </span>
-        <span class="insight-caret" aria-hidden="true">▾</span>
-      </button>
-      <div class="insight-detail" id="${containerId}-detail-${i}" hidden>
-        ${ins.why ? `<p class="insight-why">${esc(ins.why)}</p>` : ""}
-      </div>
-    </div>
-  `).join("");
-
-  insights.forEach((ins, i) => {
-    const btn = document.getElementById(`${containerId}-toggle-${i}`);
-    const detail = document.getElementById(`${containerId}-detail-${i}`);
-    btn.addEventListener("click", () => {
-      const expanded = btn.getAttribute("aria-expanded") === "true";
-      btn.setAttribute("aria-expanded", String(!expanded));
-      detail.hidden = expanded;
-    });
-  });
-}
 
 // ---------- Data page ----------
 App.renderData = function () {
