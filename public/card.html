@@ -91,7 +91,7 @@
       document.getElementById("feedbackLinkText").textContent = url.replace(/^https:\/\//, "");
     }
     // The app's own address, checked the same way as the form link.
-    const appUrl = feedbackUrl({ feedbackFormUrl: TALLY_CONFIG.appUrl });
+    const appUrl = appShareUrl();
     document.getElementById("appBlock").hidden = !appUrl;
     if (appUrl) {
       document.getElementById("appQr").innerHTML = qrSvg(appUrl, { label: "QR code that opens Tally" });

@@ -341,6 +341,16 @@ App.renderHome = function () {
       <div class="card square-card" id="accountCard" hidden></div>
     </section>
 
+    ${appShareUrl() ? `
+    <section class="landing-feedback card">
+      <div class="landing-feedback-qr">${qrSvg(appShareUrl(), { label: t("shareHomeQrLabel") })}</div>
+      <div>
+        <h2>${esc(t("shareHomeTitle"))}</h2>
+        <p>${esc(t("shareHomeBody"))}</p>
+        <p class="landing-share-link">${esc(appShareUrl().replace(/^https:\/\//, "").replace(/\/$/, ""))}</p>
+      </div>
+    </section>` : ""}
+
     ${feedbackUrl() ? `
     <section class="landing-feedback card">
       <div class="landing-feedback-qr">${qrSvg(feedbackUrl(), { label: t("feedbackHomeQrLabel") })}</div>

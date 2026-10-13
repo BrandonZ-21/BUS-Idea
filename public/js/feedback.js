@@ -17,6 +17,12 @@ function feedbackUrl(config) {
   }
 }
 
+// The app's own public address (config.js appUrl), checked the same way --
+// for the "open Tally on a phone" QR code on the home page and the card.
+function appShareUrl() {
+  return feedbackUrl({ feedbackFormUrl: TALLY_CONFIG.appUrl });
+}
+
 // A QR code for `text` as an <svg> string, drawn in this browser by
 // js/vendor/qrcode-generator.js (no QR service is called). Scales to its
 // container; `quiet` is the blank border, in modules, scanners need.
