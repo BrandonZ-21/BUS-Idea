@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Advisory insight tests</title>
+<style>
+  body { font-family: monospace; padding: 24px; background: #fff; color: #111; }
+  .pass { color: #1F5C4A; }
+  .fail { color: #b3401f; font-weight: bold; }
+  h1 { font-family: sans-serif; }
+  #summary { font-family: sans-serif; font-size: 1.2em; margin-top: 16px; }
+</style>
+</head>
+<body>
+<h1>Advisory insight tests</h1>
+<p>No test framework needed -- just open this file in a browser. Each line is one check.
+The sales below are made up by this page; every expected number is counted separately as the
+rows are created, then compared with what js/insights.js reports.</p>
+<div id="results"></div>
+<div id="summary"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script src="../js/parser.js"></script>
+<script src="../js/square-items.js"></script>
+<script src="../js/stats.js"></script>
+<script src="../js/insights.js"></script>
+<script src="../js/insight-text.js"></script>
+<script>
+(async function () {
+  const results = [];
+  let pass = 0, fail = 0;
+  function assert(label, condition) {
+    if (condition) { pass++; } else { fail++; }
+    results.push({ label, ok: !!condition });
+  }
+  const near = (a, b) => typeof a === "number" && typeof b === "number" && Math.abs(a - b) < 0.006;
+  const r2 = (x) => Math.round(x * 100) / 100;
+  const pad = (n) => String(n).padStart(2, "0");
+  function addDays(dateStr, n) {
+    const [y, m, d] = dateStr.split("-").map(Number);
+    const dt = new Date(y, m - 1, d + n);
+    return `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}`;
+  }
+  const dowOf = (dateStr) => { const [y, m, d] = dateStr.split("-").map(Number); return new Date(y, m - 1, d).getDay(); };
+
+  // ---------- A made-up shop: 10 weeks from Mon Mar 2, 2026, closed Sundays ----------
+  // Receipts cycle through five kinds, so the right answers are known:
+  //   0 Latte + Muffin (Dine In)   1 Latte   2 Tea   3 Bagel   4 one of ten $1 slow items
+  const PRICES = { Latte: 5, Muffin: 3, Tea: 2.5, Bagel: 4 };
+  const SLOW = ["Slow A", "Slow B", "Slow C", "Slow D", "Slow E", "Slow F", "Slow G", "Slow H", "Slow I", "Slow J"];
+  const HOURLY = { 9: 2, 10: 2, 11: 4, 12: 4, 13: 2, 14: 1, 15: 1, 16: 2 }; // receipts per hour on a normal day
+  const START = "2026-03-02", DAYS = 70;
+
+  const rows = [];
+  // Counted independently of the code under test:
+  const exp = { total: 0, receipts: 0, single: 0, singleTotal: 0, multi: 0, multiTotal: 0, byDate: {}, byDow: {}, datesByDow: {}, byHour: {}, itemRev: {}, itemUnits: {}, withLatte: 0, withMuffin: 0, withBoth: 0, discounted: 0, discountTotal: 0, dineIn: { n: 0, total: 0 }, pickup: { n: 0, total: 0 } };
+  let seq = 0;
+  function emit(date, hour, names, orderType) {
+    const orderId = "r" + seq;
+    let total = 0;
+    const discount = seq % 10 === 0 ? 1 : 0;
+    names.forEach((name) => {
+      const price = PRICES[name] || 1;
+      rows.push({ date, time: `${pad(hour)}:15`, item: name, quantity: 1, price, orderId, kind: "product", orderType, discount });
+      total += price;
+      exp.itemRev[name] = (exp.itemRev[name] || 0) + price;
+      exp.itemUnits[name] = (exp.itemUnits[name] || 0) + 1;
+    });
+    const dow = dowOf(date);
+    exp.total += total; exp.receipts++;
+    exp.byDate[date] = (exp.byDate[date] || 0) + total;
+    exp.byDow[dow] = (exp.byDow[dow] || 0) + total;
+    (exp.datesByDow[dow] = exp.datesByDow[dow] || new Set()).add(date);
+    exp.byHour[hour] = (exp.byHour[hour] || 0) + total;
+    if (names.length === 1) { exp.single++; exp.singleTotal += total; } else { exp.multi++; exp.multiTotal += total; }
+    if (names.includes("Latte")) exp.withLatte++;
+    if (names.includes("Muffin")) exp.withMuffin++;
+    if (names.includes("Latte") && names.includes("Muffin")) exp.withBoth++;
+    if (discount) { exp.discounted++; exp.discountTotal += discount * names.length; }
+    const side = orderType === "Dine In" ? exp.dineIn : exp.pickup;
+    side.n++; side.total += total;
+    seq++;
+  }
+  for (let i = 0; i < DAYS; i++) {
+    const date = addDays(START, i);
+    const dow = dowOf(date);
+    if (dow === 0) continue; // closed Sundays
+    const mult = dow === 6 ? 3 : dow === 2 ? 1 : 2; // Saturdays busy, Tuesdays slow
+    Object.keys(HOURLY).forEach((h) => {
+      for (let k = 0; k < HOURLY[h] * mult; k++) {
+        const kind = seq % 5;
+        if (kind === 0) emit(date, Number(h), ["Latte", "Muffin"], "Dine In");
+        else if (kind === 1) emit(date, Number(h), ["Latte"], "Pickup");
+        else if (kind === 2) emit(date, Number(h), ["Tea"], "Pickup");
+        else if (kind === 3) emit(date, Number(h), ["Bagel"], "Pickup");
+        else emit(date, Number(h), [SLOW[Math.floor(seq / 5) % SLOW.length]], "Pickup");
+      }
+    });
+  }
+  // Three refunds (their own receipts), flagged the way a Square export is.
+  ["2026-03-10", "2026-04-07", "2026-05-05"].forEach((date, i) => {
+    rows.push({ date, time: "12:30", item: "Latte", quantity: 1, price: -5, orderId: "refund" + i, kind: "product", refund: true, discount: 0 });
+  });
+
+  indexItems(rows);
+  const result = generateInsightFacts(rows);
+  const byId = Object.fromEntries(result.insights.map((x) => [x.id, x]));
+  const missing = Object.fromEntries(result.notEnough.map((x) => [x.id, x]));
+  const openDates = Object.keys(exp.byDate);
+
+  // ---------- Totals ----------
+  assert("meta: total sales match the rows (refund rows are not sales)", near(result.meta.totalSales, r2(exp.total)));
+  assert("meta: receipts counted once each", result.meta.receipts === exp.receipts);
+  assert("meta: selling days = days that had sales", result.meta.sellingDays === openDates.length);
+  assert("meta: date range", result.meta.start === START && result.meta.end === openDates.sort()[openDates.length - 1]);
+
+  // ---------- Best and slowest day: per-day averages, not totals ----------
+  (function () {
+    const f = byId.bestSlowDay && byId.bestSlowDay.facts;
+    const avg = (d) => exp.byDow[d] / exp.datesByDow[d].size;
+    assert("bestSlowDay: found", !!f);
+    assert("bestSlowDay: Saturday is best, Tuesday slowest", f.bestDow === 6 && f.slowDow === 2);
+    assert("bestSlowDay: averages are per day that weekday was open", near(f.bestAvg, r2(avg(6))) && near(f.slowAvg, r2(avg(2))));
+    assert("bestSlowDay: counts of each weekday", f.bestDays === exp.datesByDow[6].size && f.slowDays === exp.datesByDow[2].size);
+    assert("bestSlowDay: gap % and ratio from the two averages", f.gapPct === Math.round(((avg(6) - avg(2)) / avg(2)) * 100) && f.times === Math.round((avg(6) / avg(2)) * 10) / 10);
+    // Totals would rank a different way if a weekday simply occurred more often; here a 6th-day check:
+    assert("bestSlowDay: Sunday (never open) isn't compared", f.bestDow !== 0 && f.slowDow !== 0);
+  })();
+
+  // ---------- Busiest and quiet hours ----------
+  (function () {
+    const days = openDates.length;
+    const perDay = (h) => (exp.byHour[h] || 0) / days;
+    let best = null;
+    for (let h = 0; h < 23; h++) { const s = perDay(h) + perDay(h + 1); if (!best || s > best.s) best = { h, s }; }
+    const f = byId.busiestWindow.facts;
+    assert("busiestWindow: the two-hour window with the most sales per day (11 to 1)", f.startHour === best.h && f.startHour === 11 && f.endHour === 13);
+    assert("busiestWindow: average per selling day", near(f.avgPerDay, r2(best.s)));
+    assert("busiestWindow: share of the day", f.sharePct === Math.round((best.s / (exp.total / days)) * 100));
+    assert("busiestWindow: strongest weekday is Saturday", f.peakDow === 6 && f.peakDowDays === exp.datesByDow[6].size);
+
+    const q = byId.slowHours.facts;
+    assert("slowHours: the quiet stretch is 2 to 4 PM, inside opening hours", q.startHour === 14 && q.endHour === 16 && q.openHour === 9 && q.closeHour === 17);
+    assert("slowHours: average per selling day", near(q.avgPerDay, r2(perDay(14) + perDay(15))));
+    let openSum = 0; for (let h = 9; h <= 16; h++) openSum += perDay(h);
+    assert("slowHours: compared with a typical two hours while open", near(q.typicalAvgPerDay, r2((openSum / 8) * 2)) && q.belowPct === Math.round((1 - (perDay(14) + perDay(15)) / ((openSum / 8) * 2)) * 100));
+  })();
+
+  // ---------- Product mix ----------
+  (function () {
+    const list = Object.keys(exp.itemRev).map((name) => ({ name, rev: exp.itemRev[name], units: exp.itemUnits[name] })).sort((a, b) => b.rev - a.rev || a.name.localeCompare(b.name));
+    const totalRev = list.reduce((s, x) => s + x.rev, 0);
+    const f = byId.topSellers.facts;
+    assert("topSellers: the three highest by sales, in order", f.top.map((x) => x.name).join() === list.slice(0, 3).map((x) => x.name).join() && f.top[0].name === "Latte");
+    assert("topSellers: sales and units for each", f.top.every((x, i) => near(x.revenue, r2(list[i].rev)) && x.units === list[i].units));
+    assert("topSellers: combined share", f.top3SharePct === Math.round((list.slice(0, 3).reduce((s, x) => s + x.rev, 0) / totalRev) * 100));
+    assert("topSellers: item count", f.distinctItems === 14);
+
+    const tail = list.slice(7);
+    const t = byId.longTail.facts;
+    assert("longTail: the slower half is 7 of 14 items", t.tailItems === 7 && t.distinctItems === 14);
+    assert("longTail: their combined sales", near(t.tailRevenue, r2(tail.reduce((s, x) => s + x.rev, 0))));
+    assert("longTail: the three slowest are named with their units", t.slowest.length === 3 && t.slowest.every((x) => exp.itemUnits[x.name] === x.units && SLOW.includes(x.name)));
+
+    const p = byId.pairs.facts;
+    assert("pairs: Muffin buyers add a Latte", p.anchor === "Muffin" && p.addOn === "Latte");
+    assert("pairs: receipts with both, and with the anchor", p.both === exp.withBoth && p.anchorReceipts === exp.withMuffin);
+    assert("pairs: share of anchor receipts, and the add-on's share of all receipts", p.withPct === Math.round((exp.withBoth / exp.withMuffin) * 100) && p.basePct === Math.round((exp.withLatte / exp.receipts) * 100));
+    assert("pairs: anchor receipts without the add-on", p.withoutReceipts === exp.withMuffin - exp.withBoth);
+  })();
+
+  // ---------- Order size ----------
+  (function () {
+    const f = byId.orderSize.facts;
+    assert("orderSize: single-item share", f.singlePct === Math.round((exp.single / exp.receipts) * 100) && f.singleReceipts === exp.single && f.multiReceipts === exp.multi);
+    assert("orderSize: averages", near(f.avgOrder, r2(exp.total / exp.receipts)) && near(f.avgSingle, r2(exp.singleTotal / exp.single)) && near(f.avgMulti, r2(exp.multiTotal / exp.multi)));
+  })();
+
+  // ---------- Trend: last 28 days vs the 28 before, per selling day ----------
+  (function () {
+    const f = byId.recentTrend.facts;
+    const end = result.meta.end;
+    const win = (from, to) => { const ds = openDates.filter((d) => d >= from && d <= to); return { days: ds.length, avg: ds.reduce((s, d) => s + exp.byDate[d], 0) / ds.length }; };
+    const recent = win(addDays(end, -27), end), prior = win(addDays(end, -55), addDays(end, -28));
+    assert("recentTrend: window dates", f.recentFrom === addDays(end, -27) && f.recentTo === end && f.priorFrom === addDays(end, -55) && f.priorTo === addDays(end, -28));
+    assert("recentTrend: averages per selling day", near(f.recentAvg, r2(recent.avg)) && near(f.priorAvg, r2(prior.avg)));
+    assert("recentTrend: selling days in each window", f.recentDays === recent.days && f.priorDays === prior.days);
+    assert("recentTrend: a steady shop reads as flat", f.direction === "flat" && f.changePct === Math.round(Math.abs(((recent.avg - prior.avg) / prior.avg) * 100)));
+  })();
+
+  // ---------- Operations and channels ----------
+  (function () {
+    const f = byId.refunds.facts;
+    assert("refunds: three refunds against all payments", f.refunds === 3 && f.payments === exp.receipts);
+    assert("refunds: amount and rate", near(f.refundAmount, 15) && near(f.ratePct, r2((3 / exp.receipts) * 100)) && f.per1000 === Math.round((3 / exp.receipts) * 1000));
+    assert("refunds: three refunds is low confidence", byId.refunds.confidence === "low");
+
+    const d = byId.discounts.facts;
+    assert("discounts: receipts and amount", d.discountedReceipts === exp.discounted && near(d.amount, exp.discountTotal));
+    assert("discounts: share of sales", near(d.pctOfSales, r2((exp.discountTotal / exp.total) * 100)));
+
+    const c = byId.channels.facts;
+    assert("channels: Dine In orders are larger than Pickup", c.kind === "orderType" && c.highName === "Dine In" && c.lowName === "Pickup");
+    assert("channels: averages and receipt counts", near(c.highAvg, r2(exp.dineIn.total / exp.dineIn.n)) && near(c.lowAvg, r2(exp.pickup.total / exp.pickup.n)) && c.highReceipts === exp.dineIn.n && c.lowReceipts === exp.pickup.n);
+  })();
+
+  // ---------- Minimum samples ----------
+  assert("seasonality: two full months is not enough", missing.seasonality && missing.seasonality.needs.what === "months" && missing.seasonality.needs.have === 2);
+  (function () {
+    const few = rows.filter((r) => r.date <= "2026-03-06" && !r.refund);
+    indexItems(few);
+    const small = generateInsightFacts(few);
+    assert("five days of sales: no insight is offered", small.insights.length === 0 && small.top3.length === 0);
+    assert("five days of sales: every rule says what it needs", small.notEnough.length === 12 && small.notEnough.every((x) => x.needs && x.needs.what));
+    const need = Object.fromEntries(small.notEnough.map((x) => [x.id, x.needs]));
+    assert("five days: hour rules ask for 14 timed days and report 5", need.busiestWindow.need === 14 && need.busiestWindow.have === 5);
+    assert("five days: weekday rule won't compare weekdays seen once", need.bestSlowDay.what === "weekdayOccurrences" && need.bestSlowDay.have === 1);
+    assert("empty data: an empty memo, no errors", generateInsightFacts([]).insights.length === 0);
+    indexItems(rows);
+  })();
+
+  // ---------- Seasonality on its own: five known months ----------
+  (function () {
+    const daily = { "2026-01": 100, "2026-02": 200, "2026-03": 150, "2026-04": 150, "2026-05": 150 };
+    const mrows = [];
+    Object.keys(daily).forEach((month) => {
+      for (let d = 1; d <= 20; d++) mrows.push({ date: `${month}-${pad(d)}`, time: "10:00", item: "Day sales", quantity: 1, price: daily[month], orderId: `${month}-${d}`, kind: "product" });
+    });
+    indexItems(mrows);
+    const s = insightSeasonality(insightContext(mrows));
+    assert("seasonality: February strongest, January weakest", s.status === "ok" && s.facts.bestMonth === "2026-02" && s.facts.slowMonth === "2026-01");
+    assert("seasonality: per-selling-day averages, 100% apart, 2 times", near(s.facts.bestAvg, 200) && near(s.facts.slowAvg, 100) && s.facts.gapPct === 100 && s.facts.times === 2);
+    assert("seasonality: under a year of data is always low confidence", s.facts.underAYear === true && s.confidence === "low");
+    indexItems(rows);
+  })();
+
+  // ---------- Ranking ----------
+  assert("top 3: three different insights that were all found", result.top3.length === 3 && new Set(result.top3).size === 3 && result.top3.every((id) => byId[id]));
+  assert("top 3: no two from the same angle when there are three angles", new Set(result.top3.map((id) => byId[id].angle)).size === 3);
+  assert("every insight links to a page in the app", result.insights.every((x) => /^#\/[a-z-]+$/.test(x.link)));
+  assert("every insight has a confidence and a sample size", result.insights.every((x) => ["high", "medium", "low"].includes(x.confidence) && Object.keys(x.sample).length === 1));
+  assert("the note always says profit and cause can't be read from sales", result.cantTell.includes("profit") && result.cantTell.includes("cause"));
+
+  // ---------- Wording: nothing but the computed numbers ----------
+  function allowedNumbers(fact, meta) {
+    const set = new Set([2, 1000]); // the "2 weeks" test period and "1,000 payments"
+    const add = (n) => { [n, Math.abs(n), Math.round(Math.abs(n)), r2(Math.abs(n))].forEach((v) => set.add(v)); };
+    const walk = (key, v) => {
+      if (typeof v === "number") {
+        add(v);
+        if (/Hour$/.test(key)) { const h = ((v % 24) + 24) % 24; set.add(h % 12 === 0 ? 12 : h % 12); }
+      } else if (typeof v === "string") {
+        const m = v.match(/^(\d{4})-(\d{2})(?:-(\d{2}))?$/);
+        if (m) [m[1], m[2], m[3]].filter(Boolean).forEach((p) => set.add(Number(p)));
+        else (v.match(/\d+(\.\d+)?/g) || []).forEach((p) => set.add(Number(p))); // digits inside an item's own name
+      } else if (Array.isArray(v)) v.forEach((x) => walk(key, x));
+      else if (v && typeof v === "object") Object.keys(v).forEach((k) => walk(k, v[k]));
+    };
+    walk("", fact.facts); walk("", fact.sample); walk("", { start: meta.start, end: meta.end });
+    return set;
+  }
+  const numbersIn = (text) => (text.match(/\d[\d,]*(?:\.\d+)?/g) || []).map((t) => Number(t.replace(/,/g, "")));
+  ["en", "zh"].forEach((lang) => {
+    const memo = renderInsightMemo(result, lang);
+    assert(`${lang}: every insight has all six parts`, memo.insights.length === result.insights.length && memo.insights.every((x) => x.headline && x.evidence && x.why && x.action && x.check && x.confidence && x.caveat && x.link));
+    let stray = [];
+    result.insights.forEach((fact, i) => {
+      const allowed = allowedNumbers(fact, result.meta);
+      const x = memo.insights[i];
+      [x.headline, x.evidence, x.why, x.action, x.check, x.confidence, x.caveat].forEach((text) => {
+        numbersIn(text).forEach((n) => { if (!Array.from(allowed).some((a) => Math.abs(a - n) < 0.006)) stray.push(`${fact.id}: ${n}`); });
+      });
+    });
+    assert(`${lang}: every number in the wording is one the code computed` + (stray.length ? ` (stray: ${stray.slice(0, 5).join("; ")})` : ""), stray.length === 0);
+    assert(`${lang}: evidence states the date range or the two periods compared`, memo.insights.every((x) => /2026/.test(x.evidence)));
+    assert(`${lang}: actions are things to try, with no promised result`, memo.insights.every((x) => !/(will increase|guarantee|will boost|一定会|保证)/i.test(x.action + x.check + x.why)));
+    assert(`${lang}: top 3 comes first and repeats the insight's own action`, memo.top3.length === 3 && memo.top3.every((t) => memo.insights.find((x) => x.id === t.id).action === t.action));
+    assert(`${lang}: each missing insight says why in words`, memo.notEnough.every((x) => x.name && x.text && !/undefined|\{/.test(x.text)));
+    assert(`${lang}: the can't-tell note has a sentence for every key`, memo.cantTell.length === result.cantTell.length && memo.cantTell.every((s) => typeof s === "string" && s.length > 5));
+  });
+  assert("English and Chinese have the same templates", Object.keys(INSIGHT_TEMPLATES.en).sort().join() === Object.keys(INSIGHT_TEMPLATES.zh).sort().join());
+  assert("every 'not enough' reason has wording in both languages", Object.keys(INSIGHT_STRINGS.en.needs).sort().join() === Object.keys(INSIGHT_STRINGS.zh.needs).sort().join());
+  (function () {
+    const small = generateInsightFacts(rows.filter((r) => r.date <= "2026-03-06" && !r.refund));
+    const reasons = new Set(small.notEnough.concat(result.notEnough).map((x) => x.needs.what));
+    assert("every reason the engine can give has wording", Array.from(reasons).every((w) => INSIGHT_STRINGS.en.needs[w] && INSIGHT_STRINGS.zh.needs[w]));
+    indexItems(rows);
+  })();
+
+  // ---------- The file reader keeps what the refund/discount/location rules need ----------
+  {
+    const raw = [
+      { Date: "2026-03-02", Time: "09:00:00", "Gross Sales": "$5.00", Discounts: "-$1.00", Description: "Latte", "Event Type": "Payment", Location: "Main St", "Transaction ID": "t1", Source: "Point of Sale" },
+      { Date: "2026-03-02", Time: "09:30:00", "Gross Sales": "-$5.00", Discounts: "$0.00", Description: "Latte", "Event Type": "Refund", Location: "Main St", "Transaction ID": "t2", Source: "Point of Sale" },
+    ];
+    const mapping = { date: "Date", time: "Time", item: "Description", quantity: null, price: "Gross Sales", orderType: null, orderId: "Transaction ID", customerId: null };
+    const built = await buildRows(raw, mapping, null, { square: true });
+    assert("Square export: a refund row is flagged", built.rows.length === 2 && !built.rows[0].refund && built.rows[1].refund === true);
+    assert("Square export: the discount is kept as a positive amount", built.rows[0].discount === 1 && built.rows[1].discount === 0);
+    assert("Square export: the location is kept", built.rows[0].location === "Main St");
+    const plain = await buildRows(raw, mapping, null, { square: false });
+    assert("other files: no refund, discount or location fields are invented", plain.rows.every((r) => r.refund === undefined && r.discount === undefined && r.location === undefined));
+  }
+
+  // ---------- Render results ----------
+  const el = document.getElementById("results");
+  results.forEach((r) => {
+    const div = document.createElement("div");
+    div.className = r.ok ? "pass" : "fail";
+    div.textContent = (r.ok ? "PASS - " : "FAIL - ") + r.label;
+    el.appendChild(div);
+  });
+  document.getElementById("summary").innerHTML = fail === 0
+    ? `<span class="pass">All ${pass} checks passed.</span>`
+    : `<span class="fail">${fail} of ${pass + fail} checks FAILED.</span>`;
+})().catch((err) => { document.getElementById("summary").innerHTML = `<span class="fail">Test page crashed: ${err.message}</span>`; });
+</script>
+</body>
+</html>

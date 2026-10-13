@@ -248,6 +248,11 @@ async function hashCustomerId(rawValue, saltHex) {
 // so each row is a whole receipt with its items packed into one string.
 async function buildRows(dataRows, mapping, customerSalt, format) {
   const square = !!(format && format.square);
+  // A Square export also says which rows are refunds, how much was
+  // discounted and where the sale was rung up. Kept for js/insights.js
+  // (refund rate, discounts, locations); none of it is personal.
+  const squareCol = (name) => (square && dataRows.length ? Object.keys(dataRows[0]).find((h) => normalizeHeader(h) === name) || null : null);
+  const eventTypeCol = squareCol("eventtype"), discountCol = squareCol("discounts"), locationCol = squareCol("location");
   const rows = [];
   let badCount = 0;
   for (const raw of dataRows) {
@@ -269,7 +274,16 @@ async function buildRows(dataRows, mapping, customerSalt, format) {
     }
     const row = { date, time: time || null, item, quantity, price, orderType: orderType || null, orderId: orderId || null };
     row.kind = classifyKind(item, raw.Source);
-    if (square) row.packed = true;
+    if (square) {
+      row.packed = true;
+      if (eventTypeCol && /refund/i.test(String(raw[eventTypeCol] || ""))) row.refund = true;
+      if (discountCol) {
+        const discount = parsePrice(raw[discountCol]);
+        if (discount !== null) row.discount = Math.abs(discount);
+      }
+      const location = locationCol ? String(raw[locationCol] || "").trim() : "";
+      if (location) row.location = location;
+    }
     if (mapping.customerId && customerSalt) {
       const rawCustomerVal = raw[mapping.customerId]; // never touches `row` -- only feeds the hash below
       if (rawCustomerVal) {

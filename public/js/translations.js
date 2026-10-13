@@ -173,6 +173,9 @@ const TRANSLATIONS = {
 
     // Dashboard cards
     navMore: "More",
+    feedbackLink: "Give feedback",
+    feedbackPromptText: "Tally is a student project. Two minutes of honest feedback would help a lot. The form is a Google Form; Tally sends it nothing from your data.",
+    feedbackPromptDismiss: "Not now",
     weekTitle: "Last 7 days vs. the 7 days before",
     weekAlwaysLatest: "Always the two most recent weeks in your data, whatever date range is chosen below.",
     weekHeadlineUp: "Sales were up {pct}%: {thisAmount} vs. {lastAmount}.",
@@ -925,6 +928,9 @@ const TRANSLATIONS = {
     thinDataBanner: "你的数据不足 2 周。下面显示的是基础图表——随着数据增加，规律会更清晰。",
 
     navMore: "更多",
+    feedbackLink: "提供反馈",
+    feedbackPromptText: "Tally 是一个学生项目。花两分钟说说你的真实看法，会对我很有帮助。问卷是 Google 表单；Tally 不会把你的任何数据发送给它。",
+    feedbackPromptDismiss: "暂时不用",
     weekTitle: "最近 7 天与之前 7 天对比",
     weekAlwaysLatest: "始终显示数据中最近的两周，不受下方日期范围的影响。",
     weekHeadlineUp: "销售额上升了 {pct}%：{thisAmount}，之前是 {lastAmount}。",

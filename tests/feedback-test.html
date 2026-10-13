@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Feedback link and QR code tests</title>
+<style>
+  body { font-family: monospace; padding: 24px; background: #fff; color: #111; }
+  .pass { color: #1F5C4A; }
+  .fail { color: #b3401f; font-weight: bold; }
+  h1 { font-family: sans-serif; }
+  #summary { font-family: sans-serif; font-size: 1.2em; margin-top: 16px; }
+</style>
+</head>
+<body>
+<h1>Feedback link and QR code tests</h1>
+<p>No test framework needed -- just open this file in a browser. Each line is one check.</p>
+<div id="results"></div>
+<div id="summary"></div>
+
+<script src="../js/config.js"></script>
+<script src="../js/vendor/qrcode-generator.js"></script>
+<script src="../js/feedback.js"></script>
+<script>
+  const results = [];
+  let pass = 0, fail = 0;
+  function assert(label, condition) {
+    if (condition) { pass++; } else { fail++; }
+    results.push({ label, ok: !!condition });
+  }
+
+  // --- The config value ---
+  assert("config has one feedbackFormUrl string", typeof TALLY_CONFIG.feedbackFormUrl === "string");
+  assert("the configured link is empty or a plain https link", TALLY_CONFIG.feedbackFormUrl === "" || feedbackUrl() !== null);
+  assert("the configured link carries no query string (nothing prefilled)", !TALLY_CONFIG.feedbackFormUrl.includes("?") || /^[^?]*\?usp=[a-z_]+$/.test(TALLY_CONFIG.feedbackFormUrl));
+
+  // --- feedbackUrl ---
+  const form = "https://forms.gle/AbCdEf123456";
+  assert("empty -> null", feedbackUrl({ feedbackFormUrl: "" }) === null);
+  assert("missing -> null", feedbackUrl({}) === null);
+  assert("https form link -> unchanged", feedbackUrl({ feedbackFormUrl: form }) === form);
+  assert("surrounding spaces are trimmed", feedbackUrl({ feedbackFormUrl: `  ${form} ` }) === form);
+  assert("http -> null", feedbackUrl({ feedbackFormUrl: "http://forms.gle/x" }) === null);
+  assert("javascript: -> null", feedbackUrl({ feedbackFormUrl: "javascript:alert(1)" }) === null);
+  assert("not a link -> null", feedbackUrl({ feedbackFormUrl: "my form" }) === null);
+  assert("a link with a username in it -> null", feedbackUrl({ feedbackFormUrl: "https://user@forms.gle/x" }) === null);
+
+  // --- wireFeedbackLink ---
+  (function () {
+    const saved = TALLY_CONFIG.feedbackFormUrl;
+    const a = document.createElement("a");
+    TALLY_CONFIG.feedbackFormUrl = "";
+    assert("no link set -> hidden, no href", wireFeedbackLink(a) === false && a.hidden && !a.getAttribute("href"));
+    TALLY_CONFIG.feedbackFormUrl = form;
+    assert("link set -> shown", wireFeedbackLink(a) === true && !a.hidden);
+    assert("href is exactly the configured link (nothing added)", a.getAttribute("href") === form);
+    assert("opens in a new tab without an opener or referrer", a.target === "_blank" && a.rel === "noopener noreferrer" && a.referrerPolicy === "no-referrer");
+    TALLY_CONFIG.feedbackFormUrl = saved;
+  })();
+
+  // --- qrSvg ---
+  (function () {
+    const svg = qrSvg(form);
+    const doc = new DOMParser().parseFromString(svg, "image/svg+xml");
+    assert("qrSvg returns well-formed SVG", !doc.querySelector("parsererror") && doc.documentElement.nodeName === "svg");
+    const size = Number(doc.documentElement.getAttribute("viewBox").split(" ")[2]);
+    const modules = size - 8;
+    assert("module count is a valid QR size (21 + 4k)", modules >= 21 && (modules - 21) % 4 === 0);
+    assert("has a white background and a quiet zone of 4 modules", doc.querySelector("rect").getAttribute("fill") === "#fff" && size === modules + 8);
+
+    // Rebuild the grid from the path and check the three finder patterns
+    // (the big corner squares every QR code must have).
+    const dark = new Set((doc.querySelector("path").getAttribute("d").match(/M\d+,\d+/g) || []).map((m) => m.slice(1)));
+    const isDark = (row, col) => dark.has(`${col + 4},${row + 4}`);
+    const finderOk = (r0, c0) => {
+      for (let r = 0; r < 7; r++) for (let c = 0; c < 7; c++) {
+        const edge = r === 0 || r === 6 || c === 0 || c === 6;
+        const core = r >= 2 && r <= 4 && c >= 2 && c <= 4;
+        if (isDark(r0 + r, c0 + c) !== (edge || core)) return false;
+      }
+      return true;
+    };
+    assert("finder pattern top-left", finderOk(0, 0));
+    assert("finder pattern top-right", finderOk(0, modules - 7));
+    assert("finder pattern bottom-left", finderOk(modules - 7, 0));
+    assert("nothing is drawn inside the quiet zone", Array.from(dark).every((k) => { const [x, y] = k.split(",").map(Number); return x >= 4 && y >= 4 && x < size - 4 && y < size - 4; }));
+    assert("same text -> same code", qrSvg(form) === svg);
+    assert("different text -> different code", qrSvg(form + "x") !== svg);
+    assert("the label is escaped", qrSvg(form, { label: 'a"<b>' }).includes('aria-label="a&quot;&lt;b&gt;"'));
+    assert("the SVG contains no link or script of its own", !/href|<script|https?:\/\/(?!www\.w3\.org)/.test(svg));
+  })();
+
+  // --- Render results ---
+  const el = document.getElementById("results");
+  results.forEach((r) => {
+    const div = document.createElement("div");
+    div.className = r.ok ? "pass" : "fail";
+    div.textContent = (r.ok ? "PASS - " : "FAIL - ") + r.label;
+    el.appendChild(div);
+  });
+  document.getElementById("summary").innerHTML = fail === 0
+    ? `<span class="pass">All ${pass} checks passed.</span>`
+    : `<span class="fail">${fail} of ${pass + fail} checks FAILED.</span>`;
+</script>
+</body>
+</html>

@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="robots" content="noindex" />
+<title>Tally feedback card</title>
+<!-- A one-page leave-behind card: print it (letter size) and hand it over.
+     The QR code and link come from js/config.js; nothing here loads from
+     another site, so it prints the same offline. -->
+<style>
+  @page { size: letter portrait; margin: 0.6in; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: "DM Sans", "Segoe UI", Arial, sans-serif; color: #14161A; background: #F3F4F6; }
+  .print-bar { max-width: 7.3in; margin: 16px auto 0; display: flex; gap: 12px; align-items: center; font-size: 0.9rem; color: #667085; }
+  .print-bar button { font: inherit; font-weight: 600; padding: 8px 16px; border-radius: 999px; border: 0; background: #2F6FED; color: #fff; cursor: pointer; }
+  .card {
+    width: 7.3in; min-height: 9.8in; margin: 16px auto; padding: 0.55in 0.6in; background: #fff;
+    border: 1px solid #E4E7EC; border-radius: 12px; display: flex; flex-direction: column; text-align: center;
+  }
+  h1 { font-size: 56pt; margin: 0; letter-spacing: -0.02em; }
+  .pitch { font-size: 19pt; font-weight: 600; margin: 10px 0 4px; }
+  .pitch-zh { font-size: 14pt; color: #334155; margin: 0 0 18px; }
+  .ask { font-size: 14pt; margin: 0 auto 14px; max-width: 5.6in; }
+  .qr { width: 3.3in; height: 3.3in; margin: 0 auto 10px; }
+  .qr svg { width: 100%; height: 100%; display: block; }
+  .scan { font-size: 12pt; font-weight: 700; margin: 0 0 4px; }
+  .link { font-family: Consolas, "Courier New", monospace; font-size: 12pt; overflow-wrap: anywhere; margin: 0 0 18px; }
+  .try { font-size: 12.5pt; margin: 0 0 6px; }
+  .small { margin-top: auto; padding-top: 16px; border-top: 1px solid #E4E7EC; font-size: 10pt; color: #475467; text-align: left; }
+  .small p { margin: 0 0 4px; }
+  .missing { margin: 40px auto; max-width: 5in; padding: 16px; border: 2px dashed #b3401f; color: #b3401f; font-weight: 600; }
+  @media print {
+    body { background: #fff; }
+    .print-bar { display: none; }
+    .card { margin: 0; border: 0; border-radius: 0; width: auto; min-height: 9.7in; padding: 0; }
+  }
+</style>
+</head>
+<body>
+<div class="print-bar">
+  <button type="button" id="printBtn">Print this card</button>
+  <span>Letter size, portrait. Turn off "Headers and footers" in the print dialog.</span>
+</div>
+
+<main class="card">
+  <h1>Tally</h1>
+  <p class="pitch">A free one-page report from your Square sales.</p>
+  <p class="pitch-zh" lang="zh">用你的 Square 销售记录生成一页免费报告，可切换中文。</p>
+  <p class="ask">Tried it? I'm a student, and two minutes of your honest opinion would really help.</p>
+
+  <div id="feedbackBlock" hidden>
+    <div class="qr" id="qr"></div>
+    <p class="scan">Scan to give feedback, or type this link:</p>
+    <p class="link" id="feedbackLinkText"></p>
+  </div>
+  <p class="missing" id="missing" hidden>No feedback link is set yet. Paste your Google Form link into js/config.js (feedbackFormUrl), then reload this page.</p>
+
+  <p class="try">Haven't tried it yet? Open <strong id="appLinkText"></strong></p>
+
+  <div class="small">
+    <p>Tally is an independent student project. It is not affiliated with or endorsed by Square.</p>
+    <p>Connecting Square is read-only: Tally can never charge, refund or change anything in Square. Your sales are saved only in your browser.</p>
+    <p>The feedback form is a Google Form. Please don't put sales figures or customer details in it.</p>
+  </div>
+</main>
+
+<script src="js/config.js"></script>
+<script src="js/vendor/qrcode-generator.js"></script>
+<script src="js/feedback.js"></script>
+<script>
+  (function () {
+    const url = feedbackUrl();
+    document.getElementById("feedbackBlock").hidden = !url;
+    document.getElementById("missing").hidden = !!url;
+    if (url) {
+      document.getElementById("qr").innerHTML = qrSvg(url, { label: "QR code for the Tally feedback form" });
+      document.getElementById("feedbackLinkText").textContent = url.replace(/^https:\/\//, "");
+    }
+    document.getElementById("appLinkText").textContent = String(TALLY_CONFIG.appUrl || "").replace(/^https:\/\//, "");
+    document.getElementById("printBtn").addEventListener("click", () => window.print());
+  })();
+</script>
+</body>
+</html>

@@ -53,6 +53,7 @@ const App = {
   customerIdColumnName: null, // the header name last used for hashed customer tracking, shown on the privacy disclosure only
   customerSummaryRows: [], // optional, already-aggregated monthly new/returning report -- a separate data source from hashed per-transaction rows, see js/customer-summary.js
   hasSeenIntro: false, // whether the first-visit explainer overlay has ever been dismissed
+  feedbackPromptDismissed: false, // the one-time "Give feedback" note on the dashboard (js/feedback.js)
   pendingSource: null, // "own" | "sample" -- where the file being matched came from (founder-dashboard counting only)
   dataSource: null, // "own" once the owner's own file/Square data is saved here, "sample" if only samples, null if unknown
 };
@@ -196,6 +197,9 @@ function applyStaticText() {
   document.getElementById("footerPrivacyLink").textContent = t("privacyLinkText");
   document.getElementById("langToggleBtn").textContent = t("langToggle");
   document.getElementById("footerNote").textContent = t("insightsDisclaimer");
+  const feedbackLink = document.getElementById("footerFeedbackLink");
+  feedbackLink.textContent = t("feedbackLink");
+  wireFeedbackLink(feedbackLink);
   renderNav();
 }
 
@@ -1754,6 +1758,12 @@ App.renderDashboard = function () {
     ${renderWeatherLine()}
     ${renderHolidayLine(rows)}
     ${thin ? `<div class="thin-data-banner">${esc(t("thinDataBanner"))}</div>` : ""}
+    ${!App.feedbackPromptDismissed && feedbackUrl() ? `
+    <div class="feedback-prompt" id="feedbackPrompt" role="note">
+      <span>${esc(t("feedbackPromptText"))}</span>
+      <a class="btn btn-secondary btn-sm" id="feedbackPromptLink">${esc(t("feedbackLink"))}</a>
+      <button type="button" class="btn btn-ghost btn-sm" id="feedbackPromptDismiss">${esc(t("feedbackPromptDismiss"))}</button>
+    </div>` : ""}
     ${renderWeekCompareCard()}
     ${App.allRows.some((r) => r.source === "square") ? `<p class="chart-meta gross-note">${esc(t("grossNote"))}</p>` : ""}
     <div class="stat-grid">
@@ -1838,6 +1848,19 @@ App.renderDashboard = function () {
   `;
 
   wireRangeSelector(() => App.renderDashboard());
+
+  // Shown from the first dashboard on, until it's used or dismissed once.
+  const feedbackPrompt = document.getElementById("feedbackPrompt");
+  if (feedbackPrompt) {
+    const done = () => {
+      App.feedbackPromptDismissed = true;
+      DB.setSetting("feedbackPromptDismissed", true);
+      feedbackPrompt.remove();
+    };
+    wireFeedbackLink(document.getElementById("feedbackPromptLink"));
+    document.getElementById("feedbackPromptLink").addEventListener("click", done);
+    document.getElementById("feedbackPromptDismiss").addEventListener("click", done);
+  }
 
   document.querySelectorAll("[data-clear-filter]").forEach((btn) => {
     btn.addEventListener("click", () => {
@@ -3406,6 +3429,7 @@ async function deleteAllData() {
   Usage.reset(); // settings are gone, so the next event gets a brand-new random browser id
   App.dataSource = null;
   App.ignoreHolidays = true;
+  App.feedbackPromptDismissed = false;
   App.localCalendar = null;
   App.weatherEnabled = false;
   App.weatherLocation = null;
@@ -3539,6 +3563,7 @@ async function initApp() {
     App.hasSeenIntro = !!(await DB.getSetting("hasSeenIntro"));
     App.dataSource = (await DB.getSetting("dataSource")) || null;
     App.localCalendar = (await DB.getSetting("localCalendar")) === "brandeis" ? "brandeis" : null;
+    App.feedbackPromptDismissed = !!(await DB.getSetting("feedbackPromptDismissed"));
     applyStaticText();
     document.getElementById("langToggleBtn").addEventListener("click", () => {
       setLang(App.lang === "en" ? "zh" : "en");

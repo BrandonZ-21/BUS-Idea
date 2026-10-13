@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Insight memo preview</title>
+<style>
+  body { font-family: "Segoe UI", Arial, sans-serif; max-width: 820px; margin: 24px auto; padding: 0 16px; color: #14161A; line-height: 1.45; }
+  h1 { font-size: 1.4rem; } h2 { font-size: 1.1rem; margin-top: 28px; border-bottom: 1px solid #E4E7EC; padding-bottom: 4px; }
+  .meta, .small { color: #667085; font-size: 0.85rem; }
+  .ins { border: 1px solid #E4E7EC; border-radius: 10px; padding: 14px 16px; margin: 12px 0; }
+  .ins h3 { margin: 0 0 8px; font-size: 1.02rem; }
+  .ins dt { font-weight: 600; font-size: 0.8rem; color: #475467; margin-top: 8px; } .ins dd { margin: 0; }
+  .err { color: #b3401f; font-weight: 600; }
+</style>
+</head>
+<body>
+<h1>Insight memo preview</h1>
+<p class="small">Runs js/insights.js on a sales file without touching the app. Add <code>?file=private/your-export.csv</code> (a path under tests/) and optionally <code>&amp;lang=zh</code>. Nothing is uploaded: the file is read from this computer by the local test server. Files in tests/private/ are never committed.</p>
+<div id="out"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script src="../js/parser.js"></script>
+<script src="../js/square-items.js"></script>
+<script src="../js/stats.js"></script>
+<script src="../js/insights.js"></script>
+<script src="../js/insight-text.js"></script>
+<script>
+  const esc = (s) => String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+  // The same steps the app takes for an uploaded file, minus saving anything.
+  async function rowsFromCsv(text) {
+    const parsed = Papa.parse(text, { header: true, skipEmptyLines: true });
+    const stripped = stripSensitiveColumns(parsed.meta.fields, parsed.data);
+    const mapping = guessColumns(stripped.headers).guesses;
+    mapping.customerId = null; // customers aren't needed here
+    const { rows } = await buildRows(stripped.dataRows, mapping, null, { square: stripped.square });
+    const oneOff = findOneOffRows(rows);
+    const normal = rows.filter((r) => !oneOff.has(r));
+    indexItems(normal);
+    return { all: rows.length, oneOffs: oneOff.size, normal };
+  }
+
+  async function main() {
+    const params = new URLSearchParams(location.search);
+    const file = params.get("file");
+    const lang = params.get("lang") === "zh" ? "zh" : "en";
+    const out = document.getElementById("out");
+    if (!file || !/^[\w./-]+\.csv$/.test(file) || file.includes("..")) { out.innerHTML = `<p class="err">Add ?file=private/your-export.csv to the address.</p>`; return; }
+    const res = await fetch(file);
+    if (!res.ok) { out.innerHTML = `<p class="err">Couldn't read tests/${esc(file)}.</p>`; return; }
+    const data = await rowsFromCsv(await res.text());
+    const result = generateInsightFacts(data.normal);
+    const memo = renderInsightMemo(result, lang);
+    window.__insights = { result, memo }; // for inspection from the console
+
+    const m = result.meta;
+    out.innerHTML = `
+      <p class="meta">${esc(file)} · ${data.all.toLocaleString()} rows read, ${data.oneOffs} one-off rows left out · ${esc(m.start)} to ${esc(m.end)} · ${m.sellingDays} selling days · ${m.receipts.toLocaleString()} receipts</p>
+      <h2>${esc(memo.titles.top3)}</h2>
+      <ol>${memo.top3.map((x) => `<li><strong>${esc(x.headline)}</strong><br>${esc(x.action)}</li>`).join("")}</ol>
+      <h2>Insights (${memo.insights.length})</h2>
+      ${memo.insights.map((x) => `
+        <div class="ins">
+          <div class="small">${esc(x.name)}</div>
+          <h3>${esc(x.headline)}</h3>
+          <dl>
+            <dt>${esc(memo.labels.evidence)}</dt><dd>${esc(x.evidence)}</dd>
+            <dt>${esc(memo.labels.why)}</dt><dd>${esc(x.why)}</dd>
+            <dt>${esc(memo.labels.action)}</dt><dd>${esc(x.action)}</dd>
+            <dt>${esc(memo.labels.check)}</dt><dd>${esc(x.check)}</dd>
+          </dl>
+          <p class="small">${esc(x.confidence)} ${esc(x.caveat)} · ${esc(x.linkLabel)}: ${esc(x.link)}</p>
+        </div>`).join("")}
+      <h2>${esc(memo.titles.notEnough)}</h2>
+      <ul>${memo.notEnough.map((x) => `<li><strong>${esc(x.name)}:</strong> ${esc(x.text)}</li>`).join("")}</ul>
+      <h2>${esc(memo.titles.cantTell)}</h2>
+      <ul>${memo.cantTell.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>`;
+  }
+  main().catch((err) => { document.getElementById("out").innerHTML = `<p class="err">${esc(err.message)}</p>`; });
+</script>
+</body>
+</html>
