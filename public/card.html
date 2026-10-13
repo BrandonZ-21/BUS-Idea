@@ -22,11 +22,13 @@
   .pitch { font-size: clamp(14pt, 4.6vw, 19pt); font-weight: 600; margin: 10px 0 4px; }
   .pitch-zh { font-size: 14pt; color: #334155; margin: 0 0 18px; }
   .ask { font-size: 14pt; margin: 0 auto 14px; max-width: 5.6in; }
-  .qr { width: min(3.3in, 100%); aspect-ratio: 1; margin: 0 auto 10px; }
+  .codes { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.3in; margin-top: 6px; }
+  .code { flex: 1 1 2.6in; max-width: 3in; min-width: 0; }
+  .step { font-size: 15pt; font-weight: 700; margin: 0 0 8px; }
+  .qr { width: min(2.7in, 100%); aspect-ratio: 1; margin: 0 auto 10px; }
   .qr svg { width: 100%; height: 100%; display: block; }
   .scan { font-size: 12pt; font-weight: 700; margin: 0 0 4px; }
-  .link { font-family: Consolas, "Courier New", monospace; font-size: 12pt; overflow-wrap: anywhere; margin: 0 0 18px; }
-  .try { font-size: 12.5pt; margin: 0 0 6px; }
+  .link { font-family: Consolas, "Courier New", monospace; font-size: 10.5pt; overflow-wrap: anywhere; margin: 0 0 18px; }
   .small { margin-top: auto; padding-top: 16px; border-top: 1px solid #E4E7EC; font-size: 10pt; color: #475467; text-align: left; }
   .small p { margin: 0 0 4px; }
   .missing { margin: 40px auto; max-width: 5in; padding: 16px; border: 2px dashed #b3401f; color: #b3401f; font-weight: 600; }
@@ -36,7 +38,8 @@
     .card { margin: 0; border: 0; border-radius: 0; width: auto; max-width: none; min-height: 9.7in; padding: 0; }
     h1 { font-size: 56pt; }
     .pitch { font-size: 19pt; }
-    .qr { width: 3.3in; }
+    .codes { flex-wrap: nowrap; }
+    .qr { width: 2.7in; }
   }
 </style>
 </head>
@@ -50,16 +53,23 @@
   <h1>Tally</h1>
   <p class="pitch">A free one-page report from your Square sales.</p>
   <p class="pitch-zh" lang="zh">用你的 Square 销售记录生成一页免费报告，可切换中文。</p>
-  <p class="ask">Tried it? I'm a student, and two minutes of your honest opinion would really help.</p>
+  <p class="ask">I'm a student. Try it, then tell me honestly what you think: two minutes would really help.</p>
 
-  <div id="feedbackBlock" hidden>
-    <div class="qr" id="qr"></div>
-    <p class="scan">Scan to give feedback, or type this link:</p>
-    <p class="link" id="feedbackLinkText"></p>
+  <div class="codes">
+    <div class="code" id="appBlock" hidden>
+      <p class="step">1. Try Tally</p>
+      <div class="qr" id="appQr"></div>
+      <p class="scan">Scan to open the app, or type:</p>
+      <p class="link" id="appLinkText"></p>
+    </div>
+    <div class="code" id="feedbackBlock" hidden>
+      <p class="step">2. Give feedback</p>
+      <div class="qr" id="qr"></div>
+      <p class="scan">Scan for the short form, or type:</p>
+      <p class="link" id="feedbackLinkText"></p>
+    </div>
   </div>
   <p class="missing" id="missing" hidden>No feedback link is set yet. Paste your Google Form link into js/config.js (feedbackFormUrl), then reload this page.</p>
-
-  <p class="try">Haven't tried it yet? Open <strong id="appLinkText"></strong></p>
 
   <div class="small">
     <p>Tally is an independent student project. It is not affiliated with or endorsed by Square.</p>
@@ -80,7 +90,13 @@
       document.getElementById("qr").innerHTML = qrSvg(url, { label: "QR code for the Tally feedback form" });
       document.getElementById("feedbackLinkText").textContent = url.replace(/^https:\/\//, "");
     }
-    document.getElementById("appLinkText").textContent = String(TALLY_CONFIG.appUrl || "").replace(/^https:\/\//, "");
+    // The app's own address, checked the same way as the form link.
+    const appUrl = feedbackUrl({ feedbackFormUrl: TALLY_CONFIG.appUrl });
+    document.getElementById("appBlock").hidden = !appUrl;
+    if (appUrl) {
+      document.getElementById("appQr").innerHTML = qrSvg(appUrl, { label: "QR code that opens Tally" });
+      document.getElementById("appLinkText").textContent = appUrl.replace(/^https:\/\//, "").replace(/\/$/, "");
+    }
     document.getElementById("printBtn").addEventListener("click", () => window.print());
   })();
 </script>
