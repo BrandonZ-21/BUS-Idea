@@ -37,6 +37,10 @@ Please don't type sales figures or customer details here. Tally sends this form 
 
 A ninth question was added on 2026-10-13: "Anything else? What didn't you like, what was confusing, or any other feedback." (Paragraph, optional). In the live form it currently sits second; drag it to the end.
 
+## Two language paths (rebuilt 2026-10-15)
+
+The live form is now: page 1 asks "Language / 语言" (required). "English" opens an English-only page with the nine questions and ends at Submit; "中文" opens the same nine questions in Chinese only. Same form and link as before, so Tally's buttons and QR codes didn't change. It was rebuilt by an Apps Script ("Untitled project" in Google Drive) that refuses to run if the form has any responses. Responses from both paths land in one spreadsheet, in separate columns per language.
+
 ## Live form (published 2026-10-13)
 
 - Responder link: https://docs.google.com/forms/d/e/1FAIpQLSfJ7K3j0KxON1BXdOTdUVvFK7P2YcJRZLzdSkbrXIN2Z50ZPg/viewform
