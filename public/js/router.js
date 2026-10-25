@@ -50,6 +50,7 @@ function dispatchRoute() {
   const fn = ROUTES[route];
   if (App[fn]) App[fn]();
   App.updateActiveNav(route);
+  if (typeof Usage !== "undefined" && Usage.started) Usage.pageView(route); // page name only; see js/usage.js
 }
 
 window.addEventListener("hashchange", dispatchRoute);

@@ -121,9 +121,24 @@ test("usage counting and the founder dashboard", async (t) => {
   await t.test("a valid event is stored with only allow-listed fields (no IP, no browser details)", async () => {
     assert.deepEqual(await page.track(ID("x"), "visit"), { status: 202, data: { collecting: true, stored: true } });
     const cols = query("PRAGMA table_info(usage_events)").map((c) => c.name);
-    assert.deepEqual(cols, ["id", "at", "day", "browser_id", "event", "reason", "source"]);
+    assert.deepEqual(cols, ["id", "at", "day", "browser_id", "event", "reason", "source", "detail", "ref_host", "ref_tag", "country", "device"]);
     const [row] = query("SELECT browser_id, event, reason, source FROM usage_events");
     assert.deepEqual(row, { browser_id: ID("x"), event: "visit", reason: null, source: null });
+  });
+
+  await t.test("visit details, pages and clicks are stored in their checked shapes only", async () => {
+    assert.equal((await page.track(ID("v"), "visit", { detail: "home", refHost: "www.reddit.com", refTag: "reddit", device: "mobile" })).status, 202);
+    assert.equal((await page.track(ID("v"), "page_view", { detail: "items" })).status, 202);
+    assert.equal((await page.track(ID("v"), "click", { detail: "heroSampleBtn" })).status, 202);
+    assert.equal((await page.track(ID("v"), "click", { detail: "Latte 12oz $4.50" })).status, 400);
+    assert.equal((await page.track(ID("v"), "page_view", { detail: "items", refHost: "reddit.com" })).status, 400);
+    const rows = query(`SELECT event, detail, ref_host, ref_tag, country, device FROM usage_events WHERE browser_id = '${ID("v")}' ORDER BY id`);
+    assert.equal(rows.length, 3);
+    assert.deepEqual({ ...rows[0], country: undefined }, { event: "visit", detail: "home", ref_host: "www.reddit.com", ref_tag: "reddit", country: undefined, device: "mobile" });
+    assert.ok(rows[0].country === null || /^[A-Z0-9]{2}$/.test(rows[0].country), "country is a 2-letter code or empty");
+    assert.deepEqual(rows[1], { event: "page_view", detail: "items", ref_host: null, ref_tag: null, country: null, device: null });
+    assert.deepEqual(rows[2], { event: "click", detail: "heroSampleBtn", ref_host: null, ref_tag: null, country: null, device: null });
+    query(`DELETE FROM usage_events WHERE browser_id = '${ID("v")}'`);
   });
 
   await t.test("sales content, unknown events, bad ids, other sites and oversized bodies are refused", async () => {
@@ -136,11 +151,11 @@ test("usage counting and the founder dashboard", async (t) => {
     assert.equal(query("SELECT COUNT(*) AS n FROM usage_events")[0].n, 1);
   });
 
-  await t.test("one browser can't flood the table: daily cap of 300", async () => {
+  await t.test("one browser can't flood the table: daily cap of 500", async () => {
     const results = [];
-    for (let i = 0; i < 301; i++) results.push((await page.track(ID("w"), "report_saved")).data.stored);
-    assert.equal(results.filter(Boolean).length, 300);
-    assert.equal(results[300], false);
+    for (let i = 0; i < 501; i++) results.push((await page.track(ID("w"), "report_saved")).data.stored);
+    assert.equal(results.filter(Boolean).length, 500);
+    assert.equal(results[500], false);
     query(`DELETE FROM usage_events WHERE browser_id = '${ID("w")}'`);
   });
 
@@ -174,7 +189,9 @@ test("usage counting and the founder dashboard", async (t) => {
     assert.deepEqual(data.failures, [{ event: "upload_failed", reason: "bad_date", count: 1, browsers: 1 }]);
     assert.equal(data.trust.sampleOnly, 1);
     assert.equal(data.recentFailures.length, 1);
-    assert.ok(!JSON.stringify(data).includes(ID("s")), "browser ids are not sent to the dashboard");
+    // Random browser ids go to the admin only (for "That's me: don't count"), never sales or report data.
+    assert.ok(data.sessions.some((x) => x.browserId === ID("s")));
+    assert.equal(data.visitors.browsers, 4);
   });
 
   await t.test("demo mode is labeled, uses made-up numbers, and writes nothing", async () => {

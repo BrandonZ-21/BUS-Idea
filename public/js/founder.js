@@ -47,6 +47,212 @@ function pct(r) {
   return r === null ? "--" : `${Math.round(r * 100)}%`;
 }
 
+const FOUNDER_PAGES = {
+  home: "Home (landing page)", dashboard: "Dashboard", data: "My Data", hours: "Hours detail", days: "Days detail",
+  items: "Items", trend: "Trend", "order-types": "Order types", heatmap: "Heatmap", notes: "Day Notes",
+  ask: "Ask a question", customers: "Customers", grow: "Grow", founder: "Founder",
+};
+const FOUNDER_CLICKS = {
+  heroGetStartedBtn: "Get started (home)",
+  heroSampleBtn: "See it with sample data (home)",
+  sampleBtn: "Load sample data",
+  sample2Btn: "Load second sample",
+  chooseFileBtn: "Choose a file",
+  "page:api.square.connect": "Connect Square",
+  squareSyncBtn: "Sync now (Square)",
+  squareDisconnectBtn: "Disconnect Square",
+  langToggleBtn: "Language toggle (中文 / English)",
+  introDismissBtn: "Got it (intro box)",
+  introReopenBtn: "What does this do?",
+  headerFeedbackLink: "Give feedback (header)",
+  homeFeedbackLink: "Give feedback (home)",
+  footerFeedbackLink: "Give feedback (footer)",
+  feedbackPromptLink: "Give feedback (prompt)",
+  feedbackPromptDismiss: "Not now (feedback prompt)",
+  footerPrivacyLink: "Privacy (footer)",
+  footerCardLink: "Printable card (footer)",
+  accountSaveBtn: "Save this report",
+  itemsCsvBtn: "Download item CSV",
+  exportBackupBtn: "Export backup",
+  deleteAllBtn: "Delete all my data",
+  brandName: "Tally logo",
+};
+const FOUNDER_ENGAGED = { under30s: "Under 30 seconds", "30s": "30 s to 2 min", "2m": "2 to 5 min", "5m": "5 to 10 min", "10m": "10 min or more" };
+const FOUNDER_CHOICE = {
+  square: "Connected Square",
+  ownFile: "Uploaded their own file",
+  triedFailed: "Tried own data, didn't get in",
+  sampleOnly: "Sample data only",
+  lookedOnly: "Just looked (no data)",
+};
+
+function founderClickLabel(code) {
+  if (FOUNDER_CLICKS[code]) return FOUNDER_CLICKS[code];
+  if (code.startsWith("nav:")) return `Menu → ${FOUNDER_PAGES[code.slice(4)] || code.slice(4)}`;
+  if (code.startsWith("link:")) return `Outside link → ${code.slice(5)}`;
+  if (code.startsWith("page:")) return `Site page → ${code.slice(5)}`;
+  return code;
+}
+
+function founderStepText(s) {
+  switch (s.event) {
+    case "visit": return `Opened Tally${s.detail ? ` on ${FOUNDER_PAGES[s.detail] || s.detail}` : ""}`;
+    case "page_view": return `Viewed ${FOUNDER_PAGES[s.detail] || s.detail}`;
+    case "click": return `Clicked “${founderClickLabel(s.detail)}”`;
+    case "engaged": return `Still on the page after ${s.reason}`;
+    case "sample_loaded": return "Loaded the sample data";
+    case "upload_started": return "Chose a file to upload";
+    case "upload_ok": return s.source === "sample" ? "Sample file read" : "Own file read OK";
+    case "upload_failed": return `Upload failed: ${FOUNDER_REASONS[s.reason] || s.reason || "unknown"}`;
+    case "data_added": return `New ${s.source === "square" ? "Square" : "own"} data saved`;
+    case "report_viewed": return `Saw a report (${s.source === "own" ? "own data" : s.source === "sample" ? "sample data" : "data"})`;
+    case "square_connect_started": return "Pressed Connect Square";
+    case "square_connected": return "Square connected";
+    case "square_connect_failed": return `Square connect failed: ${FOUNDER_REASONS[s.reason] || s.reason}`;
+    case "square_sync_ok": return "Square sync OK";
+    case "square_sync_failed": return `Square sync failed: ${FOUNDER_REASONS[s.reason] || s.reason}`;
+    case "report_saved": return "Saved a report to their account";
+    default: return s.event;
+  }
+}
+
+function founderDuration(sec, engaged) {
+  const floor = { "30s": 30, "2m": 120, "5m": 300, "10m": 600 }[engaged] || 0;
+  const s = Math.max(sec, floor);
+  if (s < 30) return "under 30 s";
+  if (s < 120) return `${Math.round(s)} s`;
+  return `${Math.round(s / 60)} min${engaged === "10m" && s >= 600 ? "+" : ""}`;
+}
+
+function founderTable(head, rows) {
+  if (!rows.length) return `<p class="founder-sub">Nothing recorded in this window.</p>`;
+  return `<table class="founder-table"><thead><tr>${head.map((h) => `<th scope="col">${esc(h)}</th>`).join("")}</tr></thead>
+    <tbody>${rows.map((r) => `<tr>${r.map((c) => `<td>${c}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
+}
+
+function founderBars(items) {
+  const max = Math.max(1, ...items.map((x) => x.n));
+  return `<ol class="founder-funnel">${items.map((x) => `
+    <li><span class="founder-funnel-label">${x.label}</span>
+      <span class="founder-funnel-bar" aria-hidden="true"><span style="width:${Math.round((x.n / max) * 100)}%"></span></span>
+      <span class="founder-funnel-count">${x.n}</span></li>`).join("")}</ol>`;
+}
+
+function renderDetailSections(d) {
+  const live = d.mode === "live";
+  const v = d.visitors;
+  const origin = location.origin;
+
+  const dailyMax = Math.max(1, ...d.daily.map((x) => x.browsers));
+  const daily = `<div class="founder-daily" role="img" aria-label="Browsers that opened Tally per day">
+    ${d.daily.map((x) => `<div class="founder-daily-col" title="${esc(x.day)}: ${x.browsers}">
+      <span class="founder-daily-n">${x.browsers || ""}</span>
+      <span class="founder-daily-bar" style="height:${Math.round((x.browsers / dailyMax) * 100)}%"></span>
+    </div>`).join("")}
+  </div>
+  <p class="founder-sub founder-daily-axis"><span>${esc(d.daily[0].day)}</span><span>${esc(d.daily[d.daily.length - 1].day)}</span></p>`;
+
+  const sources = founderTable(
+    ["Came from (first visit)", "Browsers", "Tried own data", "Own data got in", "Sample only"],
+    d.sources.map((s) => [esc(s.source), s.browsers, s.triedOwn, s.ownIn, s.sampleOnly])
+  );
+
+  const links = ["reddit", "email", "dm"].map((tag) => {
+    const url = `${origin}/?ref=${tag}`;
+    return `<li><code>${esc(url)}</code> <button type="button" class="btn btn-sm btn-ghost" data-founder-copy="${esc(url)}">Copy</button></li>`;
+  }).join("");
+
+  const choice = founderBars(Object.keys(FOUNDER_CHOICE).map((k) => ({ label: esc(FOUNDER_CHOICE[k]), n: d.dataChoice[k] })));
+  const engaged = founderBars(Object.keys(FOUNDER_ENGAGED).map((k) => ({ label: esc(FOUNDER_ENGAGED[k]), n: d.engagement[k] })));
+
+  const pages = founderTable(["Page", "Views", "Browsers"], d.pages.map((p) => [esc(FOUNDER_PAGES[p.page] || p.page), p.views, p.browsers]));
+  const clicks = founderTable(
+    ["Button or link", "Clicks", "Browsers"],
+    d.clicks.map((c) => [`${esc(founderClickLabel(c.target))}<br><span class="founder-code">${esc(c.target)}</span>`, c.count, c.browsers])
+  );
+  const countries = founderTable(["Country", "Browsers"], d.countries.map((c) => [esc(c.country), c.browsers]));
+  const devices = founderTable(["Device", "Browsers"], d.devices.map((c) => [esc(c.device), c.browsers]));
+
+  const sessions = d.sessions.length ? d.sessions.map((s) => {
+    const mine = live && s.browserId === Founder.myId;
+    const used = s.steps.some((x) => x.event === "square_connected") ? "connected Square"
+      : s.steps.some((x) => x.event === "upload_ok" && x.source === "own") ? "own file"
+      : s.steps.some((x) => x.event === "sample_loaded") ? "sample data" : "no data";
+    const meta = [
+      esc(new Date(s.start * 1000).toLocaleString()),
+      s.source ? `from <strong>${esc(s.source)}</strong>` : "same tab, after a break",
+      s.country ? esc(s.country) : null,
+      s.device ? esc(s.device) : null,
+      founderDuration(s.end - s.start, s.engaged),
+      used,
+    ].filter(Boolean).join(" · ");
+    const steps = s.steps.map((x) => `<li><span class="founder-code">${esc(new Date(x.at * 1000).toLocaleTimeString())}</span> ${esc(founderStepText(x))}</li>`).join("");
+    const excludeBtn = live && !mine
+      ? `<button type="button" class="btn btn-sm btn-ghost" data-founder-exclude="${esc(s.browserId)}">That’s me: don’t count this browser</button>`
+      : "";
+    return `<details class="founder-session">
+      <summary><strong>Visitor ${s.visitor}</strong>${mine ? " (this browser)" : ""} · ${meta}</summary>
+      <ol class="founder-steps">${steps}</ol>
+      ${s.moreSteps ? `<p class="founder-sub">…and ${s.moreSteps} more steps.</p>` : ""}
+      ${excludeBtn}
+    </details>`;
+  }).join("") : `<p class="founder-sub">No visits in this window.</p>`;
+
+  return `
+    <div class="card founder-card">
+      <h2>Who’s visiting</h2>
+      <div class="founder-tiles">
+        <div><p class="founder-figure"><strong>${v.browsers}</strong></p><p class="founder-sub">browsers opened Tally</p></div>
+        <div><p class="founder-figure"><strong>${v.newInWindow === null ? "--" : v.newInWindow}</strong></p><p class="founder-sub">new in this window</p></div>
+        <div><p class="founder-figure"><strong>${v.returning}</strong></p><p class="founder-sub">came back on another day</p></div>
+        <div><p class="founder-figure"><strong>${v.sessions}</strong></p><p class="founder-sub">visits (30 min gap = new visit)</p></div>
+      </div>
+      ${daily}
+      <dl class="founder-defs">
+        <dt>Counts</dt><dd>Browsers, not people. One person on a phone and a laptop is two; a private window is a new browser each time.</dd>
+        <dt>Not counted</dt><dd>Your excluded browsers, and anyone whose browser sends Do Not Track or Global Privacy Control.</dd>
+      </dl>
+    </div>
+
+    <div class="card founder-card">
+      <h2>Where they come from</h2>
+      ${sources}
+      <h3>Use tagged links so every visit is attributed</h3>
+      <p class="founder-sub">Reddit’s app, email apps and DMs often hide where a visitor came from, so those visits land in “direct / unknown”. Put a tag on every link you share and it shows up above as “link tag: reddit”. Any short word works (<code>?ref=walkin</code>, <code>?ref=flyer</code>).</p>
+      <ul class="founder-links">${links}</ul>
+    </div>
+
+    <div class="founder-grid">
+      <div class="card founder-card">
+        <h2>Own data or demo?</h2>
+        <p class="founder-sub">Each browser counted once, by the furthest it got.</p>
+        ${choice}
+      </div>
+      <div class="card founder-card">
+        <h2>How long they stay</h2>
+        <p class="founder-sub">Longest time the page stayed open and visible, per browser.</p>
+        ${engaged}
+      </div>
+    </div>
+
+    <div class="founder-grid">
+      <div class="card founder-card"><h2>Pages they open</h2>${pages}</div>
+      <div class="card founder-card"><h2>What they click</h2>
+        <p class="founder-sub">Buttons and links by the name the code gives them. Never what’s on screen or typed.</p>${clicks}</div>
+    </div>
+
+    <div class="founder-grid">
+      <div class="card founder-card"><h2>Countries</h2><p class="founder-sub">From Cloudflare; no IP address is stored.</p>${countries}</div>
+      <div class="card founder-card"><h2>Devices</h2><p class="founder-sub">By screen width.</p>${devices}</div>
+    </div>
+
+    <div class="card founder-card">
+      <h2>Recent visits, step by step (newest ${d.sessions.length})</h2>
+      <p class="founder-sub">Each visitor is an anonymous number. Spot one of your own devices? Press “That’s me” to drop it from every number (past and future).</p>
+      ${sessions}
+    </div>`;
+}
+
 function founderNote() {
   try {
     return JSON.parse(localStorage.getItem(FOUNDER_NOTE_KEY)) || {};
@@ -96,10 +302,30 @@ Founder.setExcluded = async function (excluded) {
   }
 };
 
+// "That's me": leave out another browser of the admin's (by its random id).
+Founder.excludeOther = async function (browserId) {
+  try {
+    const res = await fetch("/api/admin/exclude-browser", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ browserId, excluded: true }),
+    });
+    return res.status === 200;
+  } catch {
+    return false;
+  }
+};
+
 Founder.load = async function () {
   Founder.loading = true;
   Founder.error = null;
   App.renderFounder();
+  try {
+    Founder.myId = await usageBrowserId();
+  } catch {
+    Founder.myId = null;
+  }
   // The founder's own browser shouldn't count as a user: the first time the
   // dashboard is opened here, exclude it (the server refuses non-admins).
   if (founderExcludedFlag() === null) await Founder.setExcluded(true);
@@ -210,6 +436,8 @@ function renderFounderBody(d) {
     : `<p>No failed uploads or syncs recorded.</p>`;
 
   return `
+    ${renderDetailSections(d)}
+    <h2 class="founder-section-title">Owner journey signals</h2>
     <div class="founder-grid">${cards[0]}${cards[1]}${cards[2]}</div>
 
     <div class="card founder-card">
@@ -287,13 +515,16 @@ App.renderFounder = function () {
       <span class="founder-sub">${Founder.loadedAt && d ? `Loaded ${esc(Founder.loadedAt.toLocaleTimeString())}${d.mode === "live" && d.firstEventAt ? ` · counting since ${esc(new Date(d.firstEventAt * 1000).toLocaleDateString())}` : ""}` : ""}</span>
       <button type="button" class="btn btn-sm btn-ghost" id="founderRefresh">Refresh</button>
     </div>
-    ${d ? `<p class="founder-sub founder-own" role="status">
-      ${founderExcludedFlag() === "1"
-        ? "<strong>This browser isn't counted.</strong> Your own visits here, past and future, are left out of the Live numbers."
+    ${d ? `<div class="card founder-card founder-own" role="status">
+      <h2>Your own visits</h2>
+      <p>${founderExcludedFlag() === "1"
+        ? "<strong>This browser isn't counted.</strong> Your visits here, past and future, are left out of every Live number."
         : "<strong>This browser is being counted</strong> like any visitor's."}
-      <button type="button" class="btn btn-sm btn-ghost" id="founderExcludeToggle">${founderExcludedFlag() === "1" ? "Count this browser" : "Don't count this browser"}</button>
-      ${d.mode === "live" && d.excludedBrowsers ? ` · ${d.excludedBrowsers} browser${d.excludedBrowsers === 1 ? "" : "s"} excluded in total` : ""}
-    </p>` : ""}
+      <button type="button" class="btn btn-sm btn-ghost" id="founderExcludeToggle">${founderExcludedFlag() === "1" ? "Count this browser" : "Don't count this browser"}</button></p>
+      <p class="founder-sub">${d.mode === "live" ? `${d.excludedBrowsers || 0} browser${d.excludedBrowsers === 1 ? "" : "s"} excluded in total. ` : ""}Any browser where you're signed in with your admin Square account is left out automatically.
+      For your phone, another browser or a private window, open <code>${esc(location.origin)}/?notrack=1</code> there once (bookmark it; private windows forget it when closed).
+      Visits from before that still count: find them under “Recent visits” and press “That’s me”.</p>
+    </div>` : ""}
     ${body}
     ${renderExperimentNote()}`;
 
@@ -313,6 +544,20 @@ App.renderFounder = function () {
     await Founder.setExcluded(founderExcludedFlag() !== "1");
     Founder.load(); // numbers change when this browser is added or removed
   });
+  root.querySelectorAll("[data-founder-copy]").forEach((b) => b.addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(b.dataset.founderCopy);
+      b.textContent = "Copied";
+    } catch {
+      b.textContent = "Select and copy it";
+    }
+  }));
+  root.querySelectorAll("[data-founder-exclude]").forEach((b) => b.addEventListener("click", async () => {
+    b.disabled = true;
+    b.textContent = "Leaving it out…";
+    b.textContent = (await Founder.excludeOther(b.dataset.founderExclude)) ? "Left out" : "Couldn't save, try again";
+    Founder.load();
+  }));
   document.getElementById("founderNoteSave").addEventListener("click", () => {
     const note = {};
     ["issue", "evidence", "change", "success"].forEach((k) => { note[k] = document.getElementById(`founderNote-${k}`).value; });

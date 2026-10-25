@@ -42,6 +42,18 @@ Last updated: 2026-10-02. The spec is in `DASHBOARD_SPEC.md`.
 - [ ] **Go-live:** Brandon runs `npm.cmd run db:migrate:remote` (applies 0005) **before** pushing, then pushes. Until 0005 is applied, the Live tab and step counting would fail on the new code
 - Also fixed 2026-10-06: an admin with no sales data on the device now still sees the Founder tab. The admin role was lost on 2026-10-03 when the account was disconnected and reconnected; it was re-granted with `set-role` on 2026-10-06
 
+## Richer tracking (built 2026-10-25, local, not deployed)
+Asked for by Brandon: who visits, where from, what they click, own data vs. demo, journeys, and never counting his own visits.
+- [x] Migration `0006_usage_event_details.sql`: adds `detail`, `ref_host`, `ref_tag`, `country`, `device` (additive)
+- [x] New steps: `page_view` (page name), `click` (button/link named by the code: id, `nav:<page>`, `page:<path>`, `link:<host>`), `engaged` (30s / 2m / 5m / 10m visible)
+- [x] Visits carry the linking site's host name, a `?ref=` / `utm_source` tag, device type (by screen width), and Cloudflare's country code. No IP stored. Tags and `?notrack` are removed from the address bar after reading
+- [x] Founder page: Who's visiting (new / came back / per day), Where they come from (with copyable `?ref=reddit|email|dm` links), Own data or demo, How long they stay, Pages, Clicks, Countries, Devices, Recent visits step by step with "That's me: don't count"
+- [x] Own visits: any browser signed in as admin is excluded automatically; `?notrack=1` turns counting off on any device (phone, other browser); "That's me" excludes an older browser of yours from the visit list
+- [x] Privacy page rewritten to match (dated Oct 25)
+- [x] Tests: `npm test` 38/38; `npm run test:usage` passes (new columns, shape checks, daily cap now 500); founder page checked in the browser with demo numbers, no sideways scroll at 375 px
+- **NOT RUN:** real counting on the live site with the new fields
+- [ ] **Go-live, in this order:** (1) `npm.cmd run db:migrate:remote` applies 0006; (2) then commit and push in GitHub Desktop. Pushing first would make every step fail to save until the migration runs
+
 ## Remaining
 - [ ] Brandon: confirm or rewrite the three founder questions; add real tester observations after tomorrow
 - [ ] Tell testers that anonymous steps are counted (the privacy page describes it)

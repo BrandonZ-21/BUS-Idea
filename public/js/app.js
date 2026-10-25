@@ -3185,8 +3185,16 @@ async function initApp() {
     dispatchRoute(); // figures out the right route on its own -- #/home with no data, otherwise the dashboard or whatever hash is already set
     if (App.weatherEnabled) refreshWeatherIfNeeded(); // fire-and-forget; never blocks page load
     SquareSync.init(); // fire-and-forget: Square card status + returning from "Connect Square"
-    Usage.track("visit"); // fire-and-forget; see js/usage.js
-    Account.load().then(() => { renderNav(); App.updateActiveNav(location.hash); }); // adds the admin-only Founder link
+    Usage.trackVisit(); // fire-and-forget; see js/usage.js
+    Usage.started = true;
+    Usage.pageView(location.hash); // the landing page; later pages come from js/router.js
+    Account.load().then(() => {
+      renderNav(); // adds the admin-only Founder link
+      App.updateActiveNav(location.hash);
+      // The founder's own devices shouldn't count as users: any browser signed in
+      // as admin is excluded (past steps too), unless the admin chose otherwise.
+      if (Account.me && Account.me.role === "admin" && typeof Founder !== "undefined" && founderExcludedFlag() === null) Founder.setExcluded(true);
+    });
   } catch (err) {
     // If this device's saved data can't be opened (e.g. another tab of this
     // app is still open on an older version and is holding the database

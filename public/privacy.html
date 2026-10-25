@@ -24,7 +24,7 @@
 
 <main class="privacy-page" id="main-content">
   <h1>Privacy: what Tally reads, stores and shows</h1>
-  <p>Tally is a student-built sales-insights tool for small restaurants and cafes. This page describes exactly what the app does today. Last updated October 13, 2026.</p>
+  <p>Tally is a student-built sales-insights tool for small restaurants and cafes. This page describes exactly what the app does today. Last updated October 25, 2026.</p>
 
   <h2>If you just upload a file</h2>
   <ul>
@@ -57,12 +57,14 @@
   <p>It never contains individual sales, receipts, customer details or card information.</p>
 
   <h2>Anonymous step counting</h2>
-  <p>To learn where Tally is confusing, it can count <strong>steps</strong>, such as "opened Tally", "chose a file", "file not recognized: dates", "connected Square" or "saw a report". This only runs once it has been switched on for the site; there's no record from before that.</p>
+  <p>To learn where Tally is confusing, it can count <strong>steps</strong>, such as "opened Tally", "viewed the Items page", "clicked Load sample data", "file not recognized: dates", "connected Square", "saw a report" or "still on the page after 2 minutes". This only runs once it has been switched on for the site; there's no record from before that.</p>
   <ul>
-    <li>Each step is stored with a fixed name, an optional fixed reason code, the time, and a <strong>random ID made by your browser</strong>. The ID isn't a fingerprint, and <strong>Delete all my data</strong> replaces it.</li>
-    <li>It <strong>never</strong> includes your sales, item names, amounts, file contents, business name, IP address or browser details.</li>
-    <li>Only Tally's admin sees the totals, as counts on a private page.</li>
-    <li>If your browser sends Global Privacy Control or Do Not Track, nothing is counted.</li>
+    <li>Each step is stored with a fixed name, the time, and a <strong>random ID made by your browser</strong>. The ID isn't a fingerprint, and <strong>Delete all my data</strong> replaces it.</li>
+    <li>Pages and buttons are recorded by the name Tally's code gives them (like "items" or "chooseFileBtn"), <strong>never</strong> by what's on your screen or anything you type.</li>
+    <li>When you open Tally, it also records: the website that linked you here (its name only, like "reddit.com", not the page), a tag in the link if it has one (like <code>?ref=reddit</code>), your rough device type (phone, tablet or computer, from the screen width), and your <strong>country</strong>, which Cloudflare works out from the connection. Your IP address itself is not stored.</li>
+    <li>It <strong>never</strong> includes your sales, item names, amounts, file contents, business name, anything you type, your IP address or your exact location.</li>
+    <li>Only Tally's admin sees it, on a private page, as counts and as anonymous step-by-step visits ("Visitor 12 opened the Items page"). It is never sold or shared.</li>
+    <li>If your browser sends Global Privacy Control or Do Not Track, nothing is counted. You can also turn counting off on any device by opening <code>bus-idea.pages.dev/?notrack=1</code> once.</li>
   </ul>
 
   <h2>The "Give feedback" link</h2>
