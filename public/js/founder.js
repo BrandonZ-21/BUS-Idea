@@ -329,6 +329,7 @@ Founder.load = async function () {
   // The founder's own browser shouldn't count as a user: the first time the
   // dashboard is opened here, exclude it (the server refuses non-admins).
   if (founderExcludedFlag() === null) await Founder.setExcluded(true);
+  const healthPromise = Founder.loadHealth(); // js/founder-health.js
   try {
     const res = await fetch(`/api/admin/usage?mode=${Founder.mode}&days=${Founder.days}`, { credentials: "same-origin" });
     if (res.status !== 200) {
@@ -342,6 +343,7 @@ Founder.load = async function () {
     Founder.data = null;
     Founder.error = { status: 0 };
   }
+  await healthPromise;
   Founder.loading = false;
   if (location.hash === "#/founder") App.renderFounder();
 };
@@ -526,7 +528,9 @@ App.renderFounder = function () {
       Visits from before that still count: find them under “Recent visits” and press “That’s me”.</p>
     </div>` : ""}
     ${body}
+    ${d ? renderFounderHealth(d) : ""}
     ${renderExperimentNote()}`;
+  if (d) wireFounderHealth();
 
   root.querySelectorAll("[data-founder-mode]").forEach((b) => b.addEventListener("click", () => {
     Founder.mode = b.dataset.founderMode;

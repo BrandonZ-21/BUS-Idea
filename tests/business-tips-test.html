@@ -72,57 +72,8 @@
   assertEqual("Fewer than 4 distinct items returns null (not enough for a median split)",
     computeMenuEngineering([{ item: "A", quantity: 5, price: 5 }, { item: "B", quantity: 5, price: 5 }]), null);
 
-  // ---- generateBusinessTips ----
-  const baseCtx = {
-    businessType: "cafe", weeks: 10, hasCustomerData: false, repeatRate30: null,
-    hasOrderTypeData: false, deliveryPct: null, topItemPct: null, distinctItemCount: 0,
-    rareItemRatio: null, dowGapPct: null, hasWeatherInsight: false, hasDaylightInsight: false,
-    hasHolidayInsight: false, hasPromoNotes: true, // hasPromoNotes:true keeps noPromosLogged out of the "no tips" baseline
-  };
-
-  const lowRepeatTips = generateBusinessTips(Object.assign({}, baseCtx, { hasCustomerData: true, repeatRate30: 20 }));
-  assert("Low repeat rate (20%) triggers loyaltyProgram", hasTip(lowRepeatTips, "loyaltyProgram"));
-  assert("Low repeat rate does NOT trigger strongRepeat", !hasTip(lowRepeatTips, "strongRepeat"));
-
-  const highRepeatTips = generateBusinessTips(Object.assign({}, baseCtx, { hasCustomerData: true, repeatRate30: 70 }));
-  assert("High repeat rate (70%) triggers strongRepeat", hasTip(highRepeatTips, "strongRepeat"));
-  assert("High repeat rate does NOT trigger loyaltyProgram", !hasTip(highRepeatTips, "loyaltyProgram"));
-
-  const barDeliveryTips = generateBusinessTips(Object.assign({}, baseCtx, { businessType: "bar", hasOrderTypeData: true, deliveryPct: 5 }));
-  assert("Bars are excluded from deliveryGap even with low delivery share", !hasTip(barDeliveryTips, "deliveryGap"));
-  assert("Bar type triggers barHappyHour", hasTip(barDeliveryTips, "barHappyHour"));
-
-  const cafeDeliveryTips = generateBusinessTips(Object.assign({}, baseCtx, { hasOrderTypeData: true, deliveryPct: 5 }));
-  assert("Cafe with 5% delivery triggers deliveryGap", hasTip(cafeDeliveryTips, "deliveryGap"));
-
-  const concentrationTips = generateBusinessTips(Object.assign({}, baseCtx, { topItemPct: 30 }));
-  assertEqual("Top item at 30% triggers menuConcentrationRisk with pct=30",
-    concentrationTips.find((t) => t.id === "menuConcentrationRisk").vars.pct, 30);
-
-  const rareItemsTips = generateBusinessTips(Object.assign({}, baseCtx, { distinctItemCount: 10, rareItemRatio: 0.4 }));
-  assertEqual("40% rare items triggers manyRareItems with pct=40",
-    rareItemsTips.find((t) => t.id === "manyRareItems").vars.pct, 40);
-  const fewItemsTips = generateBusinessTips(Object.assign({}, baseCtx, { distinctItemCount: 5, rareItemRatio: 0.8 }));
-  assert("manyRareItems needs >=8 distinct items even if the ratio is high", !hasTip(fewItemsTips, "manyRareItems"));
-
-  const gapTips = generateBusinessTips(Object.assign({}, baseCtx, { dowGapPct: 50 }));
-  assertEqual("50% day-of-week gap triggers weekdayWeekendGap with pct=50",
-    gapTips.find((t) => t.id === "weekdayWeekendGap").vars.pct, 50);
-
-  const factorTips = generateBusinessTips(Object.assign({}, baseCtx, { hasWeatherInsight: true, hasDaylightInsight: true, hasHolidayInsight: true }));
-  assert("Weather insight triggers weatherSensitive", hasTip(factorTips, "weatherSensitive"));
-  assert("Daylight insight triggers daylightSensitive", hasTip(factorTips, "daylightSensitive"));
-  assert("Holiday insight triggers holidayPlanning", hasTip(factorTips, "holidayPlanning"));
-
-  const noPromoTips = generateBusinessTips(Object.assign({}, baseCtx, { hasPromoNotes: false, weeks: 10 }));
-  assert("No promo notes logged after 10 weeks triggers noPromosLogged", hasTip(noPromoTips, "noPromosLogged"));
-  const tooEarlyTips = generateBusinessTips(Object.assign({}, baseCtx, { hasPromoNotes: false, weeks: 3 }));
-  assert("No promo notes but <8 weeks of data does NOT trigger noPromosLogged", !hasTip(tooEarlyTips, "noPromosLogged"));
-
-  const bakeryTips = generateBusinessTips(Object.assign({}, baseCtx, { businessType: "bakery" }));
-  assert("Bakery type triggers bakeryPerishables", hasTip(bakeryTips, "bakeryPerishables"));
-
-  assertEqual("A context with no signals at all produces zero tips", generateBusinessTips(baseCtx).length, 0);
+  // (The old generateBusinessTips rule bank was removed on 2026-10-27: it was never
+  // called by the app. Data-driven advice now lives in js/insights.js and js/advice.js.)
 
   const el = document.getElementById("results");
   results.forEach((r) => {

@@ -142,6 +142,7 @@ SquareSync.sync = async function () {
     const backfilled = await DB.getSetting("squareCustomersBackfilled");
     let body = App.allRows.some((r) => r.source === "square") && backfilled ? {} : { full: true };
     const serverRows = [];
+    let squareLoc = null; // the business location, rounded (sent on the last page)
     for (let page = 0; page < 1000; page++) {
       const { status, data } = await squareRequest("/api/square/sync", "POST", body);
       if (status === 401) {
@@ -155,6 +156,7 @@ SquareSync.sync = async function () {
         throw new SquareSyncError(t("squareSyncFailed"));
       }
       serverRows.push(...data.rows);
+      if (data.location) squareLoc = data.location;
       SquareSync.progress = t("squareSyncing", { count: serverRows.length.toLocaleString() });
       SquareSync.mount();
       if (data.done) break;
@@ -165,6 +167,7 @@ SquareSync.sync = async function () {
     // Same dates already here from an uploaded file would count twice (see
     // overlapWithOtherSource in app.js) -- ask first; backing out adds nothing.
     if (rows.length && !(await confirmNoDoubleCount(rows, true))) throw new SquareSyncError(t("squareSyncCancelled"));
+    if (squareLoc) await SquareSync.saveLocation(squareLoc);
     const added = rows.length ? await mergeNewRows(rows, { allDuplicateKey: "squareSyncUpToDate" }) : 0;
     await DB.setSetting("squareCustomersBackfilled", true);
     if (rows.some((r) => r.customerHash) && !App.customerIdColumnName) {
@@ -217,6 +220,35 @@ SquareSync.disconnect = async function () {
   Account.mount();
 };
 
+// The business location Square sent with the last sync (rounded to about
+// 1 km, never stored on Tally's server). Kept on this device only, so weather
+// can be turned on with one tap and nearby-dates tips know where the shop is.
+SquareSync.saveLocation = async function (loc) {
+  const lat = Number(loc.latitude), lon = Number(loc.longitude);
+  if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) return;
+  const clean = {
+    name: typeof loc.name === "string" ? loc.name.slice(0, 60) : "",
+    admin1: "", country: "",
+    latitude: Math.round(lat * 100) / 100,
+    longitude: Math.round(lon * 100) / 100,
+    timezone: typeof loc.timezone === "string" && /^[A-Za-z_]+(\/[A-Za-z_+-]+){0,2}$/.test(loc.timezone) ? loc.timezone : "auto",
+  };
+  App.squareLocation = clean;
+  await DB.setSetting("squareLocation", clean);
+};
+
+// Opening the app quietly fetches new Square orders when the last sync is
+// older than ADVICE_CONFIG.autoSyncHours. Same path as the button: orders pass
+// through to this browser and nothing is kept on the server.
+SquareSync.autoSyncDue = function () {
+  const s = SquareSync.status;
+  if (!s || !s.connected || SquareSync.busy) return false;
+  if (!App.allRows.some((r) => r.source === "square")) return false; // first sync is still a deliberate step
+  const last = Date.parse(s.lastSyncedAt || "");
+  const hours = (typeof ADVICE_CONFIG !== "undefined" && ADVICE_CONFIG.autoSyncHours) || 6;
+  return !Number.isFinite(last) || Date.now() - last > hours * 3600 * 1000;
+};
+
 // Called once at startup. Handles the return from Square
 // (/?square=connected or /?square=error&reason=...), then tidies the URL.
 SquareSync.init = async function () {
@@ -228,6 +260,8 @@ SquareSync.init = async function () {
   if (result === "connected" && SquareSync.status.connected) {
     Usage.track("square_connected");
     showMergeBanner(t("squareConnectedBanner"));
+    SquareSync.sync();
+  } else if (!result && SquareSync.autoSyncDue()) {
     SquareSync.sync();
   } else if (result === "error") {
     const reason = params.get("reason");

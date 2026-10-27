@@ -18,7 +18,7 @@
 import { listLocations, refreshAccessToken, searchOrders } from "../../../lib/square/api.js";
 import { importEncryptionKey } from "../../../lib/square/crypto.js";
 import { describeError, isSameOrigin, json, missingConfig } from "../../../lib/square/http.js";
-import { ordersToRows } from "../../../lib/square/orders.js";
+import { ordersToRows, roughLocation } from "../../../lib/square/orders.js";
 import { finishSync, findSession, loadConnection, updateAccessToken } from "../../../lib/square/store.js";
 
 const PAGE_SIZE = 100;
@@ -76,6 +76,10 @@ export async function onRequestPost({ request, env }) {
       orders: orders.length,
       done,
       next: done ? null : { cursor: result.cursor, start: page.start, end: page.end },
+      // With the last page: where the business is, rounded to ~1 km, so the
+      // browser can offer one-tap weather. Read from the locations call above
+      // (MERCHANT_PROFILE_READ, already granted); never stored here.
+      location: done ? roughLocation(locations) : null,
     });
   } catch (err) {
     console.error("Square sync failed:", describeError(err));

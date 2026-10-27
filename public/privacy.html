@@ -13,25 +13,33 @@
   .privacy-page { max-width: 760px; margin: 0 auto; padding: 24px 16px 60px; }
   .privacy-page h2 { margin-top: 28px; }
   .privacy-page li { margin-bottom: 6px; }
+  .privacy-lang { display: flex; justify-content: flex-end; }
 </style>
 </head>
 <body>
 <header class="site-header">
   <div class="header-inner">
     <div class="brand"><a class="brand-name" href="/">Tally</a></div>
+    <div class="header-actions privacy-lang"><button type="button" class="btn btn-ghost" id="privacyLangBtn">中文</button></div>
   </div>
 </header>
 
 <main class="privacy-page" id="main-content">
+<section lang="en" id="privacy-en">
   <h1>Privacy: what Tally reads, stores and shows</h1>
-  <p>Tally is a student-built sales-insights tool for small restaurants and cafes. This page describes exactly what the app does today. Last updated October 25, 2026.</p>
+  <p>Tally is a student-built sales-insights tool for small restaurants and cafes. This page describes exactly what the app does today. Last updated October 27, 2026.</p>
+
+  <h2>Your sales stay in your browser</h2>
+  <ul>
+    <li>Every chart, insight and piece of advice is worked out <strong>inside your browser</strong>, with fixed rules written by Tally. Your sales are never sent to an AI service or any other outside company.</li>
+    <li>Tally's server never stores your sales.</li>
+  </ul>
 
   <h2>If you just upload a file</h2>
   <ul>
     <li>Your sales file is read and saved <strong>only in this browser</strong> on this device. It is not uploaded to Tally.</li>
     <li>Customer columns (phone, email, loyalty ID, name, or Square's customer ID), if you choose one, are scrambled on your device before anything is saved. Only the scrambled code is kept, to count new vs. returning customers.</li>
     <li>No account and no ads. The only thing counted is the anonymous steps described under "Anonymous step counting" below, which never include your sales.</li>
-    <li>Optional weather (off by default) sends an approximate location and date ranges to the free Open-Meteo service. Never your sales.</li>
   </ul>
 
   <h2>If you connect Square</h2>
@@ -44,7 +52,20 @@
   </ul>
   <p>Your sales themselves pass through to your browser and are saved only on your device, the same as an uploaded file. When Square has linked an order to a customer, its anonymous customer ID (a code, not a name) is scrambled on your device, and only the scrambled code is kept, for the Returning Customers page.</p>
   <p><strong>What Tally keeps from each order:</strong> date, time, item names, quantity, price, order type (such as pickup), Square's order ID and that scrambled customer code. Nothing else.</p>
+  <p><strong>Your business location:</strong> when you sync, Tally's server also passes your browser the town and the map position of your first Square location, <strong>rounded to about 1 km</strong> (no street address). It is saved only in your browser, so you can turn on weather tips with one tap and see school-calendar tips if you're near Brandeis. Tally's server does not store it.</p>
+  <p><strong>Syncing when you open Tally:</strong> if your last sync was more than 6 hours ago, opening Tally fetches your new orders automatically, the same way as pressing Sync. Nothing syncs in the background when Tally is closed, and no emails are sent.</p>
   <p><strong>What it throws away:</strong> Tally does not ask for your Square customer directory. But the order details Square sends can include more than Tally needs, for example the name and contact details on a pickup or delivery order, or the card brand and last four digits of a payment. Tally's server reads past those and discards them immediately: they are never stored, shown, or sent to your browser.</p>
+
+  <h2>Numbers you choose to type in</h2>
+  <p>Some advice lets you add a number, such as a delivery app's fee %, your monthly fixed costs, or a city or ZIP code for weather. All of these are optional and are saved <strong>only in this browser</strong>. They are never sent to Tally's server. (A city or ZIP code you type is sent to Open-Meteo's location search, below.)</p>
+
+  <h2>Outside services</h2>
+  <ul>
+    <li><strong>Weather (Open-Meteo), off until you turn it on.</strong> When on, <strong>your browser</strong> sends Open-Meteo, a free weather service, your location rounded to about 1 km and the date ranges it needs (and, if you search, the city or ZIP code you typed). Never your sales, items or business name. Open-Meteo also sees your device's internet address, as any website does. Weather data by <a href="https://open-meteo.com" target="_blank" rel="noopener noreferrer">Open-Meteo.com</a> (CC BY 4.0).</li>
+    <li><strong>Restaurant price index (U.S. Bureau of Labor Statistics).</strong> Tally's server downloads this public statistic on a schedule and keeps a copy. Your browser then asks Tally's server for it, and that request carries <strong>nothing about you</strong>: no sales, no location, no account. The Bureau of Labor Statistics never hears about you. Source: <a href="https://www.bls.gov/cpi/" target="_blank" rel="noopener noreferrer">bls.gov</a>.</li>
+    <li><strong>School dates (Brandeis University).</strong> Typed into Tally by hand from the Registrar's public calendar. Nothing is looked up online.</li>
+    <li><strong>"General ideas (not from your data)".</strong> A short list written by Tally's operator, each with its source. Picking which ideas to show happens in your browser.</li>
+  </ul>
 
   <h2>If you choose "Save this report to my account"</h2>
   <p>Saving is optional and off until you press the button. Each saved report contains only a <strong>summary</strong>:</p>
@@ -61,8 +82,9 @@
   <ul>
     <li>Each step is stored with a fixed name, the time, and a <strong>random ID made by your browser</strong>. The ID isn't a fingerprint, and <strong>Delete all my data</strong> replaces it.</li>
     <li>Pages and buttons are recorded by the name Tally's code gives them (like "items" or "chooseFileBtn"), <strong>never</strong> by what's on your screen or anything you type.</li>
+    <li>For advice cards it records <strong>which kinds of cards were shown</strong> (like "items bought together", once a day) and your <strong>Yes/No answer</strong> to "Was this useful?". Never the card's words or numbers.</li>
     <li>When you open Tally, it also records: the website that linked you here (its name only, like "reddit.com", not the page), a tag in the link if it has one (like <code>?ref=reddit</code>), your rough device type (phone, tablet or computer, from the screen width), and your <strong>country</strong>, which Cloudflare works out from the connection. Your IP address itself is not stored.</li>
-    <li>It <strong>never</strong> includes your sales, item names, amounts, file contents, business name, anything you type, your IP address or your exact location.</li>
+    <li>It <strong>never</strong> includes your sales, item names, amounts, file contents, business name, anything you type, your IP address or your location.</li>
     <li>Only Tally's admin sees it, on a private page, as counts and as anonymous step-by-step visits ("Visitor 12 opened the Items page"). It is never sold or shared.</li>
     <li>If your browser sends Global Privacy Control or Do Not Track, nothing is counted. You can also turn counting off on any device by opening <code>bus-idea.pages.dev/?notrack=1</code> once.</li>
   </ul>
@@ -83,10 +105,120 @@
     <li><strong>Sign out</strong> ends the session in that browser. Your saved reports stay.</li>
     <li><strong>Disconnect &amp; delete account</strong> revokes Tally's Square access and deletes your stored keys, sessions, saved reports and account.</li>
     <li>You can also remove Tally from the Apps section of your Square Dashboard at any time.</li>
-    <li>Sales saved in this browser are deleted with <strong>Delete all my data</strong> on the My Data page.</li>
+    <li>Sales, notes, the numbers you typed in, your rough location and weather saved in this browser are deleted with <strong>Delete all my data</strong> on the My Data page.</li>
   </ul>
 
   <p style="margin-top:32px;"><a href="/">← Back to Tally</a></p>
+</section>
+
+<!-- ZH-REVIEW: the whole Chinese version below needs a review. -->
+<section lang="zh-CN" id="privacy-zh" hidden>
+  <h1>隐私：Tally 读取、保存和显示什么</h1>
+  <p>Tally 是一个由学生开发的销售分析工具，面向小餐馆和咖啡店。本页如实说明这个应用目前的做法。最后更新：2026年10月27日。</p>
+
+  <h2>你的销售数据留在你的浏览器里</h2>
+  <ul>
+    <li>所有图表、分析和建议都是<strong>在你的浏览器里</strong>按 Tally 写好的固定规则算出来的。你的销售数据绝不会发送给 AI 服务或任何其他外部公司。</li>
+    <li>Tally 的服务器从不保存你的销售数据。</li>
+  </ul>
+
+  <h2>如果你只是上传文件</h2>
+  <ul>
+    <li>你的销售文件<strong>只在这台设备的这个浏览器里</strong>读取和保存，不会上传到 Tally。</li>
+    <li>如果你选择了顾客列（电话、邮箱、会员号、姓名或 Square 顾客 ID），这些内容会先在你的设备上被打乱，然后才保存。只保留打乱后的代码，用来统计新顾客和回头客。</li>
+    <li>不需要账户，也没有广告。唯一会被统计的是下面“匿名步骤统计”中说明的匿名步骤，其中绝不包含你的销售数据。</li>
+  </ul>
+
+  <h2>如果你连接 Square</h2>
+  <p>连接 Square 的同时也会登录一个 Tally 账户。Tally 向 Square 申请的是<strong>只读</strong>权限：你的商家名称和门店，以及已完成的订单。它永远不能收款、退款或更改 Square 里的任何东西。</p>
+  <p>保存在 Tally 服务器（一个 Cloudflare 数据库）上的内容：</p>
+  <ul>
+    <li>你的 Square 商家 ID 和商家名称。</li>
+    <li>Square 为你的账户发放的访问密钥，<strong>已加密</strong>。</li>
+    <li>你上次同步的时间，以及你的登录会话（以打乱的形式保存，所以拿到数据库副本也无法冒充你登录）。</li>
+  </ul>
+  <p>你的销售数据本身只是经过服务器传到你的浏览器，并且只保存在你的设备上，和上传文件一样。如果 Square 把某笔订单关联到了某位顾客，它的匿名顾客 ID（一个代码，不是姓名）会在你的设备上被打乱，只保留打乱后的代码，用于“回头客”页面。</p>
+  <p><strong>Tally 从每笔订单中保留的内容：</strong>日期、时间、商品名称、数量、价格、订单类型（例如自取）、Square 的订单 ID 和上面说的打乱后的顾客代码。没有别的。</p>
+  <p><strong>你的店铺位置：</strong>同步时，Tally 的服务器还会把你第一家 Square 门店所在的城镇和地图位置传给你的浏览器，位置<strong>精确到约 1 公里</strong>（没有街道地址）。它只保存在你的浏览器里，让你一键开启天气提示；如果你在 Brandeis 附近，还能看到校历相关的提示。Tally 的服务器不保存它。</p>
+  <p><strong>打开 Tally 时同步：</strong>如果距离上次同步已超过 6 小时，打开 Tally 时会自动获取新订单，和按“同步”按钮一样。Tally 关闭时不会在后台同步，也不会发送电子邮件。</p>
+  <p><strong>丢弃的内容：</strong>Tally 不会读取你的 Square 顾客名录。但 Square 发来的订单信息可能多于 Tally 需要的，例如自取或外送订单上的姓名和联系方式，或付款的卡品牌和卡号后四位。Tally 的服务器会跳过并立即丢弃这些内容：它们从不被保存、显示或发送到你的浏览器。</p>
+
+  <h2>你自己选择填写的数字</h2>
+  <p>有些建议允许你填一个数字，例如外卖平台的费率、每月固定成本，或用于天气的城市或邮政编码。这些都是可选的，并且<strong>只保存在这个浏览器里</strong>，绝不会发送到 Tally 的服务器。（你输入的城市或邮政编码会发送给 Open-Meteo 的地点搜索，见下文。）</p>
+
+  <h2>外部服务</h2>
+  <ul>
+    <li><strong>天气（Open-Meteo），在你开启之前一直关闭。</strong>开启后，<strong>你的浏览器</strong>会把精确到约 1 公里的位置和所需的日期范围发送给免费的天气服务 Open-Meteo（如果你搜索地点，还会发送你输入的城市或邮政编码）。绝不会发送你的销售额、商品或商家名称。和访问任何网站一样，Open-Meteo 也能看到你设备的网络地址。天气数据来自 <a href="https://open-meteo.com" target="_blank" rel="noopener noreferrer">Open-Meteo.com</a>（CC BY 4.0）。</li>
+    <li><strong>餐馆价格指数（美国劳工统计局）。</strong>Tally 的服务器定期下载这项公开统计数据并保存一份副本。你的浏览器再向 Tally 的服务器索取，这个请求<strong>不包含任何关于你的信息</strong>：没有销售数据、没有位置、没有账户。美国劳工统计局不会知道你的任何信息。来源：<a href="https://www.bls.gov/cpi/" target="_blank" rel="noopener noreferrer">bls.gov</a>。</li>
+    <li><strong>学校日期（Brandeis 大学）。</strong>根据教务处公开的校历手动录入 Tally，不会联网查询。</li>
+    <li><strong>“一般性建议（不是来自你的数据）”。</strong>由 Tally 运营者编写的一个简短列表，每条都注明来源。挑选显示哪些建议是在你的浏览器里完成的。</li>
+  </ul>
+
+  <h2>如果你选择“把这份报告保存到我的账户”</h2>
+  <p>保存是可选的，在你按下按钮之前不会保存。每份保存的报告只包含一份<strong>摘要</strong>：</p>
+  <ul>
+    <li>日期范围、总销售额、订单数和平均订单金额。</li>
+    <li>每个星期几和每个小时的平均销售额。</li>
+    <li>你的前 10 名商品（名称、卖出数量、销售额）。</li>
+    <li>仪表盘上显示的分析句子。</li>
+  </ul>
+  <p>它绝不包含单笔销售、小票、顾客信息或银行卡信息。</p>
+
+  <h2>匿名步骤统计</h2>
+  <p>为了了解 Tally 哪里让人困惑，它可以统计一些<strong>步骤</strong>，例如“打开了 Tally”、“查看了商品页”、“点击了加载示例数据”、“文件无法识别：日期”、“连接了 Square”、“看到了报告”或“2 分钟后仍在页面上”。只有在网站开启这项功能后才会统计，之前没有任何记录。</p>
+  <ul>
+    <li>每个步骤只保存一个固定名称、时间和一个<strong>由你的浏览器生成的随机 ID</strong>。这个 ID 不是设备指纹，使用<strong>删除我的所有数据</strong>后会更换。</li>
+    <li>页面和按钮按 Tally 代码给它们起的名字记录（例如 “items” 或 “chooseFileBtn”），<strong>绝不</strong>记录屏幕上的内容或你输入的任何内容。</li>
+    <li>对于建议卡片，会记录<strong>显示了哪些类型的卡片</strong>（例如“一起购买的商品”，每天一次），以及你对“这条建议有用吗？”的<strong>有用／没用</strong>回答。绝不记录卡片上的文字或数字。</li>
+    <li>你打开 Tally 时，还会记录：把你带到这里的网站（只有网站名，例如 “reddit.com”，不含具体页面）、链接中的标签（如果有，例如 <code>?ref=reddit</code>）、大致的设备类型（手机、平板或电脑，根据屏幕宽度判断），以及 Cloudflare 根据连接判断出的<strong>国家</strong>。你的 IP 地址本身不会被保存。</li>
+    <li>它<strong>绝不</strong>包含你的销售额、商品名称、金额、文件内容、商家名称、你输入的任何内容、你的 IP 地址或你的位置。</li>
+    <li>只有 Tally 的管理员能在一个私密页面上看到这些数据，形式是计数和匿名的逐步访问记录（“访客 12 打开了商品页”）。这些数据绝不出售或分享。</li>
+    <li>如果你的浏览器发送“全球隐私控制”或“请勿跟踪”信号，就什么都不统计。你也可以在任何设备上打开一次 <code>bus-idea.pages.dev/?notrack=1</code> 来关闭统计。</li>
+  </ul>
+
+  <h2>“提供反馈”链接</h2>
+  <p>反馈链接和它的二维码会在新标签页中打开一个 Google 表单。这个链接对每个人都一样：Tally 不会在里面添加任何内容，也<strong>不会</strong>把你的销售、商家或账户信息发送给表单。二维码是在你的浏览器里生成的，不经过在线服务。你在表单里填写的内容会交给 Google 和 Tally 的运营者，并受 Google 自己的隐私政策约束，所以请不要填写你不想分享的内容。</p>
+
+  <h2>谁能看到</h2>
+  <ul>
+    <li><strong>你自己</strong>，在任何一个用 Square 登录的浏览器上。</li>
+    <li>Tally <strong>没有任何页面或功能</strong>能让其他人（包括 Tally 的管理员）读取你保存的报告或你的 Square 数据。</li>
+    <li>坦白地说：Tally 的运营者管理着这个数据库所在的 Cloudflare 账户，技术上可以打开它。我们不会这样做，而且 Square 密钥是加密保存的。如果你无法接受这一点，可以继续使用 Tally，但不连接 Square、不保存报告，其他功能都一样。</li>
+  </ul>
+
+  <h2>删除你的数据</h2>
+  <ul>
+    <li>在“我的数据”页面的账户卡片中，可以<strong>删除</strong>一份保存的报告，或<strong>删除我保存的所有报告</strong>。</li>
+    <li><strong>退出登录</strong>会结束该浏览器中的会话，你保存的报告仍然保留。</li>
+    <li><strong>断开连接并删除账户</strong>会撤销 Tally 的 Square 访问权限，并删除你保存的密钥、会话、报告和账户。</li>
+    <li>你也可以随时在 Square 后台的“应用”部分移除 Tally。</li>
+    <li>保存在这个浏览器里的销售数据、备注、你填写的数字、大致位置和天气数据，可以在“我的数据”页面用<strong>删除我的所有数据</strong>一并删除。</li>
+  </ul>
+
+  <p style="margin-top:32px;"><a href="/">← 返回 Tally</a></p>
+</section>
 </main>
+<script>
+  // Language: ?lang=zh, or the language last chosen in the app. Nothing is sent anywhere.
+  (function () {
+    const btn = document.getElementById("privacyLangBtn");
+    const en = document.getElementById("privacy-en"), zh = document.getElementById("privacy-zh");
+    function show(lang) {
+      const isZh = lang === "zh";
+      en.hidden = isZh; zh.hidden = !isZh;
+      document.documentElement.lang = isZh ? "zh-CN" : "en";
+      btn.textContent = isZh ? "English" : "中文";
+      document.title = isZh ? "Tally 隐私说明" : "Tally privacy";
+    }
+    let lang = new URLSearchParams(location.search).get("lang");
+    if (!lang) { try { lang = localStorage.getItem("tally.privacyLang"); } catch { lang = null; } }
+    show(lang === "zh" ? "zh" : "en");
+    btn.addEventListener("click", () => {
+      const next = en.hidden ? "en" : "zh";
+      try { localStorage.setItem("tally.privacyLang", next); } catch { /* fine */ }
+      show(next);
+    });
+  })();
+</script>
 </body>
 </html>

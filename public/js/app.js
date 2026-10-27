@@ -54,6 +54,8 @@ const App = {
   customerSummaryRows: [], // optional, already-aggregated monthly new/returning report -- a separate data source from hashed per-transaction rows, see js/customer-summary.js
   hasSeenIntro: false, // whether the first-visit explainer overlay has ever been dismissed
   feedbackPromptDismissed: false, // the one-time "Give feedback" note on the dashboard (js/feedback.js)
+  adviceInputs: {}, // optional numbers the owner typed for advice: { fees: {channel: %}, fixedMonthly, costPct } -- this device only
+  squareLocation: null, // { name, latitude, longitude, timezone } rounded, from the last Square sync -- this device only
   pendingSource: null, // "own" | "sample" -- where the file being matched came from (founder-dashboard counting only)
   dataSource: null, // "own" once the owner's own file/Square data is saved here, "sample" if only samples, null if unknown
 };
@@ -195,6 +197,7 @@ function applyStaticText() {
   document.getElementById("privateBadgeText").textContent = t("privateBadge");
   document.getElementById("footerPrivacyText").textContent = t("privacyNote");
   document.getElementById("footerPrivacyLink").textContent = t("privacyLinkText");
+  document.getElementById("footerPrivacyLink").setAttribute("href", App.lang === "zh" ? "/privacy.html?lang=zh" : "/privacy.html?lang=en");
   document.getElementById("langToggleBtn").textContent = t("langToggle");
   document.getElementById("footerNote").textContent = t("insightsDisclaimer");
   // In the header on every page, and again in the footer.
@@ -238,7 +241,8 @@ function showMergeBanner(msg) {
 }
 
 // ---------- Modal ----------
-function showModal({ title, body, confirmLabel, cancelLabel, onConfirm, onCancel, danger }) {
+// extraLabel/onExtra: an optional third choice, shown as the main button.
+function showModal({ title, body, confirmLabel, cancelLabel, onConfirm, onCancel, danger, extraLabel, onExtra }) {
   const root = document.getElementById("modalRoot");
   root.innerHTML = `
     <div class="modal-overlay" id="modalOverlay">
@@ -247,7 +251,8 @@ function showModal({ title, body, confirmLabel, cancelLabel, onConfirm, onCancel
         <p>${esc(body)}</p>
         <div class="modal-actions">
           <button type="button" class="btn btn-ghost" id="modalCancelBtn">${esc(cancelLabel)}</button>
-          <button type="button" class="btn ${danger ? "btn-danger" : "btn-primary"}" id="modalConfirmBtn">${esc(confirmLabel)}</button>
+          <button type="button" class="btn ${danger ? "btn-danger" : "btn-primary"}${extraLabel ? " btn-secondary" : ""}" id="modalConfirmBtn">${esc(confirmLabel)}</button>
+          ${extraLabel ? `<button type="button" class="btn btn-primary" id="modalExtraBtn">${esc(extraLabel)}</button>` : ""}
         </div>
       </div>
     </div>`;
@@ -256,7 +261,12 @@ function showModal({ title, body, confirmLabel, cancelLabel, onConfirm, onCancel
   document.getElementById("modalCancelBtn").addEventListener("click", cancel);
   document.getElementById("modalOverlay").addEventListener("click", (e) => { if (e.target.id === "modalOverlay") cancel(); });
   document.getElementById("modalConfirmBtn").addEventListener("click", () => { close(); onConfirm(); });
-  document.getElementById("modalConfirmBtn").focus();
+  if (extraLabel) {
+    document.getElementById("modalExtraBtn").addEventListener("click", () => { close(); onExtra(); });
+    document.getElementById("modalExtraBtn").focus();
+  } else {
+    document.getElementById("modalConfirmBtn").focus();
+  }
 }
 
 // ---------- Home / landing page (#/home) ----------
@@ -665,7 +675,8 @@ async function confirmMatch() {
       return;
     }
     // Stays on this screen if the owner backs out, so nothing is lost.
-    if (!(await confirmNoDoubleCount(rows, false))) return;
+    const toAdd = await confirmNoDoubleCount(rows, false);
+    if (!toAdd) return;
     await DB.setSetting("format:" + p.signature, mapping);
     if (mapping.customerId) {
       await DB.setSetting("customerIdColumnName", mapping.customerId);
@@ -673,7 +684,8 @@ async function confirmMatch() {
     }
     App.pendingParse = null;
     const source = App.pendingSource === "sample" ? "sample" : "own";
-    const added = await mergeNewRows(rows);
+    const added = toAdd.length ? await mergeNewRows(toAdd) : 0;
+    if (!toAdd.length) showMergeBanner(t("mergeAllDuplicate"));
     Usage.track("upload_ok", { source });
     await noteDataSource(source, added);
     clearError();
@@ -713,19 +725,33 @@ function overlapWithOtherSource(newRows, newIsSquare) {
   return days.length ? { days: days.length, first: days[0], last: days[days.length - 1] } : null;
 }
 
-// Resolves true to go ahead (no overlap, or the owner said "add anyway").
+// Resolves to the rows to add, or null to back out. On overlapping days the
+// owner can keep Square's sales (the fix, offered first), add both anyway,
+// or cancel. "Keep Square" drops the file's rows for those days -- from the
+// new file, or (when Square is the new data) from what's already saved.
 function confirmNoDoubleCount(newRows, newIsSquare) {
   const overlap = overlapWithOtherSource(newRows, newIsSquare);
-  if (!overlap) return Promise.resolve(true);
+  if (!overlap) return Promise.resolve(newRows);
+  const overlapDays = new Set(newRows.map((r) => r.date).filter((d) => App.allRows.some((x) => x.date === d && (x.source === "square") !== newIsSquare)));
   return new Promise((resolve) => {
     showModal({
       title: t("overlapTitle"),
       body: t(newIsSquare ? "overlapBodySync" : "overlapBodyUpload", { days: overlap.days, first: shortDate(overlap.first), last: shortDate(overlap.last) }),
       confirmLabel: t("overlapAddAnyway"),
       cancelLabel: t("overlapCancel"),
+      extraLabel: t("overlapKeepSquare"),
       danger: true,
-      onConfirm: () => resolve(true),
-      onCancel: () => resolve(false),
+      onConfirm: () => resolve(newRows),
+      onCancel: () => resolve(null),
+      onExtra: async () => {
+        if (!newIsSquare) {
+          resolve(newRows.filter((r) => !overlapDays.has(r.date)));
+          return;
+        }
+        await DB.replaceAllRows(App.allRows.filter((r) => r.source === "square" || !overlapDays.has(r.date)));
+        await refreshAllRows();
+        resolve(newRows);
+      },
     });
   });
 }
@@ -1006,18 +1032,13 @@ function weatherCategoryAdjective(cat) {
 // owner has turned weather on; silently omitted (not a blocking error) if
 // today's weather simply hasn't been fetched yet or isn't cached.
 function renderWeatherLine() {
-  if (!App.weatherEnabled) {
-    // A quiet, dismissable-feeling nudge (not a nagging banner) so owners
-    // who haven't found Settings yet know weather charts/insights exist.
-    return `<p class="chart-meta" style="margin-bottom:14px;"><a href="#/data">${esc(t("weatherNudge"))}</a></p>`;
-  }
+  // Weather off: the one-tap "Weather tips" card further down offers it,
+  // once there's advice on screen (see renderWeatherOneTap).
+  if (!App.weatherEnabled) return "";
   const today = toDateStrLocal(new Date());
   const rec = weatherAt(today);
-  if (!rec) {
-    return App.weatherLastError
-      ? `<p class="chart-meta" style="margin-bottom:14px;">${esc(App.weatherLastError)}</p>`
-      : "";
-  }
+  // An outside service being down is never shown as an error on the dashboard.
+  if (!rec) return "";
   const temp = formatTemp(rec.tempMax, App.weatherUnits.temp);
   const condition = weatherCategoryLabel(precipCategory(rec.precipSum, rec.snowSum));
   return `<p class="chart-meta" style="margin-bottom:14px;">${esc(t("weatherTodayLine", { temp, condition }))}
@@ -1104,7 +1125,8 @@ function renderWeatherLocationSection() {
   const locationLine = loc
     ? `<p>${esc(t("settingCurrentLocation", { name: [loc.name, loc.admin1, loc.country].filter(Boolean).join(", "), lat: loc.latitude, lon: loc.longitude }))}</p>
        <button type="button" class="btn btn-ghost" id="changeLocationBtn" style="margin-bottom:14px;">${esc(t("settingLocationChange"))}</button>`
-    : `<p class="match-note">${esc(t("settingNoLocationYet"))}</p>
+    : `<p class="match-note">${esc(t("settingNoLocationYet"))} ${esc(t("weatherZipWhy"))}</p>
+       ${App.squareLocation ? `<button type="button" class="btn btn-secondary" id="useSquareLocationBtn" style="margin-bottom:10px;">${esc(t("weatherUseSquare"))}</button>` : ""}
        <div class="match-field" style="max-width:320px;">
          <label for="weatherLocationInput">${esc(t("settingLocationLabel"))}</label>
          <div style="display:flex;gap:8px;">
@@ -1141,6 +1163,8 @@ async function applyWeatherLocation(loc) {
 }
 
 function wireWeatherLocationSection() {
+  const useSquareBtn = document.getElementById("useSquareLocationBtn");
+  if (useSquareBtn) useSquareBtn.addEventListener("click", () => applyWeatherLocation(App.squareLocation));
   const useMyLocationBtn = document.getElementById("useMyLocationBtn");
   if (useMyLocationBtn) {
     useMyLocationBtn.addEventListener("click", () => {
@@ -1485,10 +1509,12 @@ App.renderDashboard = function () {
 
   const { top: topItemsList, rare } = topItems(crossRows, 5);
   const orderTypes = orderTypeSplit(crossRows);
-  // The memo reads the chosen date range (closed days and one-offs left
+  // The advice reads the chosen date range (closed days and one-offs left
   // out), not the click-to-filter chips: advice shouldn't change because a
-  // bar is being explored.
-  const { result: memoResult, memo } = buildMemo(rows);
+  // bar is being explored. js/advice-view.js merges the original insights
+  // with the newer ones (js/advice.js) into one ranked list.
+  const report = buildAdviceReport(rows);
+  const memoResult = { meta: report.meta };
   const showWeatherCharts = App.weatherEnabled && App.weatherMap.size > 0;
   const weatherByPrecip = showWeatherCharts ? salesByPrecipCategory(crossRows) : null;
   const weatherByTemp = showWeatherCharts ? salesByTempBand(crossRows) : null;
@@ -1510,13 +1536,9 @@ App.renderDashboard = function () {
       <a class="btn btn-secondary btn-sm" id="feedbackPromptLink">${esc(t("feedbackLink"))}</a>
       <button type="button" class="btn btn-ghost btn-sm" id="feedbackPromptDismiss">${esc(t("feedbackPromptDismiss"))}</button>
     </div>` : ""}
+    ${renderStartHere(report)}
     ${renderWeekCompareCard()}
-    ${App.allRows.some((r) => r.source === "square") ? `<p class="chart-meta gross-note">${esc(t("grossNote"))}</p>` : ""}
-    ${memo.top3.length ? `
-    <section class="card memo-top3">
-      <h2>${esc(memo.titles.top3)}</h2>
-      <ol>${memo.top3.map((x) => `<li><strong>${esc(x.headline)}</strong> ${esc(x.action)} <button type="button" class="link-button" data-memo-jump="${esc(x.id)}">${esc(t("memoDetails"))}</button></li>`).join("")}</ol>
-    </section>` : ""}
+    ${renderDataNotes()}
     <div class="stat-grid">
       <div class="card stat-card"><div class="stat-label">${esc(t("cardTotalSales"))}</div><div class="stat-value">${formatMoney(summary.totalSales)}</div></div>
       <div class="card stat-card"><div class="stat-label">${esc(t("cardOrders"))}</div><div class="stat-value">${summary.orderCount.toLocaleString()}</div></div>
@@ -1595,14 +1617,17 @@ App.renderDashboard = function () {
       <h2>${esc(t("insightsTitle"))}</h2>
       ${memoResult.meta.start ? `<p class="chart-meta">${esc(t("memoBasis", { start: InsightFmt.date(memoResult.meta.start, App.lang), end: InsightFmt.date(memoResult.meta.end, App.lang), days: memoResult.meta.sellingDays.toLocaleString(), receipts: memoResult.meta.receipts.toLocaleString() }))}</p>` : ""}
       <div id="memoList"></div>
-      ${memo.notEnough.length ? `
-      <h3 class="memo-subtitle">${esc(memo.titles.notEnough)}</h3>
-      <ul class="finding-list memo-quiet">${memo.notEnough.map((x) => `<li><strong>${esc(x.name)}:</strong> ${esc(x.text)}</li>`).join("")}</ul>` : ""}
-      ${memo.cantTell.length ? `
-      <h3 class="memo-subtitle">${esc(memo.titles.cantTell)}</h3>
-      <ul class="finding-list memo-quiet">${memo.cantTell.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>` : ""}
+      ${report.showBreakEvenPrompt ? `<details class="advice-optional"><summary>${esc(t("adviceBreakEvenTitle"))}</summary>${renderBreakEvenForm()}</details>` : ""}
+      ${report.notEnough.length ? `
+      <details class="memo-quiet-wrap"><summary class="memo-subtitle">${esc(t("adviceNotEnoughTitle"))} (${report.notEnough.length})</summary>
+      <ul class="finding-list memo-quiet">${report.notEnough.map((x) => `<li><strong>${esc(x.name)}:</strong> ${esc(x.text)}</li>`).join("")}</ul></details>` : ""}
+      ${report.cantTell.length ? `
+      <h3 class="memo-subtitle">${esc((INSIGHT_STRINGS[App.lang] || INSIGHT_STRINGS.en).cantTellTitle)}</h3>
+      <ul class="finding-list memo-quiet">${report.cantTell.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>` : ""}
       <p class="insights-disclaimer">${esc(t("insightsDisclaimer"))}</p>
     </section>
+    ${report.facts.length ? renderWeatherOneTap() : ""}
+    ${renderIdeasSection(report)}
   `;
 
   wireRangeSelector(() => App.renderDashboard());
@@ -1724,8 +1749,11 @@ App.renderDashboard = function () {
     });
   }
 
-  renderMemoCards("memoList", memo.insights, memo.labels);
+  renderAdviceCards("memoList", report.cards);
   root.querySelectorAll("[data-memo-jump]").forEach((btn) => btn.addEventListener("click", () => openMemoCard("memoList", btn.dataset.memoJump)));
+  wireAdviceForms(root.querySelector(".advice-optional") || document.createElement("div"));
+  wireWeatherOneTap();
+  wireDataNotes();
 };
 
 // ---------- Detail: Hours ----------
@@ -2867,10 +2895,10 @@ const MENU_QUADRANT_ORDER = ["star", "plowhorse", "puzzle", "dog"];
 App.renderGrow = function () {
   const root = document.getElementById("view-root");
   const businessType = detectBusinessType(App.allRows);
-  // Product and pricing advice from the same memo as the dashboard, over
+  // Product and pricing advice from the same report as the dashboard, over
   // every saved date (this page has no date-range selector).
-  const { memo } = buildMemo(normalSellingRows());
-  const menuAdvice = memo.insights.filter((x) => ["topSellers", "longTail", "pairs", "orderSize"].includes(x.id));
+  const report = buildAdviceReport(normalSellingRows());
+  const menuAdvice = report.cards.filter((x) => ["topSellers", "longTail", "concentration", "pairs", "orderSize", "priceChange", "priceVsMarket"].includes(x.id));
   // The matrix works on single items: a Square export's receipts are split
   // first (js/square-items.js), or each whole receipt would be ranked as if
   // it were one menu item. Closed days, one-off payments and custom amounts
@@ -2892,9 +2920,9 @@ App.renderGrow = function () {
 
     ${menuEngineering ? `
     <div class="card" style="margin-top:20px;">
-      <h2>${esc(t("growMenuEngTitle"))}</h2>
+      <h2>${esc(t("growMenuEngTitle"))} <span class="advice-badge">${esc(t("growMenuEngByPrice"))}</span></h2>
       <p>${esc(t("growMenuEngIntro"))}</p>
-      <p class="match-note">${esc(t("growMenuEngCaveat"))}</p>
+      <p class="match-note"><strong>${esc(t("growMenuEngCaveat"))}</strong></p>
       <div class="menu-eng-grid">
         ${MENU_QUADRANT_ORDER.map((q) => {
           const itemsInQuadrant = menuEngineering.items.filter((x) => x.quadrant === q);
@@ -2914,10 +2942,11 @@ App.renderGrow = function () {
       <a class="see-details-link" href="#/dashboard">${esc(t("memoSeeAll"))}</a>
     </div>
 
+    ${renderIdeasSection(report)}
     <p class="insights-disclaimer">${esc(t("growDisclaimer"))}</p>
   `;
 
-  renderMemoCards("growTipsList", menuAdvice, memo.labels);
+  renderAdviceCards("growTipsList", menuAdvice);
 };
 
 // ---------- Data page ----------
@@ -3049,6 +3078,14 @@ async function deleteAllData() {
   App.weatherLastError = null;
   App.customerIdColumnName = null;
   App.customerSummaryRows = [];
+  App.adviceInputs = {};
+  App.squareLocation = null;
+  OutsideData.reset();
+  try {
+    ["tally.adviceUseful", "tally.adviceShown"].forEach((k) => localStorage.removeItem(k));
+  } catch {
+    // storage blocked: nothing to remove
+  }
   await refreshAllRows();
   location.hash = "#/dashboard";
   dispatchRoute();
@@ -3088,6 +3125,7 @@ function exportBackup() {
       weatherLocation: App.weatherLocation,
       weatherUnits: App.weatherUnits,
       customerIdColumnName: App.customerIdColumnName,
+      adviceInputs: App.adviceInputs || {},
     },
   };
   DB.getSetting("customerHashSalt").then((salt) => {
@@ -3134,6 +3172,10 @@ function importBackupFile(file) {
       await DB.setSetting("weatherUnits", s.weatherUnits || { temp: "F", precip: "in" });
       App.weatherUnits = s.weatherUnits || { temp: "F", precip: "in" };
       if (s.customerHashSalt) await DB.setSetting("customerHashSalt", s.customerHashSalt);
+      if (s.adviceInputs && typeof s.adviceInputs === "object") {
+        await DB.setSetting("adviceInputs", s.adviceInputs);
+        App.adviceInputs = s.adviceInputs;
+      }
       if (s.customerIdColumnName) {
         await DB.setSetting("customerIdColumnName", s.customerIdColumnName);
         App.customerIdColumnName = s.customerIdColumnName;
@@ -3175,6 +3217,8 @@ async function initApp() {
     App.dataSource = (await DB.getSetting("dataSource")) || null;
     App.localCalendar = (await DB.getSetting("localCalendar")) === "brandeis" ? "brandeis" : null;
     App.feedbackPromptDismissed = !!(await DB.getSetting("feedbackPromptDismissed"));
+    App.adviceInputs = (await DB.getSetting("adviceInputs")) || {};
+    App.squareLocation = (await DB.getSetting("squareLocation")) || null;
     applyStaticText();
     document.getElementById("langToggleBtn").addEventListener("click", () => {
       setLang(App.lang === "en" ? "zh" : "en");
@@ -3184,6 +3228,8 @@ async function initApp() {
     document.getElementById("bootStatus").hidden = true;
     dispatchRoute(); // figures out the right route on its own -- #/home with no data, otherwise the dashboard or whatever hash is already set
     if (App.weatherEnabled) refreshWeatherIfNeeded(); // fire-and-forget; never blocks page load
+    // Outside data (BLS prices) from Tally's own cache; silent if unavailable.
+    OutsideData.load().then((changed) => { if (changed && App.allRows.length) dispatchRoute(); });
     SquareSync.init(); // fire-and-forget: Square card status + returning from "Connect Square"
     Usage.trackVisit(); // fire-and-forget; see js/usage.js
     Usage.started = true;

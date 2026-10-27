@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Advice tests (new rules, outside data, Chinese)</title>
+<style>
+  body { font-family: monospace; padding: 24px; background: #fff; color: #111; }
+  .pass { color: #1F5C4A; }
+  .fail { color: #b3401f; font-weight: bold; }
+  h1 { font-family: sans-serif; }
+  #summary { font-family: sans-serif; font-size: 1.2em; margin-top: 16px; }
+  pre { white-space: pre-wrap; font-size: 12px; background: #f6f7f9; padding: 8px; }
+</style>
+</head>
+<body>
+<h1>Advice tests</h1>
+<p>Checks js/advice.js (the new rules), js/advice-text.js (English and Chinese wording), the outside-data
+fail-safes and the Ideas library rules. Open through the local server (scripts/serve.ps1): <code>/tests/advice-test.html</code>.
+The shop below is made up by this page; the expected numbers are counted separately as rows are created.</p>
+<div id="results"></div>
+<div id="summary"></div>
+<h2>Sample cards (English, then Chinese)</h2>
+<pre id="samples"></pre>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script src="../js/advice-config.js"></script>
+<script src="../js/translations.js"></script>
+<script src="../js/weather.js"></script>
+<script src="../js/holidays.js"></script>
+<script src="../js/local-calendar.js"></script>
+<script src="../js/business-tips.js"></script>
+<script src="../js/parser.js"></script>
+<script src="../js/square-items.js"></script>
+<script src="../js/stats.js"></script>
+<script src="../js/insights.js"></script>
+<script src="../js/insight-text.js"></script>
+<script src="../js/advice.js"></script>
+<script src="../js/advice-text.js"></script>
+<script src="../data/ideas.js"></script>
+<script src="../js/advice-view.js"></script>
+<script>
+(function () {
+  const results = [];
+  let pass = 0, fail = 0;
+  function assert(label, condition) {
+    if (condition) pass++; else fail++;
+    results.push({ label, ok: !!condition });
+  }
+  const pad = (n) => String(n).padStart(2, "0");
+  const addDays = (s, n) => { const [y, m, d] = s.split("-").map(Number); const dt = new Date(y, m - 1, d + n); return `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}`; };
+  const dowOf = (s) => { const [y, m, d] = s.split("-").map(Number); return new Date(y, m - 1, d).getDay(); };
+
+  // ---------- A made-up cafe: Sep 1, 2025 to Oct 20, 2026, open every day ----------
+  const START = "2025-09-01", END = "2026-10-20";
+  const OTHERS = ["Tea", "Bagel", "Muffin", "Cookie", "Scone", "Sandwich", "Soup", "Salad"];
+  const PRICE = { Croissant: 3.5, Tea: 2.5, Bagel: 4, Muffin: 3, Cookie: 2, Scone: 3, Sandwich: 8, Soup: 6, Salad: 7, "Rare A": 9 };
+  const latte = (date) => (date >= "2026-06-01" ? 5.5 : 5);
+  const PROMO = { start: "2026-09-14", end: "2026-09-20" };
+  const finals = localCalendarPeriods("brandeis").filter((p) => p.kind === "finals");
+  const inFinals = (d) => finals.some((p) => d >= p.start && d <= p.end);
+  const rows = [];
+  const weather = new Map();
+  const exp = { byDate: {}, croissant: 0, latte: 0, both: 0, channels: {}, coded: 0, receipts: 0, rainySat: [], drySat: [] };
+  let seq = 0, satIndex = 0;
+  for (let d = START, i = 0; d <= END; d = addDays(d, 1), i++) {
+    const dow = dowOf(d);
+    let rainy = false;
+    if (dow === 6) { rainy = satIndex % 3 === 0; satIndex++; }
+    weather.set(d, { date: d, precipSum: rainy ? 10 : 0, snowSum: 0, tempMax: 15, isForecast: false });
+    let n = 12;
+    if (rainy) n = 8;
+    if (d >= PROMO.start && d <= PROMO.end) n = 16;
+    if (inFinals(d)) n = 7;
+    for (let k = 0; k < n; k++, seq++) {
+      const s = seq % 24;
+      const names = s === 0 ? ["Croissant", "Latte"] : s <= 2 ? ["Croissant"] : s <= 4 ? ["Latte"] : [OTHERS[(seq + i) % OTHERS.length]];
+      const orderType = seq % 4 === 2 ? "Pickup" : seq % 4 === 3 ? "Delivery" : null;
+      const customerHash = seq % 2 === 0 ? "c" + (seq % 40) : seq % 10 === 1 ? "once" + seq : undefined;
+      let total = 0;
+      names.forEach((name) => {
+        const price = name === "Latte" ? latte(d) : PRICE[name];
+        const row = { date: d, time: `${pad(8 + (k % 9))}:10`, item: name, quantity: 1, price, orderId: "o" + seq, kind: "product", orderType, source: "square" };
+        if (customerHash) row.customerHash = customerHash;
+        rows.push(row);
+        total += price;
+      });
+      exp.byDate[d] = (exp.byDate[d] || 0) + total;
+      exp.receipts++;
+      if (customerHash) exp.coded++;
+      const ch = orderType || "__none";
+      exp.channels[ch] = (exp.channels[ch] || 0) + total;
+      if (names.includes("Croissant")) exp.croissant++;
+      if (names.includes("Latte")) exp.latte++;
+      if (names.length === 2) exp.both++;
+    }
+    if (i % 14 === 0) { rows.push({ date: d, time: "15:00", item: "Rare A", quantity: 1, price: 9, orderId: "rare" + i, kind: "product", orderType: null, source: "square" }); exp.byDate[d] += 9; exp.receipts++; exp.channels.__none += 9; }
+  }
+  // Next week's forecast: rain on Saturday Oct 24.
+  weather.set("2026-10-24", { date: "2026-10-24", precipSum: 8, snowSum: 0, tempMax: 12, isForecast: true });
+  indexItems(rows);
+
+  const HOLIDAYS = computeHolidays([2025, 2026, 2027]);
+  const OUTSIDE = { bls: { national: { month: "2026-09", pct12: 3.5 }, boston: { month: "2026-09", pct12: 2.3 }, retrievedAt: "2026-10-27T10:17:00Z", link: "https://www.bls.gov/cpi/" } };
+  const baseEnv = () => ({
+    today: "2026-10-21",
+    notes: [{ date: PROMO.start, endDate: PROMO.end, tags: ["promo"], text: "Fall latte deal" }],
+    isHoliday: (d) => HOLIDAYS.has(d),
+    weather, localDates: [], outside: OUTSIDE, nearBoston: true, inputs: {}, outsideOn: true,
+  });
+  const run = (env) => generateExtraAdvice(rows, env);
+  const byId = (r) => Object.fromEntries(r.insights.map((x) => [x.id, x]));
+  const missingOf = (r) => Object.fromEntries(r.notEnough.map((x) => [x.id, x]));
+  const all = run(baseEnv());
+  const A = byId(all);
+  window.adviceDebug = { A, all }; // for poking at in the browser console
+
+  // ---------- Items bought together ----------
+  const ins = generateInsightFacts(rows);
+  const pairs = ins.insights.find((x) => x.id === "pairs");
+  assert("pairs: found on the shop", !!pairs);
+  assert("pairs: 'about 1 in N' is the anchor's receipts over receipts with both", pairs && pairs.facts.oneIn === Math.round(pairs.facts.anchorReceipts / pairs.facts.both) && pairs.facts.oneIn === 3);
+  const pairsImpact = pairs && adviceImpact(pairs, insightContext(rows));
+  assert("pairs: the illustration is a range, low below high", pairsImpact && pairsImpact.low > 0 && pairsImpact.low < pairsImpact.high);
+  const pairsEn = renderInsight(pairs, ins.meta, "en");
+  assert("pairs: headline says 'About 1 in 3'", /^About 1 in 3 orders with /.test(pairsEn.headline));
+  assert("pairs: the try-this is a test, not a promise", /test it/.test(pairsEn.action) && !/will (increase|boost)/i.test(pairsEn.action));
+
+  // ---------- Did my change work? ----------
+  const ni = A.noteImpact;
+  assert("note: the promo is compared", ni && ni.facts.isPromo && ni.facts.start === PROMO.start && ni.facts.end === PROMO.end);
+  const promoDays = Object.keys(exp.byDate).filter((d) => d >= PROMO.start && d <= PROMO.end);
+  const promoAvg = promoDays.reduce((s, d) => s + exp.byDate[d], 0) / promoDays.length;
+  assert("note: promo average per day", ni && Math.abs(ni.facts.periodAvg - Math.round(promoAvg * 100) / 100) < 0.01);
+  assert("note: compared with same weekdays only, before and after", ni && ni.facts.compDays === ni.facts.beforeDays + ni.facts.afterDays && ni.facts.beforeDays > 0 && ni.facts.afterDays > 0);
+  assert("note: no comparison day is inside the promo or a holiday", ni && ni.facts.compDays <= ADVICE_CONFIG.min.noteLookbackWeeks * 2 * 7);
+  assert("note: sales were up during the promo", ni && ni.facts.diffPct > 0);
+  assert("note: a comparison is never 'high' confidence", ni && ni.confidence !== "high");
+  const niEn = renderInsight(ni, ins.meta, "en");
+  assert("note: wording says it's a comparison, not proof", /comparison, not proof/.test(niEn.caveat));
+  // Without comparison days: only the promo week's data exists.
+  const promoOnly = rows.filter((r) => r.date >= PROMO.start && r.date <= PROMO.end);
+  indexItems(promoOnly);
+  const lonely = adviceNoteImpact(insightContext(promoOnly), baseEnv());
+  assert("note without comparison days: 'not enough', with what's needed", lonely.status === "not_enough" && lonely.needs.what === "noteComparison" && lonely.needs.have === 0 && lonely.needs.need === ADVICE_CONFIG.min.noteComparisonDays);
+  assert("no notes at all: asks for a Day Note", adviceNoteImpact(insightContext(promoOnly), Object.assign(baseEnv(), { notes: [] })).needs.what === "noNotes");
+  indexItems(rows);
+
+  // ---------- Price change ----------
+  const pc = A.priceChange;
+  assert("price change: Latte $5.00 -> $5.50, first sold at the new price within days of Jun 1, 2026", pc && pc.facts.name === "Latte" && pc.facts.oldPrice === 5 && pc.facts.newPrice === 5.5 && pc.facts.changeDate >= "2026-06-01" && pc.facts.changeDate <= "2026-06-04" && pc.facts.changePct === 10);
+  assert("price change: 'before' ends the day before, 'after' starts at the change", pc && pc.facts.beforeTo < pc.facts.changeDate && pc.facts.afterFrom === pc.facts.changeDate);
+  assert("price change: units per day before and after are both shown", pc && pc.facts.beforeUnitsPerDay > 0 && pc.facts.afterUnitsPerDay > 0 && pc.facts.beforeDays > 0 && pc.facts.afterDays > 0);
+  assert("price change: national price context attached when outside data is fresh", pc && pc.facts.marketPct === 3.5 && pc.facts.localPct === 2.3);
+  const pcEn = renderInsight(pc, ins.meta, "en");
+  assert("price change: never tells the owner to raise or cut prices", !/(raise|increase|lower|cut) (your )?prices?/i.test(pcEn.action + pcEn.why + pcEn.check));
+
+  // ---------- Concentration ----------
+  const co = A.concentration;
+  assert("concentration: found", !!co);
+  assert("concentration: the rarely sold item is counted", co && co.facts.barelyNames.includes("Rare A") && co.facts.barelyCount >= 1);
+  assert("concentration: shares add to 100", co && co.facts.topSharePct + co.facts.restSharePct === 100);
+  assert("concentration: replaces the old 'slow sellers' wording ('review', not 'cut')", co && /Look over/.test(renderInsight(co, ins.meta, "en").action));
+
+  // ---------- Returning customers ----------
+  const rt = A.returning;
+  assert("returning: coverage = receipts with a customer code", rt && rt.facts.coveragePct === Math.round((exp.coded / exp.receipts) * 100));
+  assert("returning: says Square only links some orders", rt && /only links some orders/.test(renderInsight(rt, ins.meta, "en").caveat));
+
+  // ---------- Channels, with and without fees ----------
+  const cm = A.channelMix;
+  assert("channels: sales by channel, biggest first", cm && cm.facts.channels[0].key === "__none" && Math.abs(cm.facts.channels[0].sales - exp.channels.__none) < 0.01);
+  assert("channels: no fees entered -> sales only, take-home empty", cm && !cm.facts.feesEntered && cm.facts.channels.every((c) => c.takeHome === null));
+  const cmEn = renderInsight(cm, ins.meta, "en");
+  assert("channels: no fees -> asks for them, explains what's missing", /Add each channel's fee/.test(cmEn.action) && /Sales are not what you keep/.test(cmEn.why));
+  assert("channels: Square orders with no type are never called dine-in", adviceChannelName("__none", "en") === "In person or not marked" && !/dine-in brings/i.test(cmEn.headline));
+  const withFees = byId(run(Object.assign(baseEnv(), { inputs: { fees: { Delivery: 25 } } }))).channelMix;
+  const del = withFees.facts.channels.find((c) => c.key === "Delivery");
+  assert("channels: a 25% delivery fee -> take-home is 75% of delivery sales", del.feePct === 25 && Math.abs(del.takeHome - Math.round(exp.channels.Delivery * 0.75 * 100) / 100) < 0.02);
+  assert("channels: other channels stay sales-only", withFees.facts.channels.filter((c) => c.key !== "Delivery").every((c) => c.takeHome === null));
+  assert("channels: fees entered -> the wording says it's an estimate", /estimate from the fees you entered/.test(renderInsight(withFees, ins.meta, "en").caveat));
+
+  // ---------- Break-even (optional) ----------
+  assert("break-even: hidden until the owner enters numbers", !A.breakEven);
+  const be = byId(run(Object.assign(baseEnv(), { inputs: { fixedMonthly: 6000, costPct: 35 } }))).breakEven;
+  assert("break-even: fixed / (1 - cost %)", be && Math.abs(be.facts.breakEvenMonthly - 6000 / 0.65) < 0.01 && be.confidence === "low");
+
+  // ---------- Weather ahead ----------
+  const wa = A.weatherAhead;
+  assert("weather: rain Saturday is flagged", wa && wa.facts.date === "2026-10-24" && wa.facts.dow === 6 && wa.facts.kind === "rain");
+  assert("weather: past rainy Saturdays were slower than dry ones", wa && wa.facts.diffPct < 0 && wa.facts.wetDays >= ADVICE_CONFIG.min.weatherDaysEach && wa.facts.dryDays >= ADVICE_CONFIG.min.weatherDaysEach);
+  assert("weather: card says where the data is from", wa && /Open-Meteo\.com/.test(renderInsight(wa, ins.meta, "en").evidence) && wa.outside.includes("openMeteo"));
+  assert("weather: no rain in the forecast -> nothing at all", !byId(run(Object.assign(baseEnv(), { today: "2026-10-25" }))).weatherAhead);
+  assert("weather off (no weather data) -> nothing at all", !byId(run(Object.assign(baseEnv(), { weather: null }))).weatherAhead);
+
+  // ---------- Coming up nearby (hand-typed Brandeis dates) ----------
+  const ev = byId(run(Object.assign(baseEnv(), { today: "2026-12-01", localDates: localCalendarPeriods("brandeis") }))).eventAhead;
+  assert("local dates: finals week starting Dec 8 is flagged a week ahead", ev && ev.facts.kind === "finals" && ev.facts.start === "2026-12-08");
+  assert("local dates: past finals were slower in this shop", ev && ev.facts.diffPct < 0 && ev.facts.pastPeriods >= 2);
+  assert("local dates: off -> nothing", !byId(run(Object.assign(baseEnv(), { today: "2026-12-01" }))).eventAhead);
+
+  // ---------- Prices vs restaurant prices (BLS) ----------
+  const pm = A.priceVsMarket;
+  assert("vs market: compares the same items a year apart", pm && pm.facts.ownMonth === "2026-10" && pm.facts.ownBaseMonth === "2025-10" && pm.facts.items >= ADVICE_CONFIG.min.priceVsMarketItems);
+  assert("vs market: shop's change is between 0 and the latte's 10%", pm && pm.facts.ownPct > 0 && pm.facts.ownPct < 10);
+  assert("vs market: carries the BLS disclaimer", pm && /cannot vouch/.test(renderInsight(pm, ins.meta, "en").caveat));
+  assert("vs market: Boston line only near Boston", byId(run(Object.assign(baseEnv(), { nearBoston: false }))).priceVsMarket.facts.localPct === null);
+
+  // ---------- Outside data: failing, stale, switched off ----------
+  const noOutside = byId(run(Object.assign(baseEnv(), { outside: null })));
+  assert("outside source failed or stale (null) -> no market card, price card has no market line", !noOutside.priceVsMarket && noOutside.priceChange && noOutside.priceChange.facts.marketPct === undefined);
+  const switchedOff = byId(run(Object.assign(baseEnv(), { outsideOn: false, localDates: localCalendarPeriods("brandeis") })));
+  assert("one switch off -> every outside card is gone, own-data cards stay", !switchedOff.weatherAhead && !switchedOff.priceVsMarket && !switchedOff.eventAhead && switchedOff.priceChange && switchedOff.priceChange.facts.marketPct === undefined && switchedOff.noteImpact);
+
+  // ---------- Too little data ----------
+  const few = rows.filter((r) => r.date <= "2025-09-05");
+  indexItems(few);
+  const small = generateExtraAdvice(few, baseEnv());
+  assert("five days: no new advice at all", small.insights.length === 0);
+  assert("five days: every rule says what it needs, in words, both languages",
+    small.notEnough.length > 0 && small.notEnough.every((x) => INSIGHT_STRINGS.en.needs[x.needs.what] && INSIGHT_STRINGS.zh.needs[x.needs.what]));
+  assert("empty data: no errors", generateExtraAdvice([], baseEnv()).insights.length === 0);
+  indexItems(rows);
+
+  // ---------- Wording: only computed numbers, both languages ----------
+  function allowed(fact, meta) {
+    const set = new Set([1, 2, 1000]);
+    const add = (n) => [n, Math.abs(n), Math.round(Math.abs(n)), Math.round(Math.abs(n) * 100) / 100].forEach((v) => set.add(v));
+    const walk = (v) => {
+      if (typeof v === "number") add(v);
+      else if (typeof v === "string") {
+        const m = v.match(/^(\d{4})-(\d{2})(?:-(\d{2}))?$/);
+        if (m) [m[1], m[2], m[3]].filter(Boolean).forEach((p) => set.add(Number(p)));
+        else (v.match(/\d+(\.\d+)?/g) || []).forEach((p) => set.add(Number(p)));
+      } else if (Array.isArray(v)) v.forEach(walk);
+      else if (v && typeof v === "object") Object.values(v).forEach(walk);
+    };
+    walk(fact.facts); walk(fact.sample); walk({ s: meta.start, e: meta.end });
+    // Dates print the year before/after a month too (e.g. "Oct 2025").
+    return set;
+  }
+  const numbersIn = (text) => (text.match(/\d[\d,]*(?:\.\d+)?/g) || []).map((t) => Number(t.replace(/,/g, "")));
+  const extraCards = run(Object.assign(baseEnv(), { inputs: { fees: { Delivery: 25 }, fixedMonthly: 6000, costPct: 35 } })).insights
+    .concat([byId(run(Object.assign(baseEnv(), { today: "2026-12-01", localDates: localCalendarPeriods("brandeis") }))).eventAhead]);
+  const samples = [];
+  ["en", "zh"].forEach((lang) => {
+    let stray = [];
+    extraCards.forEach((fact) => {
+      const x = renderInsight(fact, ins.meta, lang);
+      const ok = allowed(fact, ins.meta);
+      [x.headline, x.evidence, x.why, x.action, x.check, x.caveat, x.confidence].forEach((text) => {
+        numbersIn(text).forEach((n) => { if (!Array.from(ok).some((a) => Math.abs(a - n) < 0.006)) stray.push(`${fact.id}: ${n}`); });
+      });
+      if (["noteImpact", "channelMix", "weatherAhead"].includes(fact.id)) samples.push(`[${lang}] ${x.name}\n  ${x.headline}\n  ${x.evidence}\n  ${x.action}\n  ${x.caveat}`);
+    });
+    assert(`${lang}: every number in the new wording is one the code computed` + (stray.length ? ` (stray: ${stray.slice(0, 6).join("; ")})` : ""), stray.length === 0);
+    const rendered = extraCards.map((f) => renderInsight(f, ins.meta, lang));
+    assert(`${lang}: every new card has all parts, no placeholders left`, rendered.every((x) => x.name && x.headline && x.evidence && x.why && x.action && x.check && x.caveat && !/undefined|NaN|\{\w+\}/.test(JSON.stringify(x))));
+    assert(`${lang}: nothing promises a result`, rendered.every((x) => !/(will increase|guarantee|will boost|一定会|保证)/i.test(x.action + x.check + x.why)));
+    assert(`${lang}: nothing claims a cause`, rendered.every((x) => !/\b(caused|because of the promo)\b|导致了/i.test(x.headline + x.evidence)));
+  });
+  // ---------- Chinese display ----------
+  const zh = extraCards.map((f) => renderInsight(f, ins.meta, "zh"));
+  assert("zh: headlines are in Chinese", zh.every((x) => /[一-鿿]/.test(x.headline)));
+  assert("zh: card names are in Chinese", zh.every((x) => /[一-鿿]/.test(x.name)));
+  assert("zh: the same templates exist in both languages", Object.keys(INSIGHT_TEMPLATES.en).sort().join() === Object.keys(INSIGHT_TEMPLATES.zh).sort().join());
+  assert("zh: every screen string has a Chinese version", Object.keys(ADVICE_UI.en).every((k) => typeof ADVICE_UI.zh[k] === "string" && ADVICE_UI.zh[k].length > 0));
+  assert("zh: every new 'not enough' reason has Chinese", Object.keys(INSIGHT_STRINGS.en.needs).every((k) => INSIGHT_STRINGS.zh.needs[k]));
+  assert("zh: channel names translated, Square's 'no type' isn't dine-in", adviceChannelName("Delivery", "zh") === "外送" && adviceChannelName("__none", "zh") === "店内或未标注");
+
+  // ---------- Ideas library ----------
+  const ideas = ideasStatus("2026-10-27");
+  assert("ideas: the 8 starter entries are placeholders and hidden from owners", ideas.placeholders.length === 8 && ideas.usable.length === 0);
+  const saved = TALLY_IDEAS.slice();
+  TALLY_IDEAS.push({ id: "t-ok", title: { en: "x" }, description: { en: "y" }, when: "always", businessTypes: ["all"], sourceName: "S", sourceUrl: "https://example.org/a", lastReviewed: "2026-10-01", placeholder: false });
+  TALLY_IDEAS.push({ id: "t-old", title: { en: "x" }, description: { en: "y" }, when: "always", businessTypes: ["all"], sourceName: "S", sourceUrl: "https://example.org/b", lastReviewed: "2025-09-01", placeholder: false });
+  TALLY_IDEAS.push({ id: "t-nolink", title: { en: "x" }, description: { en: "y" }, when: "always", businessTypes: ["all"], sourceName: "S", sourceUrl: "", lastReviewed: "2026-10-01", placeholder: false });
+  const ideas2 = ideasStatus("2026-10-27");
+  assert("ideas: a reviewed entry with a link is shown", ideas2.usable.map((x) => x.id).join() === "t-ok");
+  assert("ideas: older than 12 months -> hidden and listed as stale", ideas2.stale.map((x) => x.id).join() === "t-old");
+  TALLY_IDEAS.length = 0; saved.forEach((x) => TALLY_IDEAS.push(x));
+
+  // ---------- Render ----------
+  document.getElementById("samples").textContent = samples.join("\n\n");
+  const el = document.getElementById("results");
+  results.forEach((r) => {
+    const div = document.createElement("div");
+    div.className = r.ok ? "pass" : "fail";
+    div.textContent = (r.ok ? "PASS - " : "FAIL - ") + r.label;
+    el.appendChild(div);
+  });
+  document.getElementById("summary").innerHTML = fail === 0
+    ? `<span class="pass">All ${pass} checks passed.</span>`
+    : `<span class="fail">${fail} of ${pass + fail} checks FAILED.</span>`;
+})();
+</script>
+</body>
+</html>

@@ -23,6 +23,7 @@ rows are created, then compared with what js/insights.js reports.</p>
 <script src="../js/parser.js"></script>
 <script src="../js/square-items.js"></script>
 <script src="../js/stats.js"></script>
+<script src="../js/advice-config.js"></script>
 <script src="../js/insights.js"></script>
 <script src="../js/insight-text.js"></script>
 <script>
@@ -243,7 +244,7 @@ rows are created, then compared with what js/insights.js reports.</p>
 
   // ---------- Wording: nothing but the computed numbers ----------
   function allowedNumbers(fact, meta) {
-    const set = new Set([2, 1000]); // the "2 weeks" test period and "1,000 payments"
+    const set = new Set([1, 2, 1000]); // "about 1 in N", the "2 weeks" test period and "1,000 payments"
     const add = (n) => { [n, Math.abs(n), Math.round(Math.abs(n)), r2(Math.abs(n))].forEach((v) => set.add(v)); };
     const walk = (key, v) => {
       if (typeof v === "number") {

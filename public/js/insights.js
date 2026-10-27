@@ -20,30 +20,7 @@
 //    insights against each other: how marked the pattern is (0-1) and how
 //    much of the business it touches (0-1). Neither is ever shown.
 
-const INSIGHT_MIN = {
-  sellingDays: 14, // nothing at all is offered on less than two weeks of selling
-  timedDays: 14, // selling days with a time of day, for any hour-based rule
-  weekdayOccurrences: 4, // of EACH weekday being compared
-  weekdaysCompared: 3,
-  weekdayGapPct: 15,
-  regularHours: 4,
-  itemUnits: 50,
-  distinctItems: 8,
-  longTailItems: 12,
-  longTailWeeks: 8,
-  pairReceipts: 20, // receipts containing both items
-  pairItemReceipts: 30, // receipts containing each item
-  pairLift: 1.5,
-  receipts: 200,
-  singleItemSharePct: 40,
-  trendWindowDays: 28,
-  trendSellingDays: 14, // in each 28-day window
-  months: 4,
-  monthSellingDays: 15,
-  monthGapPct: 20,
-  refundPayments: 200,
-  groupReceipts: 50, // per channel or location being compared
-};
+// INSIGHT_MIN (every minimum sample) lives in js/advice-config.js.
 
 const INSIGHT_CONF_WEIGHT = { high: 1, medium: 0.6, low: 0.3 };
 
@@ -298,7 +275,12 @@ function insightPairs(ctx) {
     if (lift < INSIGHT_MIN.pairLift) return;
     if (!best || both > best.both || (both === best.both && key < best.key)) best = { key, x, y, cx, cy, both, lift };
   });
-  if (!best) return insightNotEnough(id, angle, link, { what: "pairReceipts", need: INSIGHT_MIN.pairReceipts, have: Math.max(0, ...pairCount.values()) });
+  if (!best) {
+    const most = Math.max(0, ...pairCount.values());
+    // Enough receipts with a pair, but no pair stands out from how often each item sells anyway.
+    if (most >= INSIGHT_MIN.pairReceipts) return insightNotEnough(id, angle, link, { what: "pairsNotStrong" });
+    return insightNotEnough(id, angle, link, { what: "pairReceipts", need: INSIGHT_MIN.pairReceipts, have: most });
+  }
   // "Anchor" = the item whose buyers more often add the other one.
   const anchorIsX = best.both / best.cx >= best.both / best.cy;
   const anchor = anchorIsX ? best.x : best.y, addOn = anchorIsX ? best.y : best.x;
@@ -310,6 +292,7 @@ function insightPairs(ctx) {
     facts: {
       anchor, addOn, both: best.both, anchorReceipts,
       withPct: Math.round(insightPct(best.both, anchorReceipts)),
+      oneIn: Math.max(1, Math.round(anchorReceipts / best.both)), // "about 1 in 3"
       basePct: Math.round(insightPct(addOnReceipts, n)),
       withoutReceipts: anchorReceipts - best.both, receipts: n,
     },

@@ -99,10 +99,10 @@ const INSIGHT_TEMPLATES = {
     },
     pairs(f, s, meta, F) {
       return {
-        headline: `${f.withPct}% of orders with ${f.anchor} also include ${f.addOn}.`,
+        headline: `About 1 in ${f.oneIn} orders with ${f.anchor} also include ${f.addOn} (${f.withPct}%).`,
         evidence: `${F.count(f.both)} of ${F.count(f.anchorReceipts)} receipts with ${f.anchor} also had ${f.addOn}. Across all ${F.count(f.receipts)} receipts, ${f.basePct}% include ${f.addOn}. ${F.range(meta, "en")}.`,
         why: `That leaves ${F.count(f.withoutReceipts)} ${f.anchor} orders without it, which makes ${f.addOn} the most natural thing to suggest.`,
-        action: `For 2 weeks, have staff offer ${f.addOn} with every ${f.anchor}, or place the two side by side.`,
+        action: `For 2 weeks, test it: have staff offer ${f.addOn} with every ${f.anchor}, or try the two as a bundle side by side.`,
         check: `Then see whether the share of ${f.anchor} orders that include ${f.addOn} moved from ${f.withPct}%.`,
       };
     },
@@ -222,10 +222,10 @@ const INSIGHT_TEMPLATES = {
     },
     pairs(f, s, meta, F) {
       return {
-        headline: `买${f.anchor}的订单里，有 ${f.withPct}% 同时买了${f.addOn}。`,
+        headline: `买${f.anchor}的订单里，大约每 ${f.oneIn} 笔就有 1 笔同时买了${f.addOn}（${f.withPct}%）。`, // ZH-REVIEW (changed)
         evidence: `${F.count(f.anchorReceipts)} 张含${f.anchor}的小票中，有 ${F.count(f.both)} 张同时含${f.addOn}。而在全部 ${F.count(f.receipts)} 张小票中，含${f.addOn}的占 ${f.basePct}%。${F.range(meta, "zh")}。`,
         why: `也就是说还有 ${F.count(f.withoutReceipts)} 张${f.anchor}的订单没有它，所以${f.addOn}是最自然的推荐。`,
-        action: `接下来 2 周，让员工在顾客点${f.anchor}时顺口推荐${f.addOn}，或者把两样摆在一起。`,
+        action: `接下来 2 周试一试：让员工在顾客点${f.anchor}时顺口推荐${f.addOn}，或者把两样搭配成套餐摆在一起。`, // ZH-REVIEW (changed)
         check: `然后看${f.anchor}订单中含${f.addOn}的比例有没有从 ${f.withPct}% 变化。`,
       };
     },

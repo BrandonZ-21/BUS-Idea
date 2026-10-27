@@ -1,5 +1,5 @@
-// "Grow Your Business" logic: business-type detection from menu items, the
-// menu-engineering matrix, and a curated, data-gated tip bank. Everything
+// "Grow Your Business" logic: business-type detection from menu items and the
+// menu-engineering matrix (data-driven advice is in js/insights.js and js/advice.js). Everything
 // here is pure calculation (no DOM, no network, no AI) -- it takes rows (and
 // a small context object built by app.js from stats it already computed)
 // and returns plain data. app.js is responsible for turning tip ids into
@@ -74,67 +74,4 @@ function computeMenuEngineering(rows) {
   });
 
   return { items: items.sort((a, b) => b.quantity - a.quantity), medianQty, medianPrice };
-}
-
-// Each rule reads a small pre-computed context (built by app.js from stats
-// it already has elsewhere -- repeat rate, order-type split, top-item
-// share, etc.) and either returns null (doesn't apply / not enough
-// evidence) or { id, vars } for app.js to render with translated text.
-// Thresholds here are this app's own editorial judgment calls (same as
-// FACTOR_MIN_PCT_DIFF elsewhere), not a cited external statistic.
-const TIP_RULES = [
-  // Low 30-day repeat rate -> loyalty program nudge (customer lifetime value).
-  (ctx) => {
-    if (!ctx.hasCustomerData || ctx.repeatRate30 === null) return null;
-    if (ctx.repeatRate30 < 35) return { id: "loyaltyProgram", vars: { pct: ctx.repeatRate30 } };
-    return null;
-  },
-  // High repeat rate -> positive reinforcement + protect-it framing.
-  (ctx) => {
-    if (!ctx.hasCustomerData || ctx.repeatRate30 === null) return null;
-    if (ctx.repeatRate30 >= 55) return { id: "strongRepeat", vars: { pct: ctx.repeatRate30 } };
-    return null;
-  },
-  // Very low delivery share -> channel-diversification nudge (not for bars).
-  (ctx) => {
-    if (!ctx.hasOrderTypeData || ctx.businessType === "bar" || ctx.deliveryPct === null) return null;
-    if (ctx.deliveryPct < 10) return { id: "deliveryGap", vars: { pct: Math.round(ctx.deliveryPct) } };
-    return null;
-  },
-  // One item dominates revenue -> concentration risk / cross-sell nudge.
-  (ctx) => {
-    if (ctx.topItemPct === null) return null;
-    if (ctx.topItemPct >= 25) return { id: "menuConcentrationRisk", vars: { pct: Math.round(ctx.topItemPct) } };
-    return null;
-  },
-  // A large share of the menu rarely sells -> menu-engineering trim nudge.
-  (ctx) => {
-    if (ctx.distinctItemCount < 8 || ctx.rareItemRatio === null) return null;
-    if (ctx.rareItemRatio >= 0.3) return { id: "manyRareItems", vars: { pct: Math.round(ctx.rareItemRatio * 100) } };
-    return null;
-  },
-  // Big best-day/worst-day gap -> demand variability & staffing nudge.
-  (ctx) => {
-    if (ctx.dowGapPct === null) return null;
-    if (ctx.dowGapPct >= 40) return { id: "weekdayWeekendGap", vars: { pct: Math.round(ctx.dowGapPct) } };
-    return null;
-  },
-  // Reuses the dashboard's own weather-comparison insight, if it fired.
-  (ctx) => (ctx.hasWeatherInsight ? { id: "weatherSensitive", vars: {} } : null),
-  // Reuses the dashboard's own daylight/sunset insight, if it fired.
-  (ctx) => (ctx.hasDaylightInsight ? { id: "daylightSensitive", vars: {} } : null),
-  // Reuses the dashboard's own holiday-impact insight, if it fired.
-  (ctx) => (ctx.hasHolidayInsight ? { id: "holidayPlanning", vars: {} } : null),
-  // Plenty of history but no Marketing/Promo notes logged yet -> nudge to try one.
-  (ctx) => {
-    if (ctx.hasPromoNotes || ctx.weeks < 8) return null;
-    return { id: "noPromosLogged", vars: {} };
-  },
-  // Business-type-specific tips, to show the detection actually changes content.
-  (ctx) => (ctx.businessType === "bar" ? { id: "barHappyHour", vars: {} } : null),
-  (ctx) => (ctx.businessType === "bakery" ? { id: "bakeryPerishables", vars: {} } : null),
-];
-
-function generateBusinessTips(ctx) {
-  return TIP_RULES.map((rule) => rule(ctx)).filter(Boolean);
 }

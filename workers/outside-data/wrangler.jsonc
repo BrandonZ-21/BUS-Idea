@@ -1,0 +1,29 @@
+// The outside-data Worker (NOT the Pages site). Deploy separately, only after
+// approval, from this folder:   npx.cmd wrangler deploy
+// Free plan: uses 1 of the account's 5 Cron Triggers. See MAINTENANCE.md.
+{
+	"$schema": "../../node_modules/wrangler/config-schema.json",
+	"name": "tally-outside-data",
+	"main": "index.js",
+	"compatibility_date": "2026-09-30",
+	// No public URL: this Worker only runs on its schedule.
+	"workers_dev": false,
+	"preview_urls": false,
+	// Every 6 hours at minute 17. Each run only fetches sources that are due
+	// (BLS: once a day), so most runs do nothing but write one log row.
+	"triggers": { "crons": ["17 */6 * * *"] },
+	"vars": {
+		// "off" = the job runs but fetches nothing. The Founder page switch does the same without a deploy.
+		"OUTSIDE_DATA": "on"
+	},
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "counter-db",
+			"database_id": "455686fe-49c4-4c79-a0eb-3596921a2356"
+		}
+	]
+	// Optional secret (not needed; the job works without it): BLS_API_KEY.
+	// If you ever add one:  npx.cmd wrangler secret put BLS_API_KEY
+	// BLS keys must be renewed once a year (see MAINTENANCE.md).
+}
