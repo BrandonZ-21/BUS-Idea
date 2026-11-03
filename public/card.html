@@ -48,10 +48,12 @@
   <button type="button" id="printBtn">Print this card</button>
   <span>Letter size, portrait. Turn off "Headers and footers" in the print dialog.</span>
 </div>
+<p class="print-bar" id="tagNote"></p>
 
 <main class="card">
   <h1>Tally</h1>
-  <p class="pitch">A free one-page report from your Square sales.</p>
+  <p class="pitch">Your average Tuesday, hour by hour.</p>
+  <p class="ask">A free report from your Square sales. Nothing to type or ask.</p>
   <p class="pitch-zh" lang="zh">用你的 Square 销售记录生成一页免费报告，可切换中文。</p>
   <p class="ask">I'm a student. Try it, then tell me honestly what you think: two minutes would really help.</p>
 
@@ -91,7 +93,23 @@
       document.getElementById("feedbackLinkText").textContent = url.replace(/^https:\/\//, "");
     }
     // The app's own address, checked the same way as the form link.
-    const appUrl = appShareUrl();
+    // card.html?ref=walkin-a prints a card whose app QR opens
+    // bus-idea.pages.dev/?ref=walkin-a, so visits from that pile of cards
+    // show up under that tag on the Founder page (js/usage.js reads ?ref=).
+    // Same pattern the server accepts (lib/usage/events.js REF_TAG); a bad
+    // or missing tag just prints the untagged card. Tags name a campaign,
+    // never a business.
+    const tag = (new URLSearchParams(location.search).get("ref") || "").trim();
+    const validTag = /^[a-z0-9_-]{1,32}$/.test(tag) ? tag : null;
+    let appUrl = appShareUrl();
+    if (appUrl && validTag) {
+      const u = new URL(appUrl);
+      u.searchParams.set("ref", validTag);
+      appUrl = u.href;
+    }
+    document.getElementById("tagNote").textContent = validTag
+      ? `This card's tag: ${validTag}. Visits from it show up under that tag on the Founder page.`
+      : tag ? `"${tag}" isn't a valid tag (use lowercase letters, numbers, - or _), so this card has no tag.` : "No tag. Add ?ref=walkin-a to this page's address to tag a pile of cards.";
     document.getElementById("appBlock").hidden = !appUrl;
     if (appUrl) {
       document.getElementById("appQr").innerHTML = qrSvg(appUrl, { label: "QR code that opens Tally" });
