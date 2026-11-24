@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Tally: your average Tuesday, hour by hour</title>
+<meta name="description" content="A free one-page report from your Square sales: your average day and hour, and three things to try this week. Nothing to type or ask." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="css/style.css" />
+<!--
+  A/B test, variant B (benefits-led landing page). Variant A is the app's own
+  home page. Visitors arrive through /go (random 50/50, remembered) or a
+  tagged link: /try?ref=lp-b. The one button opens the built-in sample
+  report straight away (/?demo=1, see takeDemoParam in js/app.js).
+  Counting: js/usage.js, same rules as the app (anonymous steps only; nothing
+  sent with Do Not Track / Global Privacy Control or ?notrack=1).
+  Every Chinese line is marked ZH-REVIEW.
+-->
+<style>
+  .lp { max-width: 980px; margin: 0 auto; padding: 0 16px 56px; }
+  .lp-hero { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 32px; align-items: center; padding: 36px 0 28px; }
+  .lp-hero > * { min-width: 0; }
+  .lp-eyebrow { font-size: 0.85rem; font-weight: 600; color: var(--green); margin: 0 0 10px; }
+  .lp h1 { font-size: clamp(2rem, 6vw, 3rem); line-height: 1.08; letter-spacing: -0.02em; margin: 0 0 14px; }
+  .lp-sub { font-size: 1.1rem; color: #334155; margin: 0 0 22px; max-width: 34em; }
+  .lp-cta { display: inline-flex; align-items: center; justify-content: center; min-height: 52px; padding: 0 28px; border-radius: 999px; background: var(--amber); color: #14161A; font-weight: 700; font-size: 1.05rem; text-decoration: none; box-shadow: var(--shadow-md); }
+  .lp-cta:hover, .lp-cta:focus-visible { filter: brightness(0.95); outline: 3px solid #14161A22; outline-offset: 2px; }
+  .lp-cta-note { font-size: 0.9rem; color: var(--muted); margin: 10px 0 0; }
+  .lp-preview { margin: 0; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-card); padding: 18px; }
+  .lp-preview h2 { font-size: 1rem; margin: 0 0 4px; }
+  .lp-preview .lp-cap { font-size: 0.8rem; color: var(--muted); margin: 0 0 12px; }
+  .lp-bars { display: grid; grid-template-columns: repeat(13, 1fr); gap: 5px; align-items: end; height: 170px; }
+  .lp-bar { background: #CBD5E1; border-radius: 4px 4px 0 0; position: relative; min-height: 3px; }
+  .lp-bar.hi { background: var(--amber); }
+  .lp-bar.lo { background: var(--slate); }
+  .lp-axis { display: grid; grid-template-columns: repeat(13, 1fr); gap: 5px; font-size: 0.7rem; color: var(--muted); text-align: center; margin-top: 4px; }
+  .lp-keys { display: flex; flex-wrap: wrap; gap: 14px; font-size: 0.85rem; margin-top: 12px; }
+  .lp-key::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+  .lp-key.hi::before { background: var(--amber); }
+  .lp-key.lo::before { background: var(--slate); }
+  .lp-benefits { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin: 8px 0 28px; }
+  .lp-benefit { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; }
+  .lp-benefit h3 { margin: 0 0 6px; font-size: 1.05rem; }
+  .lp-benefit p { margin: 0; color: #334155; }
+  .lp-trust { background: var(--green-light); border-radius: var(--radius); padding: 18px; margin-bottom: 28px; }
+  .lp-trust h2 { margin: 0 0 6px; font-size: 1.1rem; }
+  .lp-trust p { margin: 0 0 6px; }
+  .lp-end { text-align: center; padding: 8px 0 12px; }
+  .lp-end h2 { margin: 0 0 14px; }
+  .lp-small { font-size: 0.85rem; color: var(--muted); text-align: center; margin-top: 24px; }
+  .lp-lang { margin-left: auto; }
+  @media (max-width: 760px) {
+    .lp-hero { grid-template-columns: minmax(0, 1fr); gap: 22px; padding-top: 24px; }
+    .lp-benefits { grid-template-columns: minmax(0, 1fr); }
+    .lp-cta { width: 100%; }
+  }
+</style>
+</head>
+<body>
+<header class="site-header">
+  <div class="header-inner">
+    <div class="brand"><a class="brand-name" href="/">Tally</a></div>
+    <button type="button" class="btn btn-ghost lp-lang" id="lpLangBtn" data-track="lpLang">中文</button>
+  </div>
+</header>
+
+<main class="lp" id="main-content">
+  <section class="lp-hero">
+    <div>
+      <p class="lp-eyebrow" data-i="eyebrow">For cafes and bakeries on Square</p>
+      <h1 data-i="h1">Your average Tuesday, hour by hour.</h1>
+      <p class="lp-sub" data-i="sub">Tally turns your Square sales into one page: when you're busy, when you're quiet, and three things to try this week. Nothing to type or ask.</p>
+      <a class="lp-cta" id="lpCtaTop" href="/?demo=1" data-track="lpCtaTop" data-i="cta">See a sample report</a>
+      <p class="lp-cta-note" data-i="ctaNote">Free. No sign-up, nothing to connect.</p>
+    </div>
+    <figure class="lp-preview" aria-labelledby="lpPreviewTitle">
+      <h2 id="lpPreviewTitle" data-i="previewTitle">Sample cafe: average Tuesday sales by hour</h2>
+      <p class="lp-cap" data-i="previewCap">From Tally's built-in sample data (4 Tuesdays, August 2026). Not a real business.</p>
+      <div class="lp-bars" id="lpBars" role="img"></div>
+      <div class="lp-axis" id="lpAxis" aria-hidden="true"></div>
+      <div class="lp-keys"><span class="lp-key hi" data-i="keyBusy">Busiest hour: 8 AM</span><span class="lp-key lo" data-i="keyQuiet">Quietest open hour: 10 AM</span></div>
+    </figure>
+  </section>
+
+  <section class="lp-benefits" aria-label="What you get">
+    <div class="lp-benefit">
+      <h3 data-i="b1h">Staff for the days you really have</h3>
+      <p data-i="b1p">Tally averages each weekday and each hour across all your weeks, so one odd day doesn't decide your schedule. Square's built-in reports show totals for a date range.</p>
+    </div>
+    <div class="lp-benefit">
+      <h3 data-i="b2h">Three things to try this week</h3>
+      <p data-i="b2p">A "Start here" box picks the three most useful suggestions from your own numbers. Each one says what to check in two weeks and how sure Tally is.</p>
+    </div>
+    <div class="lp-benefit">
+      <h3 data-i="b3h">See whether a change worked</h3>
+      <p data-i="b3p">Write a note on a day, like "promo" or "snow day". Tally compares it with similar days. It's a comparison, not proof.</p>
+    </div>
+    <div class="lp-benefit">
+      <h3 data-i="b4h">In English or 中文</h3>
+      <p data-i="b4p">Switch the whole report between English and Chinese with one tap.</p>
+    </div>
+  </section>
+
+  <section class="lp-trust">
+    <h2 data-i="trustH">Your sales stay with you</h2>
+    <p data-i="trustP1">Connecting Square is read-only: Tally can't charge, refund or change anything in Square.</p>
+    <p data-i="trustP2">Your sales are saved in your browser, not on Tally's server.</p>
+    <p><a href="/privacy.html" id="lpPrivacy" data-i="trustLink">Exactly what Tally keeps</a></p>
+  </section>
+
+  <section class="lp-end">
+    <h2 data-i="endH">See what your week looks like</h2>
+    <a class="lp-cta" id="lpCtaBottom" href="/?demo=1" data-track="lpCtaBottom" data-i="cta">See a sample report</a>
+    <p class="lp-cta-note" data-i="ctaNote">Free. No sign-up, nothing to connect.</p>
+  </section>
+
+  <p class="lp-small" data-i="footer">A Brandeis student project. Not affiliated with or endorsed by Square.</p>
+</main>
+
+<script src="js/db.js"></script>
+<script src="js/usage.js"></script>
+<script>
+(function () {
+  // Average Tuesday sales by hour, 7 AM to 7 PM, computed from
+  // public/sample-data.csv (Aug 3-30, 2026: 4 Tuesdays) the same way the app's
+  // hours chart does when Tuesday is selected. tests/try-page-test.html
+  // recomputes these from the file and checks they still match.
+  const TUESDAY = [26.09, 77.34, 22.84, 5.43, 41.69, 59.34, 55.97, 13.71, 20.3, 21.6, 12.11, 41.8, 32.88];
+  const FIRST_HOUR = 7;
+
+  const TEXT = {
+    en: {}, // read from the page itself
+    zh: { // ZH-REVIEW (every string in this block)
+      eyebrow: "面向使用 Square 的咖啡店和面包店",
+      h1: "看清你平常的星期二，每个小时都一目了然。",
+      sub: "Tally 把你的 Square 销售记录变成一页报告：什么时候忙、什么时候淡，以及本周可以试的三件事。不用输入，也不用提问。",
+      cta: "查看示例报告",
+      ctaNote: "免费。不用注册，也不用连接任何账户。",
+      previewTitle: "示例咖啡店：星期二每小时的平均销售额",
+      previewCap: "来自 Tally 内置的示例数据（2026 年 8 月的 4 个星期二），不是真实店铺。",
+      keyBusy: "最忙：上午 8 点",
+      keyQuiet: "营业中最淡：上午 10 点",
+      b1h: "按真实的生意节奏排班",
+      b1p: "Tally 会把你所有星期的每个星期几、每个小时都取平均值，不会因为某一天特别而影响排班。Square 自带的报表显示的是一段日期的总数。",
+      b2h: "本周可以试的三件事",
+      b2p: "“从这里开始”会根据你自己的数字挑出最有用的三条建议。每条都写明两周后要看什么，以及 Tally 有多确定。",
+      b3h: "看看改变有没有用",
+      b3p: "在某一天写个备注，比如“促销”或“下雪”。Tally 会把它和类似的日子作比较。这只是比较，不能证明原因。",
+      b4h: "English 或中文",
+      b4p: "一键把整份报告在英文和中文之间切换。",
+      trustH: "你的销售数据留在你手里",
+      trustP1: "连接 Square 是只读的：Tally 不能收款、退款，也不能更改 Square 里的任何东西。",
+      trustP2: "你的销售记录保存在你的浏览器里，不在 Tally 的服务器上。",
+      trustLink: "Tally 具体保存哪些内容",
+      endH: "看看你的一周是什么样子",
+      footer: "Brandeis 学生项目。与 Square 公司无关，也未获其认可。",
+      title: "Tally：看清你平常的星期二，每个小时都一目了然",
+    },
+  };
+  document.querySelectorAll("[data-i]").forEach((el) => {
+    TEXT.en[el.dataset.i] = TEXT.en[el.dataset.i] || el.textContent;
+  });
+  TEXT.en.title = document.title;
+
+  function hourLabel(h, lang) {
+    const h12 = h % 12 === 0 ? 12 : h % 12;
+    return lang === "zh" ? `${h}` : `${h12}${h < 12 ? "a" : "p"}`;
+  }
+  function money(v) { return "$" + v.toFixed(2); }
+
+  function drawChart(lang) {
+    const max = Math.max(...TUESDAY);
+    const hi = TUESDAY.indexOf(max);
+    const open = TUESDAY.map((v, i) => [v, i]).filter(([v]) => v > 0);
+    const lo = open.reduce((a, b) => (b[0] < a[0] ? b : a))[1];
+    const bars = document.getElementById("lpBars");
+    bars.innerHTML = TUESDAY.map((v, i) => `<span class="lp-bar${i === hi ? " hi" : i === lo ? " lo" : ""}" style="height:${Math.max(2, Math.round((v / max) * 100))}%" title="${hourLabel(FIRST_HOUR + i, "en")}: ${money(v)}"></span>`).join("");
+    bars.setAttribute("aria-label", TUESDAY.map((v, i) => `${hourLabel(FIRST_HOUR + i, "en")} ${money(v)}`).join(", "));
+    document.getElementById("lpAxis").innerHTML = TUESDAY.map((_, i) => `<span>${hourLabel(FIRST_HOUR + i, lang)}</span>`).join("");
+  }
+
+  let lang = "en";
+  function apply(next) {
+    lang = next === "zh" ? "zh" : "en";
+    document.documentElement.lang = lang === "zh" ? "zh-CN" : "en";
+    document.querySelectorAll("[data-i]").forEach((el) => {
+      const s = TEXT[lang][el.dataset.i];
+      if (s) el.textContent = s;
+    });
+    document.title = TEXT[lang].title;
+    document.getElementById("lpLangBtn").textContent = lang === "zh" ? "English" : "中文";
+    document.getElementById("lpPrivacy").href = `/privacy.html?lang=${lang}`;
+    drawChart(lang);
+  }
+
+  // Language: ?lang=zh, else the language last chosen in the app (same browser storage).
+  const asked = new URLSearchParams(location.search).get("lang");
+  apply(asked);
+  if (!asked && typeof DB !== "undefined") {
+    DB.getSetting("lang").then((saved) => { if (saved === "zh") apply("zh"); }).catch(() => {});
+  }
+  document.getElementById("lpLangBtn").addEventListener("click", () => {
+    const next = lang === "zh" ? "en" : "zh";
+    apply(next);
+    // So the app opens in the same language after the button.
+    if (typeof DB !== "undefined") DB.setSetting("lang", next).catch(() => {});
+  });
+
+  // Anonymous step counting, same rules as the app (see js/usage.js).
+  if (typeof Usage !== "undefined") {
+    Usage.trackVisit("try");
+    Usage.started = true;
+  }
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="robots" content="noindex" />
+<title>Tally</title>
+<!--
+  A/B split link: share bus-idea.pages.dev/go (QR cards, emails, posts).
+  Each browser is put in one group at random, 50/50, and kept there:
+    A (control)  -> the app's home page,      tagged ?ref=lp-a
+    B (variant)  -> the landing page /try,    tagged ?ref=lp-b
+  The tag is all the Founder page needs: its "Sources" table compares groups.
+  For testing only: /go?arm=a or /go?arm=b forces a group without saving it.
+  ?notrack=1 is passed along so test visits aren't counted.
+-->
+</head>
+<body>
+<p style="font-family:sans-serif;padding:24px;">Opening Tally… <a id="fallback" href="/">Continue</a></p>
+<script>
+(function () {
+  const KEY = "tally.abArm";
+  const params = new URLSearchParams(location.search);
+  const forced = params.get("arm");
+  let arm = forced === "a" || forced === "b" ? forced : null;
+  if (!arm) {
+    try { arm = localStorage.getItem(KEY); } catch { arm = null; }
+    if (arm !== "a" && arm !== "b") {
+      arm = crypto.getRandomValues(new Uint8Array(1))[0] < 128 ? "a" : "b";
+      try { localStorage.setItem(KEY, arm); } catch { /* not remembered; still split */ }
+    }
+  }
+  const notrack = params.get("notrack");
+  const extra = notrack === "1" || notrack === "0" ? `&notrack=${notrack}` : "";
+  const dest = arm === "a" ? `/?ref=lp-a${extra}` : `/try.html?ref=lp-b${extra}`;
+  document.getElementById("fallback").href = dest;
+  location.replace(dest);
+})();
+</script>
+</body>
+</html>

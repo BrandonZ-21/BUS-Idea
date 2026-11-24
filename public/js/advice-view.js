@@ -71,6 +71,7 @@ const ADVICE_UI = {
     overlapKeepSquare: "Use Square's sales for those days",
     growMenuEngByPrice: "By price, not profit",
     weatherUseSquare: "Use my Square business location",
+    demoHasData: "You already have sales saved here, so this is your own report, not the sample.",
   },
   zh: { // ZH-REVIEW (every string in this block)
     startHereTitle: "从这里开始",
@@ -136,6 +137,7 @@ const ADVICE_UI = {
     overlapKeepSquare: "这些天使用 Square 的销售记录",
     growMenuEngByPrice: "按价格，不是利润",
     weatherUseSquare: "使用我在 Square 上的店铺位置",
+    demoHasData: "这里已经保存了你的销售记录，所以显示的是你自己的报告，不是示例。",
   },
 };
 if (typeof TRANSLATIONS !== "undefined") {
@@ -204,6 +206,7 @@ function buildAdviceReport(rows) {
   const notEnough = result.notEnough.concat(extra.notEnough).map((x) => renderNotEnough(x, lang));
   return {
     meta: result.meta, facts, cards, top3,
+    notEnoughFacts: result.notEnough.concat(extra.notEnough), // raw, for the weekly brief in either language
     notEnough, cantTell: result.cantTell.map((k) => S.cantTell[k]),
     labels: S.labels, ctx: extra.ctx,
     // Optional inputs to offer: break-even when nothing's entered yet.
@@ -557,4 +560,128 @@ function renderIdeasSection(report) {
     <ul class="ideas-list">${ideas.map((x) => `<li><strong>${esc(x.title[lang] || x.title.en)}</strong> ${esc(x.description[lang] || x.description.en)}
       <span class="advice-source">${esc(t("ideasSource", { source: x.sourceName, date: InsightFmt.date(x.lastReviewed, App.lang) }))} <a href="${esc(x.sourceUrl)}" target="_blank" rel="noopener noreferrer">${esc(t("ideasLink"))}</a></span></li>`).join("")}</ul>
   </section>`;
+}
+
+// ---- Live weekly brief (Spot -> Try -> Check) ----
+// A short summary built ONLY from what the dashboard already computes:
+// Spot = the last-7-days vs previous-7-days comparison (compareLastTwoWeeks in
+// js/stats.js), Try = the top "Start here" suggestion's action, Check = that
+// same suggestion's "check" line (js/insights.js / js/advice.js rules). No new
+// analysis. "Copy" puts plain text on this device's clipboard at the owner's
+// request; nothing is sent anywhere.
+
+function briefT(lang, key, vars) {
+  const dict = TRANSLATIONS[lang] || TRANSLATIONS.en;
+  let s = dict[key] !== undefined ? dict[key] : (TRANSLATIONS.en[key] !== undefined ? TRANSLATIONS.en[key] : key);
+  if (vars) Object.keys(vars).forEach((k) => { s = s.split(`{${k}}`).join(vars[k]); });
+  return s;
+}
+
+// Pure: { title, spot, try, check, observed, hasSpot, hasTry } in one language.
+// cmp: compareLastTwoWeeks(...) or null; fact: top insight fact or null;
+// meta: report.meta; why: first "not enough data" reason text or null.
+function buildBriefParts(lang, cmp, fact, meta, why, isSample) {
+  const F = InsightFmt;
+  const zh = lang === "zh";
+  const join = (list) => list.join(zh ? "" : " ");
+  const sample = isSample ? (zh ? `（${briefT(lang, "briefSample")}）` : ` (${briefT(lang, "briefSample")})`) : "";
+  const parts = { title: briefT(lang, "briefTextTitle") + sample, hasSpot: !!cmp, hasTry: !!fact };
+  if (cmp) {
+    const amounts = { thisAmount: F.money(cmp.thisWeek.sales), lastAmount: F.money(cmp.lastWeek.sales) };
+    let headline;
+    if (cmp.pct === null) headline = briefT(lang, "weekHeadlineNoPrior", amounts);
+    else if (Math.abs(cmp.pct) < 1) headline = briefT(lang, "weekHeadlineFlat", amounts);
+    else headline = briefT(lang, cmp.pct > 0 ? "weekHeadlineUp" : "weekHeadlineDown", Object.assign({ pct: Math.round(Math.abs(cmp.pct)) }, amounts));
+    parts.spot = join([
+      headline,
+      briefT(lang, "briefSpotPeriod", { start: F.date(cmp.thisWeek.start, lang), end: F.date(cmp.thisWeek.end, lang) }),
+      briefT(lang, "briefOrders", { now: F.count(cmp.thisWeek.orders), before: F.count(cmp.lastWeek.orders) }),
+    ]);
+  } else {
+    parts.spot = briefT(lang, "weekNeedsData");
+  }
+  if (fact) {
+    const card = renderInsight(fact, meta, lang);
+    parts.try = card.action;
+    parts.check = card.check;
+    parts.observed = join([briefT(lang, "briefObserved", { headline: card.headline }), briefT(lang, "briefCaveat")]);
+  } else {
+    parts.try = why ? briefT(lang, "briefNoTry", { reason: why }) : briefT(lang, "briefNoTryGeneric");
+    parts.check = "";
+    parts.observed = "";
+  }
+  return parts;
+}
+
+function briefText(parts, lang) {
+  const sep = lang === "zh" ? "：" : ": ";
+  const lines = [parts.title, `${briefT(lang, "briefSpot")}${sep}${parts.spot}`, `${briefT(lang, "briefTry")}${sep}${parts.try}`];
+  if (parts.check) lines.push(`${briefT(lang, "briefCheck")}${sep}${parts.check}`);
+  if (parts.observed) lines.push(parts.observed);
+  return lines.join("\n");
+}
+
+// What the brief is built from, for the current report.
+function weeklyBriefInputs(report) {
+  const cmp = compareLastTwoWeeks(normalSellingRows());
+  const topCard = report.top3.length ? report.cards.find((c) => c.id === report.top3[0]) : null;
+  const firstMissing = (report.notEnoughFacts || [])[0] || null;
+  return { cmp, fact: topCard ? topCard.fact : null, firstMissing, isSample: App.dataSource === "sample" };
+}
+
+function renderWeeklyBrief(report) {
+  const inp = weeklyBriefInputs(report);
+  const whyText = (lang) => {
+    if (!inp.firstMissing) return null;
+    const r = renderNotEnough(inp.firstMissing, lang);
+    return `${r.name}${lang === "zh" ? "：" : ": "}${r.text}`;
+  };
+  const p = buildBriefParts(App.lang, inp.cmp, inp.fact, report.meta, whyText(App.lang), inp.isSample);
+  App.briefCopy = {
+    en: briefText(buildBriefParts("en", inp.cmp, inp.fact, report.meta, whyText("en"), inp.isSample), "en"),
+    zh: briefText(buildBriefParts("zh", inp.cmp, inp.fact, report.meta, whyText("zh"), inp.isSample), "zh"),
+  };
+  const canCopy = p.hasSpot || p.hasTry;
+  return `<section class="card weekly-brief" id="weeklyBrief" aria-labelledby="weeklyBriefTitle">
+    <h2 id="weeklyBriefTitle">${esc(t("briefTitle"))}${inp.isSample ? ` <span class="advice-badge">${esc(t("briefSample"))}</span>` : ""}</h2>
+    <dl class="weekly-brief-parts">
+      <dt>${esc(t("briefSpot"))}</dt><dd>${esc(p.spot)}</dd>
+      <dt>${esc(t("briefTry"))}</dt><dd>${esc(p.try)}</dd>
+      ${p.check ? `<dt>${esc(t("briefCheck"))}</dt><dd>${esc(p.check)}</dd>` : ""}
+    </dl>
+    ${p.observed ? `<p class="match-note">${esc(p.observed)}</p>` : ""}
+    ${canCopy ? `<div class="data-actions weekly-brief-copy">
+      <button type="button" class="btn btn-secondary btn-sm" data-brief-copy="en" data-track="briefCopyEn">${esc(t("briefCopyEn"))}</button>
+      <button type="button" class="btn btn-secondary btn-sm" data-brief-copy="zh" data-track="briefCopyZh">${esc(t("briefCopyZh"))}</button>
+      <button type="button" class="btn btn-ghost btn-sm" data-brief-copy="both" data-track="briefCopyBoth">${esc(t("briefCopyBoth"))}</button>
+    </div>
+    <p class="match-note">${esc(t("briefCopyNote"))}</p>
+    <p class="weekly-brief-status" id="weeklyBriefStatus" role="status"></p>
+    <textarea class="weekly-brief-fallback" id="weeklyBriefFallback" hidden readonly aria-label="${esc(t("briefTitle"))}"></textarea>` : ""}
+  </section>`;
+}
+
+function wireWeeklyBrief() {
+  const status = document.getElementById("weeklyBriefStatus");
+  document.querySelectorAll("[data-brief-copy]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const which = btn.dataset.briefCopy;
+      const c = App.briefCopy || {};
+      const text = which === "both" ? `${c.en}\n\n${c.zh}` : c[which];
+      try {
+        if (!navigator.clipboard || !window.isSecureContext) throw new Error("no clipboard");
+        await navigator.clipboard.writeText(text);
+        status.textContent = t("briefCopied");
+      } catch {
+        const box = document.getElementById("weeklyBriefFallback");
+        box.hidden = false;
+        box.value = text;
+        box.focus();
+        box.select();
+        let copied = false;
+        try { copied = document.execCommand("copy"); } catch { copied = false; }
+        status.textContent = t(copied ? "briefCopied" : "briefCopyFailed");
+      }
+    });
+  });
 }

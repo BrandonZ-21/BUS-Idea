@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Landing page (A/B variant B) tests</title>
+<style>
+  body { font-family: monospace; padding: 24px; }
+  .pass { color: #1F5C4A; } .fail { color: #b3401f; font-weight: bold; }
+  #summary { font-family: sans-serif; font-size: 1.2em; margin-top: 16px; }
+</style>
+</head>
+<body>
+<h1>Landing page and A/B split tests</h1>
+<p>Checks public/try.html and public/go.html: the sample chart's numbers against the sample file (computed the same way as the app), the busiest/quietest labels, the Chinese text, the buttons, and the split link. Open through scripts/serve.ps1: /tests/try-page-test.html</p>
+<div id="results"></div>
+<div id="summary"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script src="../js/parser.js"></script>
+<script src="../js/square-items.js"></script>
+<script src="../js/stats.js"></script>
+<script>
+(async function () {
+  const results = []; let pass = 0, fail = 0;
+  const assert = (label, ok) => { ok ? pass++ : fail++; results.push({ label, ok: !!ok }); };
+  const near = (a, b) => Math.abs(a - b) < 0.006;
+
+  // ---- The page source ----
+  const html = await (await fetch("/try.html")).text();
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  const m = html.match(/const TUESDAY = \[([^\]]+)\]/);
+  const embedded = m ? m[1].split(",").map(Number) : [];
+  const firstHour = Number((html.match(/const FIRST_HOUR = (\d+)/) || [])[1]);
+
+  // ---- Recompute "average Tuesday by hour" from the sample file, like the app ----
+  const csv = await (await fetch("/sample-data.csv")).text();
+  const parsed = Papa.parse(csv, { header: true, skipEmptyLines: true });
+  const mapping = { date: "Date", time: "Time", item: "Item", quantity: "Quantity", price: "Price", orderType: "Order Type", orderId: null, customerId: null };
+  const { rows } = await buildRows(parsed.data, mapping, null, { square: false });
+  const occ = weekdayOccurrences(rangeBounds(rows, "all"), new Set());
+  const tue = salesByHour(rows.filter((r) => rowDayOfWeek(r) === 2)).map((v) => v / occ[2]);
+  const expected = tue.slice(firstHour, firstHour + embedded.length);
+  assert(`sample file parses: ${rows.length} rows, ${occ[2]} Tuesdays`, rows.length === 2269 && occ[2] === 4);
+  assert("chart has 13 hours starting at 7 AM", embedded.length === 13 && firstHour === 7);
+  assert("every chart value matches the sample file (to the cent)", embedded.every((v, i) => near(v, Math.round(expected[i] * 100) / 100)));
+  assert("no Tuesday sales fall outside the charted hours", tue.every((v, h) => (h >= firstHour && h < firstHour + 13) || v === 0));
+  const hi = embedded.indexOf(Math.max(...embedded)) + firstHour;
+  const lo = embedded.map((v, i) => [v, i]).filter(([v]) => v > 0).reduce((a, b) => (b[0] < a[0] ? b : a))[1] + firstHour;
+  assert(`busiest label says 8 AM (data: ${hi}:00)`, hi === 8 && /8 AM/.test(doc.querySelector('[data-i="keyBusy"]').textContent));
+  assert(`quietest label says 10 AM (data: ${lo}:00)`, lo === 10 && /10 AM/.test(doc.querySelector('[data-i="keyQuiet"]').textContent));
+  assert("caption says it's sample data, not a real business", /sample data/i.test(doc.querySelector('[data-i="previewCap"]').textContent) && /Not a real business/.test(doc.querySelector('[data-i="previewCap"]').textContent));
+
+  // ---- Buttons ----
+  const ctas = [...doc.querySelectorAll(".lp-cta")];
+  assert("two buttons, both open the one-tap sample (/?demo=1)", ctas.length === 2 && ctas.every((a) => a.getAttribute("href") === "/?demo=1"));
+  assert("buttons carry click names for counting", ctas.every((a) => /^lpCta(Top|Bottom)$/.test(a.dataset.track)));
+  assert("no form, no email field, nothing to type", !doc.querySelector("form, input, textarea"));
+
+  // ---- Chinese ----
+  const zhBlock = (html.match(/zh: \{ \/\/ ZH-REVIEW[\s\S]*?\n    \},/) || [""])[0];
+  const zhKeys = new Set([...zhBlock.matchAll(/^\s+(\w+):/gm)].map((x) => x[1]));
+  const keys = [...new Set([...doc.querySelectorAll("[data-i]")].map((el) => el.dataset.i))];
+  const missing = keys.filter((k) => !zhKeys.has(k));
+  assert(`every text on the page has Chinese (${keys.length} keys)` + (missing.length ? ` missing: ${missing.join(",")}` : ""), missing.length === 0 && zhKeys.has("title"));
+
+  // ---- Claims stay within what the app does ----
+  const text = doc.body.textContent;
+  assert("no banned claims", !/AI-powered|increase(s)? sales|used by local businesses|100% private|guarantee/i.test(text));
+  assert("says read-only and not affiliated with Square", /read-only/.test(text) && /Not affiliated/.test(text));
+
+  // ---- Counting hooks ----
+  assert("loads the same counting code as the app", /src="js\/db\.js"/.test(html) && /src="js\/usage\.js"/.test(html) && /Usage\.trackVisit\("try"\)/.test(html));
+
+  // ---- Split link ----
+  const goHtml = await (await fetch("/go.html")).text();
+  assert("split link: group A goes to the home page tagged lp-a", /\/\?ref=lp-a/.test(goHtml));
+  assert("split link: group B goes to /try.html tagged lp-b", /\/try\.html\?ref=lp-b/.test(goHtml));
+  const tagOk = (t) => /^[a-z0-9_-]{1,32}$/.test(t);
+  assert("both tags pass the server's tag rule", tagOk("lp-a") && tagOk("lp-b"));
+  // The split itself: same rule as go.html, 20,000 draws.
+  let a = 0; for (let i = 0; i < 20000; i++) if (crypto.getRandomValues(new Uint8Array(1))[0] < 128) a++;
+  assert(`split is about 50/50 (A: ${(a / 200).toFixed(1)}%)`, a > 9600 && a < 10400);
+  for (const arm of ["a", "b"]) {
+    const f = document.createElement("iframe"); f.src = `/go.html?arm=${arm}&notrack=1`; document.body.appendChild(f);
+    await new Promise((r) => setTimeout(r, 1500));
+    let where = ""; try { where = f.contentWindow.location.pathname + f.contentWindow.location.search; } catch { where = "(cross-origin)"; }
+    // usage.js strips ?ref/?notrack from the address bar after reading them, so check the page, not the query.
+    const ok = arm === "a" ? where.startsWith("/") && !where.startsWith("/go") && !where.startsWith("/try") : where.startsWith("/try");
+    assert(`forced group ${arm.toUpperCase()} lands on ${arm === "a" ? "the home page" : "/try.html"} (${where})`, ok);
+    f.remove();
+  }
+
+  const el = document.getElementById("results");
+  results.forEach((r) => { const d = document.createElement("div"); d.className = r.ok ? "pass" : "fail"; d.textContent = (r.ok ? "PASS - " : "FAIL - ") + r.label; el.appendChild(d); });
+  document.getElementById("summary").innerHTML = fail === 0 ? `<span class="pass">All ${pass} checks passed.</span>` : `<span class="fail">${fail} of ${pass + fail} checks FAILED.</span>`;
+})().catch((e) => { document.getElementById("summary").innerHTML = `<span class="fail">Test page crashed: ${e.message}</span>`; });
+</script>
+</body>
+</html>

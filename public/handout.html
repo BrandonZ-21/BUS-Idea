@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="robots" content="noindex" />
+<title>Tally handout</title>
+<!-- Print-friendly bilingual handout for walk-in visits (letter size).
+     The QR code and written link come from js/config.js (appUrl), so they
+     always point at the live home page. handout.html?ref=walkin-a tags the
+     QR the same way card.html does. Chinese lines: ZH-REVIEW. -->
+<style>
+  @page { size: letter portrait; margin: 0.55in; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: "DM Sans", "Segoe UI", "Microsoft YaHei", "PingFang SC", Arial, sans-serif; color: #1E1B18; background: #E9E2D3; }
+  .print-bar { max-width: 7.4in; margin: 16px auto 0; padding: 0 12px; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; font-size: 0.9rem; color: #6B6156; }
+  .print-bar button { font: inherit; font-weight: 700; padding: 8px 16px; border-radius: 999px; border: 0; background: #C2410C; color: #fff; cursor: pointer; }
+  .print-bar button:focus-visible { outline: 3px solid #1E1B18; outline-offset: 2px; }
+  .sheet { width: calc(100% - 24px); max-width: 7.4in; min-height: 9.9in; margin: 16px auto; padding: 0.5in clamp(16px, 6vw, 0.55in);
+    background: #F6F0E4; border: 1px solid #E2D6C1; border-radius: 10px; display: flex; flex-direction: column; }
+  .brand { font-family: Consolas, "Courier New", monospace; font-weight: 700; letter-spacing: 0.25em; font-size: 11pt; color: #C2410C; margin: 0 0 14px; }
+  h1 { font-family: Georgia, "Times New Roman", serif; font-size: clamp(26pt, 8vw, 38pt); line-height: 1.08; margin: 0; letter-spacing: -0.01em; }
+  .h1-zh { font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans SC", sans-serif; font-size: clamp(20pt, 6vw, 26pt); font-weight: 700; margin: 10px 0 0; }
+  .lede { font-size: 13pt; margin: 14px 0 0; max-width: 5.8in; }
+  .lede-zh { font-size: 12pt; margin: 4px 0 0; color: #3A332C; }
+  .main { display: grid; grid-template-columns: minmax(0, 1fr) 2.6in; gap: 0.35in; margin-top: 26px; align-items: start; }
+  ol { list-style: none; margin: 0; padding: 0; counter-reset: step; }
+  ol li { counter-increment: step; display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 10px; padding: 12px 0; border-top: 1px dashed #D9CCB4; }
+  ol li:last-child { border-bottom: 1px dashed #D9CCB4; }
+  ol li::before { content: counter(step); font-family: Consolas, monospace; font-weight: 700; font-size: 14pt; color: #C2410C; }
+  .step-name { font-weight: 700; font-size: 13pt; margin: 0; }
+  .step-name span { font-weight: 700; color: #6B6156; margin-left: 6px; }
+  .step-body { margin: 2px 0 0; font-size: 11pt; }
+  .step-body-zh { margin: 2px 0 0; font-size: 10.5pt; color: #3A332C; }
+  .scan { background: #FFFDF7; border: 1px solid #E2D6C1; padding: 14px; text-align: center; }
+  .qr { width: 100%; aspect-ratio: 1; }
+  .qr svg { width: 100%; height: 100%; display: block; }
+  .scan-label { font-weight: 700; font-size: 11.5pt; margin: 8px 0 2px; }
+  .link { font-family: Consolas, "Courier New", monospace; font-weight: 700; font-size: 11pt; overflow-wrap: anywhere; margin: 6px 0 0; }
+  .bring { margin-top: 24px; padding: 14px 16px; border: 2px solid #1E1B18; }
+  .bring p { margin: 0; font-size: 11pt; }
+  .bring p + p { margin-top: 4px; }
+  .small { margin-top: auto; padding-top: 16px; font-size: 9.5pt; color: #6B6156; }
+  .small p { margin: 0 0 4px; }
+  .missing { padding: 12px; border: 2px dashed #C2410C; color: #C2410C; font-weight: 700; }
+  @media (max-width: 640px) { .main { grid-template-columns: minmax(0, 1fr); } .scan { max-width: 3in; } }
+  @media print {
+    body { background: #fff; }
+    .print-bar { display: none; }
+    .sheet { margin: 0; border: 0; border-radius: 0; width: auto; max-width: none; min-height: 9.8in; padding: 0; background: #fff; }
+    .main { grid-template-columns: minmax(0, 1fr) 2.6in; }
+    h1 { font-size: 38pt; }
+  }
+</style>
+</head>
+<body>
+<div class="print-bar">
+  <button type="button" id="printBtn">Print this handout</button>
+  <span>Letter size, portrait. Turn off "Headers and footers" in the print dialog.</span>
+  <span id="tagNote"></span>
+</div>
+
+<main class="sheet">
+  <p class="brand">TALLY · WEEKLY BRIEF</p>
+  <h1>Bring one sales export.<br />Leave with one thing to try.</h1>
+  <p class="h1-zh" lang="zh-CN">带一份销售导出文件，<br />带走一件下周可以试的事。</p>
+  <p class="lede">Tally turns your register's sales export into a short weekly brief for takeout shops and cafés, in English and Chinese.</p>
+  <p class="lede-zh" lang="zh-CN">Tally 把收银机导出的销售数据变成一份简短的每周简报，中英文都可以看。</p>
+
+  <div class="main">
+    <ol>
+      <li><div>
+        <p class="step-name">Spot <span lang="zh-CN">发现</span></p>
+        <p class="step-body">One change from last week, with the numbers beside it.</p>
+        <p class="step-body-zh" lang="zh-CN">和上周相比的一个变化，附上数字。</p>
+      </div></li>
+      <li><div>
+        <p class="step-name">Try <span lang="zh-CN">尝试</span></p>
+        <p class="step-body">One small thing to try next week.</p>
+        <p class="step-body-zh" lang="zh-CN">下周可以试的一件小事。</p>
+      </div></li>
+      <li><div>
+        <p class="step-name">Check <span lang="zh-CN">检查</span></p>
+        <p class="step-body">The number to look at a week later.</p>
+        <p class="step-body-zh" lang="zh-CN">一周后要看的那个数字。</p>
+      </div></li>
+    </ol>
+
+    <div class="scan">
+      <div class="qr" id="appQr"></div>
+      <p class="missing" id="missing" hidden>No app link is set. Add appUrl in js/config.js, then reload.</p>
+      <p class="scan-label">Scan to try the sample brief</p>
+      <p class="scan-label" lang="zh-CN">扫码看看示例简报</p>
+      <p class="link" id="appLinkText"></p>
+    </div>
+  </div>
+
+  <div class="bring">
+    <p><strong>No account needed to import a file. The file is processed in your browser.</strong></p>
+    <p lang="zh-CN">导入文件不需要注册账号。文件在你的浏览器里处理。</p>
+    <p>Please don't email or text your sales file to anyone. Open it in Tally yourself.</p>
+    <p lang="zh-CN">请不要把销售文件发给任何人，自己在 Tally 里打开就好。</p>
+  </div>
+
+  <div class="small">
+    <p>Using Square? You can connect it instead. Connecting Square is read-only: Tally can never charge, refund or change anything in Square.</p>
+    <p lang="zh-CN">使用 Square？也可以直接连接。连接 Square 是只读的：Tally 不能收款、退款或修改 Square 里的任何内容。</p>
+    <p>Tally is an independent student project. It is not affiliated with or endorsed by Square. Details: <span id="privacyText"></span></p>
+  </div>
+</main>
+
+<script src="js/config.js"></script>
+<script src="js/vendor/qrcode-generator.js"></script>
+<script src="js/feedback.js"></script>
+<script>
+  (function () {
+    // Same tag rule as card.html / lib/usage/events.js REF_TAG.
+    const tag = (new URLSearchParams(location.search).get("ref") || "").trim();
+    const validTag = /^[a-z0-9_-]{1,32}$/.test(tag) ? tag : null;
+    let appUrl = appShareUrl();
+    if (appUrl && validTag) {
+      const u = new URL(appUrl);
+      u.searchParams.set("ref", validTag);
+      appUrl = u.href;
+    }
+    document.getElementById("tagNote").textContent = validTag
+      ? `Tag: ${validTag}.`
+      : tag ? `"${tag}" isn't a valid tag, so this handout has none.` : "No tag. Add ?ref=walkin-a to tag a pile of handouts.";
+    document.getElementById("missing").hidden = !!appUrl;
+    if (appUrl) {
+      document.getElementById("appQr").innerHTML = qrSvg(appUrl, { label: "QR code that opens the Tally home page" });
+      const shown = appUrl.replace(/^https:\/\//, "").replace(/\/$/, "");
+      document.getElementById("appLinkText").textContent = shown;
+      document.getElementById("privacyText").textContent = shown.split(/[/?]/)[0] + "/privacy.html";
+      document.getElementById("appQr").dataset.url = appUrl;
+    }
+    document.getElementById("printBtn").addEventListener("click", () => window.print());
+  })();
+</script>
+</body>
+</html>

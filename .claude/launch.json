@@ -12,6 +12,12 @@
       "runtimeExecutable": "C:\\Program Files\\nodejs\\node.exe",
       "runtimeArgs": ["node_modules/wrangler/bin/wrangler.js", "pages", "dev", "--port", "8788"],
       "port": 8788
+    },
+    {
+      "name": "pages-dev-usage",
+      "runtimeExecutable": "C:\\Program Files\\nodejs\\node.exe",
+      "runtimeArgs": ["node_modules/wrangler/bin/wrangler.js", "pages", "dev", "--port", "8789", "--binding", "USAGE_EVENTS=on"],
+      "port": 8789
     }
   ]
 }

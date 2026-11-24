@@ -51,6 +51,7 @@ const FOUNDER_PAGES = {
   home: "Home (landing page)", dashboard: "Dashboard", data: "My Data", hours: "Hours detail", days: "Days detail",
   items: "Items", trend: "Trend", "order-types": "Order types", heatmap: "Heatmap", notes: "Day Notes",
   ask: "Ask a question", customers: "Customers", grow: "Grow", founder: "Founder",
+  try: "Landing page B (/try)",
 };
 const FOUNDER_CLICKS = {
   heroGetStartedBtn: "Get started (home)",

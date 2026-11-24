@@ -46,6 +46,9 @@ function dispatchRoute() {
   }
 
   App.showAppShell(hasData);
+  // The home page has its own warm "paper" look (css/style.css, body.is-home);
+  // every other page keeps the app's normal style.
+  document.body.classList.toggle("is-home", route === "#/home");
   window.scrollTo(0, 0);
   const fn = ROUTES[route];
   if (App[fn]) App[fn]();

@@ -150,9 +150,10 @@ function usagePageName(route) {
 }
 
 // The first step of each page load: where they came from and on which page they landed.
-Usage.trackVisit = function () {
+// page: optional fixed page name for pages outside the app (e.g. "try").
+Usage.trackVisit = function (page) {
   const ctx = Usage.visitContext || { device: usageDevice() };
-  Usage.track("visit", { detail: usagePageName(location.hash), refHost: ctx.refHost, refTag: ctx.refTag, device: ctx.device });
+  Usage.track("visit", { detail: page || usagePageName(location.hash), refHost: ctx.refHost, refTag: ctx.refTag, device: ctx.device });
   Usage.startEngagement();
 };
 

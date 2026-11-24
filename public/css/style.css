@@ -624,3 +624,158 @@ main { max-width: 1080px; margin: 0 auto; padding: 28px 20px 60px; }
 .start-here .start-here-why { display: block; color: var(--muted); font-size: 0.9rem; margin-top: 2px; }
 .start-here .link-button { display: inline; padding: 0; margin: 0; font-size: 0.9rem; }
 
+
+/* ================= Home page (js/home.js), 2026-11 redesign =================
+   Scoped to body.is-home and .hv so the dashboard and other pages are unchanged.
+   Palette shared with marketing/kit: paper, ink, one accent (brick red). */
+body.is-home {
+  --hv-paper: #F6F0E4;
+  --hv-ink: #1E1B18;
+  --hv-muted: #6B6156;
+  --hv-rule: #E2D6C1;
+  --hv-receipt: #FFFDF7;
+  --hv-accent: #C2410C;
+  --hv-accent-soft: #FBE3D6;
+  --hv-mark: #FFE9A8;
+  background: var(--hv-paper);
+  color: var(--hv-ink);
+}
+body.is-home .site-header { background: var(--hv-paper); border-bottom-color: var(--hv-rule); box-shadow: none; }
+body.is-home .site-footer { background: transparent; }
+.hv { font-size: 1.02rem; }
+.hv :focus-visible { outline: 3px solid var(--hv-ink); outline-offset: 3px; border-radius: 6px; }
+.hv-hero { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr); gap: 48px; align-items: center; padding: 28px 0 40px; }
+.hv-hero > * { min-width: 0; }
+.hv-kicker { font-size: 0.9rem; font-weight: 600; letter-spacing: 0.02em; color: var(--hv-accent); margin: 0 0 12px; }
+.hv-h1 { font-family: "Fraunces", Georgia, "Times New Roman", serif; font-weight: 700; font-size: clamp(2.2rem, 5.2vw, 3.5rem); line-height: 1.06; letter-spacing: -0.02em; margin: 0 0 18px; color: var(--hv-ink); }
+:lang(zh-CN) .hv-h1, :lang(zh-CN) .hv-h2 { font-family: "DM Sans", "PingFang SC", "Microsoft YaHei", "Noto Sans SC", sans-serif; letter-spacing: 0; }
+.hv-sub { font-size: 1.12rem; line-height: 1.55; color: #3A332C; max-width: 34em; margin: 0 0 26px; }
+.hv-ctas { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 18px; }
+.hv-ctas-center { justify-content: center; }
+.hv-btn { font: inherit; font-weight: 700; font-size: 1.02rem; min-height: 50px; padding: 0 24px; border-radius: 999px; cursor: pointer; border: 2px solid var(--hv-ink); }
+.hv-btn-primary { background: var(--hv-accent); border-color: var(--hv-accent); color: #fff; }
+.hv-btn-primary:hover { background: #A8370A; border-color: #A8370A; }
+.hv-btn-secondary { background: transparent; color: var(--hv-ink); }
+.hv-btn-secondary:hover { background: #EDE3D1; }
+.hv-trust { display: flex; align-items: center; gap: 8px; font-size: 0.92rem; color: var(--hv-muted); margin: 0 0 6px; }
+.hv-trust svg { flex: none; }
+.hv-trust-lang span:first-child { font-weight: 700; font-size: 0.8rem; border: 1px solid var(--hv-muted); border-radius: 4px; padding: 0 3px; }
+
+/* ---- The receipt ---- */
+.hv-brief-col { display: flex; justify-content: center; }
+.hv-receipt {
+  position: relative; width: 100%; max-width: 410px; background: var(--hv-receipt); color: var(--hv-ink);
+  padding: 22px 22px 30px; box-shadow: 0 1px 0 var(--hv-rule), 0 18px 40px rgba(60, 40, 20, 0.14);
+  border-radius: 4px 4px 0 0;
+  /* torn-paper bottom edge */
+  -webkit-mask: linear-gradient(#000 0 0) top / 100% calc(100% - 10px) no-repeat, radial-gradient(circle 6px at 8px 0, #000 98%, transparent) bottom / 16px 10px repeat-x;
+          mask: linear-gradient(#000 0 0) top / 100% calc(100% - 10px) no-repeat, radial-gradient(circle 6px at 8px 0, #000 98%, transparent) bottom / 16px 10px repeat-x;
+}
+.hv-receipt-head { text-align: center; border-bottom: 2px dashed var(--hv-rule); padding-bottom: 12px; margin-bottom: 14px; }
+.hv-receipt-brand { font-family: ui-monospace, "SFMono-Regular", Consolas, "Courier New", monospace; font-weight: 700; letter-spacing: 0.12em; font-size: 0.85rem; margin: 0 0 4px; }
+.hv-receipt-meta { font-size: 0.82rem; color: var(--hv-muted); margin: 0; }
+.hv-tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 10px; }
+.hv-tab { font: inherit; font-weight: 700; font-size: 0.95rem; min-height: 44px; border: 2px solid var(--hv-rule); background: transparent; color: var(--hv-ink); border-radius: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; }
+.hv-tab-num { font-family: ui-monospace, Consolas, monospace; font-size: 0.8rem; width: 20px; height: 20px; border-radius: 50%; border: 1.5px solid currentColor; display: inline-flex; align-items: center; justify-content: center; }
+.hv-tab[aria-selected="true"] { background: var(--hv-ink); border-color: var(--hv-ink); color: var(--hv-receipt); text-decoration: underline; text-underline-offset: 4px; }
+.hv-tab:hover:not([aria-selected="true"]) { border-color: var(--hv-muted); }
+.hv-progress { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+.hv-progress-bars { display: flex; gap: 4px; flex: 1; }
+.hv-bar { height: 5px; flex: 1; border-radius: 3px; background: var(--hv-rule); transition: background 0.25s ease; }
+.hv-bar-on { background: var(--hv-accent); }
+.hv-progress-text { font-size: 0.8rem; color: var(--hv-muted); white-space: nowrap; }
+.hv-panel { min-height: 260px; }
+.hv-panel:focus-visible { outline-offset: 6px; }
+.hv-panel-kicker { font-family: ui-monospace, Consolas, monospace; font-size: 0.78rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--hv-muted); margin: 0 0 8px; }
+.hv mark { background: linear-gradient(transparent 55%, var(--hv-mark) 55%); color: inherit; padding: 0 2px; }
+.hv-figure { display: flex; align-items: baseline; gap: 12px; margin: 0; font-family: ui-monospace, Consolas, monospace; font-weight: 700; }
+.hv-num { font-size: 3rem; line-height: 1; }
+.hv-num-was { color: var(--hv-muted); text-decoration: line-through; text-decoration-thickness: 2px; }
+.hv-num-now { color: var(--hv-accent); }
+.hv-arrow { font-size: 1.6rem; color: var(--hv-muted); }
+.hv-unit { margin: 6px 0 12px; font-weight: 600; }
+.hv-rows { border-top: 1px dashed var(--hv-rule); border-bottom: 1px dashed var(--hv-rule); padding: 8px 0; margin: 0 0 12px; }
+.hv-row { display: flex; align-items: baseline; gap: 6px; font-family: ui-monospace, Consolas, monospace; font-size: 0.9rem; padding: 3px 0; }
+.hv-row-dots { flex: 1; border-bottom: 1px dotted var(--hv-muted); transform: translateY(-3px); min-width: 12px; }
+.hv-row-hi .hv-row-label { font-weight: 700; }
+.hv-row-value { white-space: nowrap; }
+.hv-panel-body { font-size: 0.94rem; color: #3A332C; margin: 0; }
+.hv-action { font-size: 1.25rem; font-weight: 700; line-height: 1.35; margin: 0 0 10px; }
+.hv-metric { font-size: 1.1rem; font-weight: 700; margin: 0 0 10px; }
+.hv-tag { display: inline-flex; gap: 6px; align-items: center; margin: 12px 0 0; font-size: 0.85rem; font-weight: 600; border: 1.5px dashed var(--hv-ink); border-radius: 999px; padding: 4px 12px; }
+.hv-label-line { font-size: 0.9rem; margin: 0 0 6px; }
+.hv-label-line strong { display: inline-block; min-width: 5.5em; font-family: ui-monospace, Consolas, monospace; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.06em; }
+/* Monospace fonts have no Chinese glyphs: fall back to a Chinese sans, not a serif. */
+html[lang="zh-CN"] .hv-receipt-brand, html[lang="zh-CN"] .hv-panel-kicker, html[lang="zh-CN"] .hv-row,
+html[lang="zh-CN"] .hv-label-line strong { font-family: ui-monospace, Consolas, "Microsoft YaHei", "PingFang SC", "Noto Sans SC", sans-serif; letter-spacing: 0.02em; }
+html[lang="zh-CN"] .hv-label-line strong { font-size: 0.85rem; min-width: 4.5em; }
+.hv-receipt-foot { border-top: 2px dashed var(--hv-rule); margin-top: 14px; padding-top: 12px; }
+.hv-link-btn { font: inherit; font-weight: 700; color: var(--hv-accent); background: none; border: 0; padding: 4px 0; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+.hv-receipt-note { font-size: 0.78rem; color: var(--hv-muted); margin: 4px 0 0; }
+
+/* ---- Sections below the fold ---- */
+.hv-section { margin: 56px auto 0; max-width: 980px; }
+.hv-h2 { font-family: "Fraunces", Georgia, serif; font-weight: 700; font-size: clamp(1.5rem, 3.4vw, 2rem); letter-spacing: -0.01em; margin: 0 0 18px; }
+.hv-steps { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; border-top: 2px solid var(--hv-ink); }
+.hv-steps li { padding: 18px 20px 4px 0; }
+.hv-steps li + li { padding-left: 20px; border-left: 1px solid var(--hv-rule); }
+.hv-steps h3 { margin: 6px 0 6px; font-size: 1.15rem; }
+.hv-steps p { margin: 0; color: #3A332C; }
+.hv-step-num { font-family: ui-monospace, Consolas, monospace; font-weight: 700; color: var(--hv-accent); }
+.hv-where-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 28px; }
+.hv-where-grid > * { min-width: 0; }
+.hv-where h3 { margin: 0 0 6px; font-size: 1.1rem; }
+.hv-where p { color: #3A332C; }
+.hv-where .dropzone { background: var(--hv-receipt); border-color: var(--hv-rule); max-width: none; }
+.hv-where .upload-secondary { justify-content: flex-start; }
+.hv-where .square-card { margin-top: 0; margin-bottom: 18px; }
+.hv-where-square > p:last-child a { font-weight: 700; color: var(--hv-accent); }
+.hv-faq-item { border-top: 1px solid var(--hv-rule); padding: 14px 0; }
+.hv-faq-item:last-of-type { border-bottom: 1px solid var(--hv-rule); }
+.hv-faq-item summary { cursor: pointer; font-weight: 700; font-size: 1.05rem; }
+.hv-faq-item p { margin: 10px 0 0; color: #3A332C; max-width: 46em; }
+.hv-final { text-align: center; background: var(--hv-ink); color: var(--hv-paper); border-radius: 18px; padding: 40px 20px; }
+.hv-final .hv-h2 { color: var(--hv-paper); }
+.hv-final p { color: #E7DCCB; margin: 0 0 20px; }
+.hv-final .hv-btn-secondary { color: var(--hv-paper); border-color: var(--hv-paper); }
+.hv-final .hv-btn-secondary:hover { background: #2E2924; }
+.hv-final :focus-visible { outline-color: var(--hv-paper); }
+.hv-more { display: grid; gap: 16px; }
+.hv-more .landing-feedback { margin: 0; }
+
+/* ---- Motion: short, purposeful, off under reduced motion ---- */
+@keyframes hv-print { from { opacity: 0; transform: translateY(18px); clip-path: inset(0 0 100% 0); } to { opacity: 1; transform: none; clip-path: inset(0 0 0 0); } }
+@keyframes hv-swap { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes hv-mark { from { background-size: 0% 100%; } to { background-size: 100% 100%; } }
+@keyframes hv-nudge { 0%, 100% { box-shadow: 0 1px 0 var(--hv-rule), 0 18px 40px rgba(60, 40, 20, 0.14); } 40% { box-shadow: 0 0 0 4px var(--hv-accent), 0 18px 40px rgba(60, 40, 20, 0.2); } }
+.hv-receipt-enter { animation: hv-print 0.6s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+.hv-panel-change { animation: hv-swap 0.22s ease-out both; }
+.hv-panel-change mark { background-repeat: no-repeat; animation: hv-mark 0.45s 0.12s ease-out both; }
+.hv-receipt-attention { animation: hv-nudge 0.9s ease-in-out 1; }
+@media (prefers-reduced-motion: reduce) {
+  .hv-receipt-enter, .hv-panel-change, .hv-panel-change mark, .hv-receipt-attention { animation: none !important; }
+  .hv-bar { transition: none; }
+}
+
+/* ---- Phones: brief below the headline and buttons ---- */
+@media (max-width: 860px) {
+  .hv-hero { grid-template-columns: minmax(0, 1fr); gap: 28px; padding-top: 12px; }
+  .hv-steps, .hv-where-grid { grid-template-columns: minmax(0, 1fr); }
+  .hv-steps li + li { padding-left: 0; border-left: 0; border-top: 1px solid var(--hv-rule); }
+}
+@media (max-width: 480px) {
+  .hv-btn { width: 100%; }
+  .hv-receipt { padding: 18px 16px 28px; }
+  .hv-num { font-size: 2.5rem; }
+  .hv-tab { font-size: 0.88rem; padding: 0 4px; }
+}
+
+/* ---- Live weekly brief (dashboard) ---- */
+.weekly-brief { margin-bottom: 16px; border-left: 4px solid var(--slate); }
+.weekly-brief h2 { margin-top: 0; }
+.weekly-brief-parts { display: grid; grid-template-columns: max-content 1fr; gap: 6px 14px; margin: 0 0 10px; }
+.weekly-brief-parts dt { font-weight: 700; }
+.weekly-brief-parts dd { margin: 0; }
+.weekly-brief-status { font-size: 0.9rem; font-weight: 600; min-height: 1.2em; margin: 4px 0 0; }
+.weekly-brief-fallback { width: 100%; min-height: 120px; font: inherit; font-size: 0.85rem; margin-top: 6px; }
+@media (max-width: 480px) { .weekly-brief-parts { grid-template-columns: 1fr; } .weekly-brief-parts dd { margin-bottom: 8px; } }

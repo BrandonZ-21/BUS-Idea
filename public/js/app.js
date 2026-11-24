@@ -53,6 +53,8 @@ const App = {
   customerIdColumnName: null, // the header name last used for hashed customer tracking, shown on the privacy disclosure only
   customerSummaryRows: [], // optional, already-aggregated monthly new/returning report -- a separate data source from hashed per-transaction rows, see js/customer-summary.js
   hasSeenIntro: false, // whether the first-visit explainer overlay has ever been dismissed
+  demoRequested: false, // opened with ?demo=1 (the /try landing page's button): go straight to the sample report
+  autoConfirmSample: false, // skip the column-matching screen once, for that sample load only
   feedbackPromptDismissed: false, // the one-time "Give feedback" note on the dashboard (js/feedback.js)
   adviceInputs: {}, // optional numbers the owner typed for advice: { fees: {channel: %}, fixedMonthly, costPct } -- this device only
   squareLocation: null, // { name, latitude, longitude, timezone } rounded, from the last Square sync -- this device only
@@ -192,6 +194,7 @@ function renderNav() {
 }
 
 function applyStaticText() {
+  document.documentElement.lang = App.lang === "zh" ? "zh-CN" : "en";
   document.title = t("appName");
   document.getElementById("brandName").textContent = t("appName");
   document.getElementById("privateBadgeText").textContent = t("privateBadge");
@@ -270,156 +273,8 @@ function showModal({ title, body, confirmLabel, cancelLabel, onConfirm, onCancel
 }
 
 // ---------- Home / landing page (#/home) ----------
-// Half marketing page, half functional dropzone -- reachable at any time,
-// whether or not you have data saved, via the "Tally" wordmark in the
-// header or the #/home route directly. All still fully local (no analytics,
-// no images/fonts from a third party beyond the Google Fonts stylesheet
-// already loaded in index.html).
-const LANDING_FEATURES = [
-  { icon: "📅", titleKey: "landingFeatureWeekTitle", bodyKey: "landingFeatureWeekBody" },
-  { icon: "💬", titleKey: "landingFeatureDashboardTitle", bodyKey: "landingFeatureDashboardBody" },
-  { icon: "🔒", titleKey: "landingFeaturePrivacyTitle", bodyKey: "landingFeaturePrivacyBody" },
-  { icon: "🌐", titleKey: "landingFeatureBilingualTitle", bodyKey: "landingFeatureBilingualBody" },
-  { icon: "🔁", titleKey: "landingFeatureCustomersTitle", bodyKey: "landingFeatureCustomersBody" },
-  { icon: "📈", titleKey: "landingFeatureGrowTitle", bodyKey: "landingFeatureGrowBody" },
-  { icon: "🌦️", titleKey: "landingFeatureWeatherTitle", bodyKey: "landingFeatureWeatherBody" },
-];
-const LANDING_STEPS = [
-  { titleKey: "landingStep1Title", bodyKey: "landingStep1Body" },
-  { titleKey: "landingStep2Title", bodyKey: "landingStep2Body" },
-  { titleKey: "landingStep3Title", bodyKey: "landingStep3Body" },
-];
-
-App.renderHome = function () {
-  const el = document.getElementById("view-root");
-  el.innerHTML = `
-    <section class="landing-hero">
-      <h1>${esc(t("landingHeadline"))}</h1>
-      <p class="landing-subhead">${esc(t("landingSubhead"))}</p>
-      <div class="landing-hero-actions">
-        <button type="button" class="btn btn-primary btn-lg" id="heroGetStartedBtn">${esc(t("landingHeroCta"))}</button>
-        <button type="button" class="btn btn-secondary btn-lg" id="heroSampleBtn">${esc(t("landingHeroSecondary"))}</button>
-      </div>
-      <p class="landing-privacy-line">
-        <svg aria-hidden="true" viewBox="0 0 24 24" width="14" height="14"><path fill="currentColor" d="M12 1a5 5 0 0 0-5 5v3H6a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-9a2 2 0 0 0-2-2h-1V6a5 5 0 0 0-5-5zm-3 8V6a3 3 0 0 1 6 0v3z"/></svg>
-        ${esc(t("privacyNote"))}
-      </p>
-      <button type="button" class="link-button" id="introReopenBtn">${esc(t("introLearnMoreLink"))}</button>
-    </section>
-
-    <section class="landing-features">
-      <h2 class="landing-section-title">${esc(t("landingFeaturesTitle"))}</h2>
-      <div class="landing-feature-grid">
-        ${LANDING_FEATURES.map((f) => `
-          <div class="landing-feature-card">
-            <span class="landing-feature-icon" aria-hidden="true">${f.icon}</span>
-            <h3>${esc(t(f.titleKey))}</h3>
-            <p>${esc(t(f.bodyKey))}</p>
-          </div>
-        `).join("")}
-      </div>
-    </section>
-
-    <section class="landing-how">
-      <h2 class="landing-section-title">${esc(t("landingHowTitle"))}</h2>
-      <div class="landing-steps">
-        ${LANDING_STEPS.map((s) => `
-          <div class="landing-step">
-            <h3>${esc(t(s.titleKey))}</h3>
-            <p>${esc(t(s.bodyKey))}</p>
-          </div>
-        `).join("")}
-      </div>
-    </section>
-
-    <section class="landing-upload" id="landingUploadSection">
-      <h2 class="landing-section-title">${esc(t("landingUploadTitle"))}</h2>
-      <div class="dropzone" id="dropzone">
-        <p><strong>${esc(t("uploadDrop"))}</strong></p>
-        <p>${esc(t("uploadOr"))}</p>
-        <div class="upload-actions">
-          <button type="button" class="btn btn-primary" id="chooseFileBtn">${esc(t("uploadChoose"))}</button>
-          <input type="file" accept=".csv,.tsv,.txt,.xlsx,.xls" id="fileInput" class="visually-hidden" aria-label="${esc(t("uploadChoose"))}" />
-        </div>
-        <p class="upload-help">${esc(t("uploadHelp"))}</p>
-      </div>
-      <div class="upload-secondary">
-        <button type="button" class="btn btn-secondary" id="sampleBtn">${esc(t("uploadSample"))}</button>
-        <button type="button" class="btn btn-secondary" id="sample2Btn">${esc(t("uploadSample2"))}</button>
-      </div>
-      <div class="card square-card" id="squareCard" hidden></div>
-      <div class="card square-card" id="accountCard" hidden></div>
-    </section>
-
-    ${appShareUrl() ? `
-    <section class="landing-feedback card">
-      <div class="landing-feedback-qr">${qrSvg(appShareUrl(), { label: t("shareHomeQrLabel") })}</div>
-      <div>
-        <h2>${esc(t("shareHomeTitle"))}</h2>
-        <p>${esc(t("shareHomeBody"))}</p>
-        <p class="landing-share-link">${esc(appShareUrl().replace(/^https:\/\//, "").replace(/\/$/, ""))}</p>
-      </div>
-    </section>` : ""}
-
-    ${feedbackUrl() ? `
-    <section class="landing-feedback card">
-      <div class="landing-feedback-qr">${qrSvg(feedbackUrl(), { label: t("feedbackHomeQrLabel") })}</div>
-      <div>
-        <h2>${esc(t("feedbackHomeTitle"))}</h2>
-        <p>${esc(t("feedbackHomeBody"))}</p>
-        <div class="data-actions">
-          <a class="btn btn-primary" id="homeFeedbackLink">${esc(t("feedbackLink"))}</a>
-          <a class="btn btn-ghost" href="/card.html">${esc(t("feedbackCardLink"))}</a>
-        </div>
-      </div>
-    </section>` : ""}
-  `;
-  const homeFeedbackLink = document.getElementById("homeFeedbackLink");
-  if (homeFeedbackLink) wireFeedbackLink(homeFeedbackLink);
-  wireUploadWidget(el);
-  SquareSync.mount();
-  Account.mount();
-
-  const scrollToUpload = () => document.getElementById("landingUploadSection").scrollIntoView({ behavior: "smooth", block: "start" });
-  document.getElementById("heroGetStartedBtn").addEventListener("click", scrollToUpload);
-  document.getElementById("heroSampleBtn").addEventListener("click", () => loadSampleFile("sample-data.csv"));
-  document.getElementById("introReopenBtn").addEventListener("click", showIntroOverlay);
-
-  // Shown automatically exactly once, the very first time anyone opens the
-  // app before uploading anything -- never again after that (tracked in
-  // IndexedDB settings, not just this tab), and never blocks reaching the
-  // dropzone or dashboard either way.
-  if (!App.hasSeenIntro && App.allRows.length === 0) {
-    App.hasSeenIntro = true;
-    DB.setSetting("hasSeenIntro", true);
-    showIntroOverlay();
-  }
-};
-
-// A short, dismissible "what is this" overlay: 3 modest, non-salesy points.
-// Reachable again anytime via the link on the home page, regardless of
-// whether it's already been seen.
-function showIntroOverlay() {
-  const root = document.getElementById("modalRoot");
-  root.innerHTML = `
-    <div class="modal-overlay" id="introOverlay">
-      <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="introOverlayTitle">
-        <h2 id="introOverlayTitle">${esc(t("introTitle"))}</h2>
-        <ul class="intro-points">
-          <li>${esc(t("introPoint1"))}</li>
-          <li>${esc(t("introPoint2"))}</li>
-          <li>${esc(t("introPoint3"))}</li>
-        </ul>
-        <div class="modal-actions">
-          <button type="button" class="btn btn-primary" id="introDismissBtn">${esc(t("introDismiss"))}</button>
-        </div>
-      </div>
-    </div>`;
-  const close = () => { root.innerHTML = ""; };
-  document.getElementById("introOverlay").addEventListener("click", (e) => { if (e.target.id === "introOverlay") close(); });
-  document.getElementById("introDismissBtn").addEventListener("click", close);
-  document.getElementById("introDismissBtn").focus();
-}
+// Lives in js/home.js (Spot -> Try -> Check redesign, 2026-11). The old
+// feature-card page and its first-visit pop-up were removed with it.
 
 // True when the thing being dragged is a file (not selected text or a link).
 function dragHasFiles(e) {
@@ -565,7 +420,48 @@ function onParsed(results) {
       square,
     };
     renderMatchScreen();
+    // The landing page's one-tap demo: the built-in sample's columns are
+    // always recognized, so confirm them for the owner. Only ever for the
+    // sample file, never for an owner's own upload.
+    if (App.autoConfirmSample && App.pendingSource === "sample") {
+      App.autoConfirmSample = false;
+      confirmMatch();
+    }
   });
+}
+
+// ---------- One-tap demo (?demo=1) ----------
+// The /try landing page sends owners here with one button. Reads and removes
+// ?demo=1 from the address bar (so a reload doesn't repeat it).
+function takeDemoParam() {
+  const params = new URLSearchParams(location.search);
+  if (params.get("demo") !== "1") return false;
+  params.delete("demo");
+  const qs = params.toString();
+  try {
+    history.replaceState(history.state, "", location.pathname + (qs ? `?${qs}` : "") + location.hash);
+  } catch {
+    // leave the address bar as it is
+  }
+  return true;
+}
+
+// Loads the built-in sample and opens its dashboard. Data integrity: if this
+// browser already holds sales (an owner's own, or an earlier sample), nothing
+// is loaded -- the sample is never mixed into existing data.
+function startDemo() {
+  App.demoRequested = false;
+  // No intro box on top of the sample (the home page can redraw while the
+  // sample loads). In memory only: a later first visit still gets it.
+  App.hasSeenIntro = true;
+  if (App.allRows.length) {
+    showMergeBanner(t("demoHasData"));
+    location.hash = "#/dashboard";
+    return;
+  }
+  App.autoConfirmSample = true;
+  App.matchReturnHash = "#/dashboard";
+  loadSampleFile("sample-data.csv");
 }
 
 // ---------- Column matching ----------
@@ -1536,6 +1432,7 @@ App.renderDashboard = function () {
       <a class="btn btn-secondary btn-sm" id="feedbackPromptLink">${esc(t("feedbackLink"))}</a>
       <button type="button" class="btn btn-ghost btn-sm" id="feedbackPromptDismiss">${esc(t("feedbackPromptDismiss"))}</button>
     </div>` : ""}
+    ${renderWeeklyBrief(report)}
     ${renderStartHere(report)}
     ${renderWeekCompareCard()}
     ${renderDataNotes()}
@@ -1754,6 +1651,7 @@ App.renderDashboard = function () {
   wireAdviceForms(root.querySelector(".advice-optional") || document.createElement("div"));
   wireWeatherOneTap();
   wireDataNotes();
+  wireWeeklyBrief();
 };
 
 // ---------- Detail: Hours ----------
@@ -3226,6 +3124,7 @@ async function initApp() {
     await refreshAllRows();
     await refreshWeatherMap();
     document.getElementById("bootStatus").hidden = true;
+    App.demoRequested = takeDemoParam();
     dispatchRoute(); // figures out the right route on its own -- #/home with no data, otherwise the dashboard or whatever hash is already set
     if (App.weatherEnabled) refreshWeatherIfNeeded(); // fire-and-forget; never blocks page load
     // Outside data (BLS prices) from Tally's own cache; silent if unavailable.
@@ -3234,6 +3133,8 @@ async function initApp() {
     Usage.trackVisit(); // fire-and-forget; see js/usage.js
     Usage.started = true;
     Usage.pageView(location.hash); // the landing page; later pages come from js/router.js
+    // After the visit is counted, so the Founder page's journey reads in order.
+    if (App.demoRequested) startDemo();
     Account.load().then(() => {
       renderNav(); // adds the admin-only Founder link
       App.updateActiveNav(location.hash);
